@@ -289,8 +289,11 @@ test("admin content management validates links and attachments; roles gate pages
   await rejects(api.opsCreateAdmin({ token: ops.token, deviceId: "device-founder", name: "New Admin", email: "ayush@rolevia.demo", phone: "+919800000777", role: "content" }), "VALIDATION");
   const created = await api.opsCreateAdmin({ token: ops.token, deviceId: "device-founder", name: "Fourth Person", email: "fourth@rolevia.demo", phone: "+919800000777", role: "success" });
   assert.equal(created.adminId, "RV-ADM-004");
-  const fourth = await signIn(api, "RV-ADM-004", created.previewTemporaryPassword, device("fourth"), latestCode);
+  await rejects(api.login({ identifier: "RV-ADM-004", password: created.previewTemporaryPassword, ...device("fourth") }), "INVALID_CREDENTIALS");
+  const fourthChallenge = await api.login({ identifier: "RV-ADM-004", password: created.previewTemporaryPassword, ...device("fourth"), expectedType: "admin" });
+  const fourth = await api.verifyOtp({ challengeId: fourthChallenge.challengeId, code: latestCode(), ...device("fourth") });
   assert.equal(fourth.mustChangePassword, true);
+  await rejects(api.adminOverview({ token: fourth.token, deviceId: "device-fourth" }), "PASSWORD_CHANGE_REQUIRED");
   assert.equal(fourth.user.roleLabel, "Student success & verification");
   await api.opsSetAdmin({ token: ops.token, deviceId: "device-founder", adminUserId: fourth.user.id, status: "suspended" });
   await rejects(api.me({ token: fourth.token, deviceId: "device-fourth" }), "SESSION_REVOKED");
