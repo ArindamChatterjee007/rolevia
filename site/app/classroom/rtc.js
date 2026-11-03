@@ -147,9 +147,23 @@ export function createRoom({ transport, self, iceServers = [], media = true, hea
   return room;
 }
 
-export async function getCameraStream({ video = true, audio = true } = {}) {
+// videoDeviceId / audioDeviceId select an external camera or microphone; omitted means the browser default.
+export async function getCameraStream({ video = true, audio = true, videoDeviceId = null, audioDeviceId = null } = {}) {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error("This browser does not support camera and microphone access.");
-  return navigator.mediaDevices.getUserMedia({ video: video ? { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 24 } } : false, audio: audio ? { echoCancellation: true, noiseSuppression: true } : false });
+  return navigator.mediaDevices.getUserMedia({
+    video: video ? { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 24 }, ...(videoDeviceId ? { deviceId: { exact: videoDeviceId } } : {}) } : false,
+    audio: audio ? { echoCancellation: true, noiseSuppression: true, ...(audioDeviceId ? { deviceId: { exact: audioDeviceId } } : {}) } : false,
+  });
+}
+
+export async function listMediaDevices() {
+  if (!navigator.mediaDevices?.enumerateDevices) return { cameras: [], microphones: [] };
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const label = (device, index, kind) => device.label || `${kind} ${index + 1}`;
+  return {
+    cameras: devices.filter(device => device.kind === "videoinput").map((device, index) => ({ id: device.deviceId, label: label(device, index, "Camera") })),
+    microphones: devices.filter(device => device.kind === "audioinput").map((device, index) => ({ id: device.deviceId, label: label(device, index, "Microphone") })),
+  };
 }
 
 export async function getScreenStream({ testFallback = false } = {}) {

@@ -29,7 +29,7 @@ export default defineConfig({
       // work there too. The live-class flow stays Chromium-only because its fake camera/screen flags are Chromium's.
       name: "webkit",
       use: { ...devices["Desktop Safari"] },
-      grep: /public site|registration pays|protected areas|preview shortcuts/,
+      grep: /public site|registration pays|protected areas|preview shortcuts|course material/,
     },
   ],
   webServer: {

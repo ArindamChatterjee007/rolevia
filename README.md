@@ -46,13 +46,39 @@ manually). The lead can create and assign custom tasks to anyone; other roles ca
 their own role or themselves. The founder manages admin accounts (create, reset password, suspend, change
 role) in the operations view. Every admin must replace the temporary password before any other action.
 
+### Course material and slide decks
+
+Every skill module ships **structured course material** (`site/app/content/modules/<id>.js`): two weeks of
+lessons, each with an objective, sections (paragraphs, bullet lists, numbered steps, tips, warnings, worked
+examples, comparison tables), a lab practice task and checkpoint questions with teaching answers; a
+60-minute **workshop slide deck** with presenter notes and poll questions; **module interview questions**
+with answer guides; and a glossary. A general interview bank (`interview-general.js`) covers introductions,
+STAR stories, motivation and questions to ask. The schema is enforced by
+`site/app/content/modules/validate.mjs` (unit-tested; `node scripts/check-content.mjs` while authoring).
+
+Learners open a module (`#/portal/learn/<id>`) with tabs: Overview, Lessons (reader with section
+navigation, checkpoints and "mark complete" for 5 points), Slides, Practice lab, Interview questions, Live
+classes and Glossary, plus `#/portal/interview` for general preparation. Material reaches the browser
+**only through the API for enrolled learners**; the live server never serves `/app/content/` as static
+files. Slides open inside Rolevia with the learner's name and ID as a watermark, no download link, no print
+styles, and images are not draggable. This is **view-only by design, not copy-proof**: a determined person
+can still screenshot or retype, so the material also carries the learner's identity.
+
+**Slide decks** (`#/admin/decks`, content or lead role): build decks from title, points, steps, question,
+image (PNG/JPG/SVG/WebP up to 400 KB) and summary slides, with presenter notes and a live preview. A deck is
+a **draft** (admins only) until **published**; publishing notifies enrolled learners. Attach a deck to a
+class so the host can present it from the room; when a class ends with an unpublished deck a "publish
+slides" task is queued for the host. The eight workshop decks are seeded with the course material
+(published in the preview except the demo class deck, drafts in production).
+
 ### Live classes
 
 Admins with the `classes` permission (programme lead, learning & content manager) schedule classes per
 skill module (`#/admin/classes`): title, start time, duration, host, built-in room or external meeting link.
 Enrolled students are notified and can enter the room 15 minutes before the start. Inside the room:
 
-- **Video**: camera/mic with mute controls, screen sharing, pin-to-stage, peer-to-peer WebRTC (mesh; fine for the proposed 12-learner cohorts).
+- **Video**: camera/mic with mute controls and a camera/microphone picker for external devices, screen sharing, pin-to-stage, peer-to-peer WebRTC (mesh; fine for the proposed 12-learner cohorts).
+- **Present slides without screen sharing**: the host opens Slides, presents any deck of the module (drafts included) and every participant's stage shows the current slide; Next/Previous are synchronised, late joiners catch up, learners can "browse on my own" and return to the host, and a question slide becomes a live poll with one click ("Ask the room"). Presenter notes stay on the host's screen; recordings paint the slide that was being shown.
 - **Live quiz**: the host sends a question from the module bank or writes a custom question/poll with a 30–90 s timer; it appears on every participant's screen; the host watches answers arrive, then closes and reveals. Correct answers earn 10 points, participation 2, counted on the leaderboard.
 - **Chat, hand raise, reactions, "ask to mute"**, participant roster with status.
 - **Recording** (host): a composite of the shared screen (or camera grid) plus mixed audio, encoded in the browser and buffered in IndexedDB. On stop the host downloads the `.webm`, or uploads straight to their Google Drive when `googleClientId` is configured, and attaches the link to the class so students see "Watch recording".
@@ -135,6 +161,7 @@ npm run test:e2e
 - Preview payments, OTP delivery, credentials and messages are simulated in the browser. Nothing is charged or sent by the site itself; the LinkedIn buttons open LinkedIn after a confirmation that explains preview badge links only resolve in your own browser.
 - Classroom media never passes through Rolevia servers (peer-to-peer WebRTC); the preview room only reaches tabs in the same browser. Recording happens on the host's device; Google Drive upload uses the host's own account and consent.
 - The preview keeps all data in the visitor's browser (single browser, synced across tabs on reload); demo accounts use placeholder emails and phone numbers, and the public data file contains no internal cost or margin figures.
-- Company names are research targets from public career portals; no partnership, endorsement or placement is implied and no third-party logos are embedded.
+- Company names are research targets from public career portals, shown as text chips with a neutral monogram; no partnership, endorsement or placement is implied and no third-party logos are embedded (logos are trademarks and appear only with the owner's written permission).
+- Course material is view-only inside Rolevia (API-only delivery, watermark, no download links, no print). It deters casual copying; it cannot stop screenshots or retyping.
 - Fees, dates, terms and the brand name are proposals until confirmed in writing. No job, salary or interview outcome is guaranteed.
 - Unlisted routes are not security. Production must put the admin and operations areas behind server-side authorisation.

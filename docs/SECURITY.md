@@ -28,6 +28,13 @@
 - Google Drive sign-in uses a one-time nonce in the OAuth `state`; a token returned without the matching nonce is discarded, so a crafted link cannot plant someone else's Drive token in the host's browser.
 - Recording chunks are written to IndexedDB every 4 s; a write failure stops the recording with a visible error instead of producing a silently truncated file, and stored chunks can be recovered from the class details page.
 
+## Course material
+
+- Lessons, slide decks, interview questions and quiz answer keys are sold content. They reach the browser only through session-checked API calls for enrolled learners; `server/api.mjs` returns 404 for `/app/content/*` outside preview mode, and live mode never imports the in-browser backend or the content bundle.
+- Slide decks are drafts (admin-only) until an admin with the content permission publishes them. During a live class, participants can fetch the attached draft deck without answers or presenter notes; after the class it needs publication.
+- View-only means: watermark with the learner's name and ID, no download links, no print styles, non-draggable images, context menu disabled on slides. It does not and cannot prevent screenshots or retyping; the watermark makes leaks attributable.
+- Admin-uploaded images on slides are validated as `image/*` data URLs up to 400 KB; hosts only.
+
 ## Production checklist
 
 1. Server-side sessions in httpOnly, Secure, SameSite cookies bound to the device identity.

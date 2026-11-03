@@ -28,6 +28,7 @@ test("HTTP API serves the same methods as the preview, hides internals, and rela
     assert.equal((await fetch(`${base}/..%2F..%2Fpackage.json`)).status, 403);
     assert.equal((await fetch(`${base}/healthz`)).status, 200, "the server keeps answering afterwards");
     assert.equal((await post("constructor")).status, 404);
+    assert.equal((await fetch(`${base}/app/content/modules/spreadsheets.js`)).status, 200, "the preview may serve content files (the in-browser backend needs them)");
     assert.equal((await post("catalogue")).body.result.modules.length, 8);
     for (const method of ["_state", "previewReset", "previewInbox", "reloadFromStorage", "nope"]) assert.equal((await post(method)).status, 404, method);
     const bad = await post("login", { identifier: "RV-26-0001", password: "wrong", deviceId: "d1", deviceLabel: "test" });
@@ -109,6 +110,10 @@ test("live mode serves live config, refuses preview methods and never grants mod
     assert.equal(config.apiBase, "/");
     assert.equal(config.payments, "manual");
     for (const method of ["previewInbox", "previewCredentials", "previewReset", "_state"]) assert.equal((await post(method)).status, 404, method);
+    for (const path of ["/app/content/modules/spreadsheets.js", "/app/content/quiz-bank.js", "/app/content/modules/index.js"]) assert.equal((await fetch(`${base}${path}`)).status, 404, `${path} must not be served as a static file in live mode`);
+    assert.equal((await fetch(`${base}/app/main.js`)).status, 200, "application code is still served");
+    assert.equal(app.core._state().decks.length, 8, "workshop decks are seeded as drafts in production");
+    assert.ok(app.core._state().decks.every(deck => deck.status === "draft"));
     const contact = await post("requestContactCode", { email: "first@learner.example", phone: "+919800000777" });
     const code = app.core._state().otps.find(otp => otp.purpose === "contact" && otp.contact === "first@learner.example").code;
     const application = await post("register", { name: "First Learner", email: "first@learner.example", phone: "+919800000777", city: "Pune", education: "mba", graduationYear: "2025", currentStatus: "fresher", preferredSlot: "weekend-morning", goal: "Move into an analyst role.", acceptedTerms: true, moduleIds: ["spreadsheets"], contactChallengeId: contact.body.result.challengeId, contactCode: code });

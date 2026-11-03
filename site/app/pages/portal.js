@@ -2,8 +2,9 @@ import { h, icon, money, avatar, ring, skeleton, toast, busy, field, formData, c
 import { ctx, setAuth, withSession } from "../context.js";
 import { brand, errorBox, empty, previewBanner, copyButton, linkedinShareUrl, linkedinCertificationUrl } from "./components.js";
 import { LABS } from "./labs.js";
+import { illustration } from "./deck.js";
 
-const NAV = [["#/portal", "Dashboard", "grid", "dashboard"], ["#/portal/skills", "My skills", "book", "skills"], ["#/portal/classes", "Live classes", "play", "classes"], ["#/portal/labs", "Labs", "lab", "labs"], ["#/portal/quiz", "Daily quiz", "quiz", "quiz"], ["#/portal/assignments", "Assignments", "clipboard", "assignments"], ["#/portal/leaderboard", "Leaderboard", "trophy", "leaderboard"], ["#/portal/addons", "Add-ons & kit", "wallet", "addons"], ["#/portal/profile", "Profile & security", "user", "profile"]];
+const NAV = [["#/portal", "Dashboard", "grid", "dashboard"], ["#/portal/skills", "My skills", "book", "skills"], ["#/portal/classes", "Live classes", "play", "classes"], ["#/portal/labs", "Labs", "lab", "labs"], ["#/portal/quiz", "Daily quiz", "quiz", "quiz"], ["#/portal/assignments", "Assignments", "clipboard", "assignments"], ["#/portal/interview", "Interview prep", "spark", "interview"], ["#/portal/leaderboard", "Leaderboard", "trophy", "leaderboard"], ["#/portal/addons", "Add-ons & kit", "wallet", "addons"], ["#/portal/profile", "Profile & security", "user", "profile"]];
 
 export function portalShell(content, { active, title, user }) {
   const sidebar = h("aside", { class: "portal-side" }, brand(30), h("nav", { class: "portal-nav", "aria-label": "Portal" }, NAV.map(([href, label, iconName, key]) => h("a", { href, class: key === active ? "active" : "" }, icon(iconName, 18), label))), h("div", { class: "portal-side-foot" }, h("div", { class: "device-pill" }, icon("device", 14), ctx.device.label), h("button", { class: "button ghost small block", type: "button", onClick: signOut }, icon("logout", 14), "Sign out")));
@@ -19,15 +20,15 @@ export async function signOut() {
   location.hash = "#/";
 }
 
-async function load(render) {
+export async function load(render) {
   const host = h("div", {}, skeleton(5, "page-skeleton"));
   Promise.resolve().then(render).then(node => host.replaceChildren(node)).catch(error => { if (error.code === "PASSWORD_CHANGE_REQUIRED") { if (!location.hash.startsWith("#/portal/profile")) location.hash = "#/portal/profile?first=1"; return; } if (error.code === "SESSION_REVOKED" || error.code === "AUTH_REQUIRED" || error.code === "SESSION_EXPIRED" || error.code === "DEVICE_MISMATCH") { document.dispatchEvent(new CustomEvent("rolevia:session-lost", { detail: error })); return; } host.replaceChildren(errorBox(error)); });
   return host;
 }
 
 export const guard = () => ctx.auth.token && ctx.auth.type === "student" ? null : `/login?next=${encodeURIComponent(location.hash.replace(/^#/, "") || "/portal")}`;
-const user = () => ctx.auth.user;
-const moduleById = (id) => ctx.curriculum.modules.find(module => module.id === id);
+export const user = () => ctx.auth.user;
+export const moduleById = (id) => ctx.curriculum.modules.find(module => module.id === id);
 
 export async function dashboardPage() {
   const content = await load(async () => {
@@ -51,27 +52,15 @@ export async function dashboardPage() {
 export async function mySkillsPage() {
   const content = await load(async () => {
     const data = await ctx.api.dashboard(withSession());
-    return h("div", { class: "cards-grid" }, data.modules.map(module => { const meta = moduleById(module.id); return h("a", { class: `card skill-tile accent-${meta.accent}`, href: `#/portal/learn/${module.id}` }, h("span", { class: "code" }, meta.code), h("h3", {}, meta.title), h("p", { class: "muted small" }, meta.label), ring(module.lessons ? module.done / module.lessons : 0, { size: 64, stroke: 6, label: "complete" }), h("span", { class: "tiny muted" }, `${module.done}/${module.lessons} lessons`)); }), h("a", { class: "card add-tile", href: "#/portal/addons" }, icon("spark", 28), h("strong", {}, "Add a skill module"), h("span", { class: "small muted" }, "Any 5 unlock the career kit")));
+    return h("div", { class: "cards-grid" }, data.modules.map(module => { const meta = moduleById(module.id); return h("a", { class: `card skill-tile accent-${meta.accent}`, href: `#/portal/learn/${module.id}` }, illustration(module.id, { class: "tile-art" }), h("span", { class: "code" }, meta.code), h("h3", {}, meta.title), h("p", { class: "muted small" }, meta.label), ring(module.lessons ? module.done / module.lessons : 0, { size: 64, stroke: 6, label: "complete" }), h("span", { class: "tiny muted" }, `${module.done}/${module.lessons} lessons`)); }), h("a", { class: "card add-tile", href: "#/portal/addons" }, icon("spark", 28), h("strong", {}, "Add a skill module"), h("span", { class: "small muted" }, "Any 5 unlock the career kit")));
   });
   return portalShell(content, { active: "skills", title: "My skills", user: user() });
-}
-
-export async function learnPage({ moduleId }) {
-  const content = await load(async () => {
-    const data = await ctx.api.lessons(withSession({ moduleId }));
-    const lab = LABS.find(item => item.id === moduleId);
-    const list = h("div", { class: "lesson-list" });
-    const renderList = () => list.replaceChildren(...data.lessons.map((lesson, index) => h("div", { class: `lesson ${lesson.done ? "done" : ""}` }, h("span", { class: "lesson-index" }, lesson.done ? icon("check", 14) : index + 1), h("div", { class: "grow" }, h("strong", {}, lesson.title), h("p", { class: "small muted" }, lesson.summary), h("span", { class: "tiny muted" }, `${lesson.type} · ${lesson.minutes} min${lesson.output ? ` · you create: ${lesson.output}` : ""}`), h("div", { class: "file-meta" }, lesson.url ? h("a", { class: "link-button small", href: lesson.url, target: "_blank", rel: "noopener noreferrer" }, "Open recording / material") : null, lesson.attachment ? h("a", { class: "link-button small", href: lesson.attachment.dataUrl ?? "#", download: lesson.attachment.dataUrl ? lesson.attachment.name : null, onClick: lesson.attachment.dataUrl ? null : (event) => { event.preventDefault(); toast("This attachment is recorded by name only in the preview.", "info"); } }, icon("clipboard", 14), `${lesson.attachment.name} (${formatBytes(lesson.attachment.size)})`) : null, !lesson.url && !lesson.attachment ? h("span", { class: "tiny muted" }, "Recording is uploaded by the admin before the batch starts.") : null)), h("button", { class: `button ${lesson.done ? "ghost" : "primary"} small`, type: "button", disabled: lesson.done, onClick: async (event) => { busy(event.currentTarget, true, "Saving"); try { await ctx.api.completeLesson(withSession({ lessonId: lesson.id })); lesson.done = true; toast("+5 points. Lesson marked complete.", "success"); renderList(); } catch (error) { toast(error.message, "error"); renderList(); } } }, lesson.done ? "Completed" : "Mark complete"))));
-    renderList();
-    return h("div", { class: "learn" }, h("a", { class: "back-link", href: "#/portal/skills" }, icon("arrow", 14), "My skills"), h("div", { class: "learn-head" }, h("div", {}, h("p", { class: "eyebrow" }, `Skill ${data.module.code} · ${data.module.tool}`), h("h2", {}, data.module.title), h("p", { class: "muted" }, data.module.bestFor)), h("div", { class: "learn-actions" }, lab ? h("a", { class: "button primary", href: `#/portal/labs/${moduleId}` }, icon("lab", 16), "Open the lab") : null, h("a", { class: "button ghost", href: `#/portal/quiz?module=${moduleId}` }, icon("quiz", 16), "Today's quiz"))), list, h("div", { class: "card" }, h("h3", {}, "Final project"), h("p", {}, data.module.capstone), h("a", { class: "button ghost small", href: "#/portal/assignments" }, "Go to assignments")));
-  });
-  return portalShell(content, { active: "skills", title: "Learn", user: user() });
 }
 
 export async function labsPage() {
   const content = await load(async () => {
     const data = await ctx.api.dashboard(withSession());
-    return h("div", {}, h("p", { class: "muted" }, "Hands-on exercises with instant feedback. Labs award up to 50 points each; your best score counts."), h("div", { class: "cards-grid" }, LABS.map(lab => { const meta = moduleById(lab.id); const owned = data.modules.find(module => module.id === lab.id); return h(owned ? "a" : "div", { class: `card lab-tile accent-${meta.accent} ${owned ? "" : "locked"}`, href: owned ? `#/portal/labs/${lab.id}` : null }, h("span", { class: "lab-icon" }, icon(owned ? lab.icon : "lock", 22)), h("h3", {}, lab.title), h("p", { class: "muted small" }, lab.summary), h("span", { class: "tiny" }, owned ? (owned.labScore === null ? "Not started" : `Best score ${owned.labScore}/100`) : `Included with ${meta.title}`)); })));
+    return h("div", {}, h("p", { class: "muted" }, "Hands-on exercises with instant feedback. Labs award up to 50 points each; your best score counts."), h("div", { class: "cards-grid" }, LABS.map(lab => { const meta = moduleById(lab.id); const owned = data.modules.find(module => module.id === lab.id); return h(owned ? "a" : "div", { class: `card lab-tile accent-${meta.accent} ${owned ? "" : "locked"}`, href: owned ? `#/portal/labs/${lab.id}` : null }, illustration(lab.id, { class: "tile-art" }), h("span", { class: "lab-icon" }, icon(owned ? lab.icon : "lock", 22)), h("h3", {}, lab.title), h("p", { class: "muted small" }, lab.summary), h("span", { class: "tiny" }, owned ? (owned.labScore === null ? "Not started" : `Best score ${owned.labScore}/100`) : `Included with ${meta.title}`)); })));
   });
   return portalShell(content, { active: "labs", title: "Interactive labs", user: user() });
 }

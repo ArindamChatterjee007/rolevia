@@ -13,7 +13,11 @@ export class ApiError extends Error {
   }
 }
 
+import { validateSlide } from "./content/modules/validate.mjs";
+
 const encoder = new TextEncoder();
+export const STATE_VERSION = 7;
+export const MAX_DECK_SLIDES = 40;
 const OTP_TTL_MS = 5 * 60 * 1000;
 const SESSION_IDLE_MS = 7 * 24 * 60 * 60 * 1000;
 const LOCK_AFTER_FAILURES = 5;
@@ -99,13 +103,17 @@ export function browserStorage(key, localStorage) {
   };
 }
 
-export async function createMockServer({ storage, curriculum, quizBank = {}, assignmentBriefs = {}, now = () => Date.now(), latency = () => 0, deliver = null, seedMode = "demo", opsPassphrase = null, iceServers = DEFAULT_ICE_SERVERS, payments = "preview", paymentInstructions = "" }) {
+export async function createMockServer({ storage, curriculum, quizBank = {}, assignmentBriefs = {}, courseContent = {}, interviewBank = null, now = () => Date.now(), latency = () => 0, deliver = null, seedMode = "demo", opsPassphrase = null, iceServers = DEFAULT_ICE_SERVERS, payments = "preview", paymentInstructions = "" }) {
   const modulesById = new Map(curriculum.modules.map(module => [module.id, module]));
   const servicesById = new Map(curriculum.services.map(service => [service.id, service]));
   const interview = curriculum.interviewCourse;
   let state = storage.get();
-  if (!state || state.version !== 6) {
-    state = seedMode === "empty" ? await emptySeed(now(), opsPassphrase) : await seed(curriculum, assignmentBriefs, now());
+  if (!state || !Number.isInteger(state.version) || state.version < 6) {
+    state = seedMode === "empty" ? await emptySeed(now(), opsPassphrase, curriculum, courseContent) : await seed(curriculum, assignmentBriefs, now(), courseContent);
+    storage.set(state);
+  } else if (state.version < STATE_VERSION) {
+    // Older stored state is upgraded in place; real learner data is never thrown away by a re-seed.
+    state = migrateState(state, { courseContent, now: now() });
     storage.set(state);
   }
 
@@ -164,6 +172,50 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
   const kitUnlocked = (user) => user.status === "active" && distinctPaidModules(user) >= curriculum.careerBonus.qualifyingModules;
   const totalPoints = (userId, since = 0) => state.pointEvents.filter(event => event.userId === userId && event.at >= since).reduce((sum, event) => sum + event.points, 0);
   const addPoints = (userId, points, type, ref) => { if (points !== 0) state.pointEvents.push({ id: crypto.randomUUID(), userId, points, type, ref, at: now() }); };
+  // Structured course material (lessons, interview questions, glossary) is sold content: it reaches the browser
+  // only through these APIs for enrolled learners. Admin "materials" (recordings, worksheets) sit beside it.
+  const courseFor = (moduleId) => courseContent[moduleId] ?? null;
+  const structuredLessons = (moduleId) => (courseFor(moduleId)?.weeks ?? []).flatMap(week => week.lessons.map(lesson => ({ ...lesson, week: week.week })));
+  const lessonCount = (moduleId) => structuredLessons(moduleId).length + (state.content.lessons[moduleId] ?? []).length;
+  const lessonsDone = (user, moduleId) => [...structuredLessons(moduleId), ...(state.content.lessons[moduleId] ?? [])].filter(lesson => user.completedLessons.includes(lesson.id)).length;
+  const requireDeck = (deckId) => { const deck = state.decks.find(item => item.id === deckId); if (!deck) throw new ApiError("NOT_FOUND", "Slide deck not found."); return deck; };
+  // reveal: include answers/explanations (study mode after publication, or the host); notes: presenter notes (host/admin only).
+  const deckView = (deck, { reveal = false, notes = false, slides = true } = {}) => ({
+    id: deck.id, moduleId: deck.moduleId, moduleTitle: modulesById.get(deck.moduleId)?.title ?? deck.moduleId, title: deck.title, status: deck.status, source: deck.source, slideCount: deck.slides.length,
+    classIds: state.classes.filter(item => item.deckId === deck.id).map(item => item.id), updatedAt: deck.updatedAt, publishedAt: deck.publishedAt ?? null, createdBy: deck.createdBy,
+    slides: slides ? deck.slides.map(slide => ({ ...slide, notes: notes ? slide.notes ?? "" : undefined, question: slide.question ? { ...slide.question, answerIndex: reveal ? slide.question.answerIndex : null, explanation: reveal ? slide.question.explanation : null } : undefined })) : undefined,
+  });
+  function normaliseDeck(input, existing, admin) {
+    const errors = {};
+    if (!input?.title || String(input.title).trim().length < 4) errors.title = "Give the deck a title (at least 4 characters).";
+    if (!modulesById.has(input?.moduleId)) errors.moduleId = "Choose the skill module.";
+    const rawSlides = Array.isArray(input?.slides) ? input.slides : [];
+    if (rawSlides.length < 1) errors.slides = "Add at least one slide.";
+    if (rawSlides.length > MAX_DECK_SLIDES) errors.slides = `Up to ${MAX_DECK_SLIDES} slides per deck.`;
+    const slides = rawSlides.map((slide, index) => {
+      const previous = existing?.slides.find(item => item.id === slide.id);
+      const clean = { id: previous?.id ?? slide.id ?? `s-${randomToken(6).toLowerCase()}`, kind: slide.kind, title: String(slide.title ?? "").trim().slice(0, 90) };
+      if (slide.subtitle) clean.subtitle = String(slide.subtitle).trim().slice(0, 140);
+      if (["content", "summary"].includes(slide.kind)) clean.bullets = (Array.isArray(slide.bullets) ? slide.bullets : String(slide.bullets ?? "").split("\n")).map(item => String(item).trim()).filter(Boolean).slice(0, 6);
+      if (slide.kind === "steps") clean.steps = (Array.isArray(slide.steps) ? slide.steps : String(slide.steps ?? "").split("\n")).map(item => String(item).trim()).filter(Boolean).slice(0, 6);
+      if (slide.kind === "question") clean.question = { prompt: String(slide.question?.prompt ?? "").trim(), options: (slide.question?.options ?? []).map(option => String(option).trim()).filter(Boolean).slice(0, 4), answerIndex: Number(slide.question?.answerIndex), explanation: String(slide.question?.explanation ?? "").trim() };
+      if (slide.illustration) clean.illustration = String(slide.illustration);
+      if (slide.notes) clean.notes = String(slide.notes).trim().slice(0, 600);
+      if (slide.kind === "image") {
+        const image = slide.image === null ? null : slide.image?.dataUrl || slide.image?.name ? normaliseFile(slide.image) : previous?.image ?? null;
+        if (!image?.dataUrl) errors[`slides.${index}.image`] = "Upload an image (PNG, JPG or SVG, up to 400 KB).";
+        else if (!/^data:image\//.test(image.dataUrl)) errors[`slides.${index}.image`] = "Only image files can be used on a slide.";
+        clean.image = image;
+        if (slide.caption) clean.caption = String(slide.caption).trim().slice(0, 200);
+      }
+      const problems = validateSlide(`slides.${index}`, clean, { allowImage: true });
+      if (problems.length) errors[`slides.${index}`] = problems[0].replace(/^slides\.\d+\./, "");
+      return clean;
+    });
+    if (Object.keys(errors).length) throw new ApiError("VALIDATION", Object.values(errors)[0], { fields: errors });
+    return { title: String(input.title).trim().slice(0, 90), moduleId: input.moduleId, slides, updatedAt: now(), updatedBy: admin.id };
+  }
+
   // Payments: "preview" simulates a card; "manual" (live server without a payment provider) records a quote,
   // emails transfer instructions and grants nothing until an admin with the payments permission confirms it.
   const instructionsText = () => String(paymentInstructions || DEFAULT_PAYMENT_INSTRUCTIONS).slice(0, 1000);
@@ -330,6 +382,8 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     for (const entry of item.attendance) if (!entry.leftAt) closeAttendance(item, entry.userId);
     for (const quiz of item.quizzes) if (!quiz.closedAt) closeQuiz(item, quiz);
     completeTasks("class", item.id, by);
+    const deck = item.deckId ? state.decks.find(entry => entry.id === item.deckId) : null;
+    if (deck && deck.status !== "published") createTask({ title: `Publish slides after class: ${deck.title}`, type: "deck", role: "content", refId: deck.id, assigneeId: item.hostId, createdBy: "system", dueAt: now() + 24 * 60 * 60 * 1000, link: `#/admin/decks/${deck.id}` });
   }
   // A host who loses connection or forgets to end the class must not leave it "live" forever.
   function sweepClasses() {
@@ -355,7 +409,8 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     const myQuizzes = user.type === "student" ? item.quizzes.filter(quiz => quiz.responses[user.id]) : [];
     const myCorrect = myQuizzes.filter(quiz => quiz.responses[user.id].answerIndex === quiz.answerIndex).length;
     const canJoin = item.status === "live" || (item.status === "scheduled" && item.startsAt - now() <= CLASS_JOIN_WINDOW_MS && user.type === "student") || (user.type === "admin" && item.status === "scheduled");
-    return { id: item.id, moduleId: item.moduleId, moduleTitle: module?.title ?? item.moduleId, title: item.title, description: item.description, startsAt: item.startsAt, durationMinutes: item.durationMinutes, mode: item.mode, externalUrl: item.externalUrl, hostId: item.hostId, hostName: item.hostName, status: item.status, startedAt: item.startedAt, endedAt: item.endedAt, recordingUrl: item.recordingUrl, recordingCount: item.recordings.length, attendanceCount: new Set(item.attendance.map(entry => entry.userId)).size, quizCount: item.quizzes.length, chatCount: item.chatCount, attended, myQuizzes: myQuizzes.length, myCorrect, canJoin, isHost: user.type === "admin" && item.hostId === user.id };
+    const deck = item.deckId ? state.decks.find(entry => entry.id === item.deckId) : null;
+    return { id: item.id, moduleId: item.moduleId, moduleTitle: module?.title ?? item.moduleId, title: item.title, description: item.description, startsAt: item.startsAt, durationMinutes: item.durationMinutes, mode: item.mode, externalUrl: item.externalUrl, hostId: item.hostId, hostName: item.hostName, status: item.status, startedAt: item.startedAt, endedAt: item.endedAt, recordingUrl: item.recordingUrl, recordingCount: item.recordings.length, attendanceCount: new Set(item.attendance.map(entry => entry.userId)).size, quizCount: item.quizzes.length, chatCount: item.chatCount, attended, myQuizzes: myQuizzes.length, myCorrect, canJoin, isHost: user.type === "admin" && item.hostId === user.id, deckId: deck?.id ?? null, deckTitle: deck?.title ?? null, deckStatus: deck?.status ?? null, deckSlides: deck?.slides.length ?? 0 };
   };
 
   const api = {
@@ -531,10 +586,9 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       await wait();
       const { user } = requireSession(token, deviceId);
       const modules = user.modules.map(id => {
-        const lessons = state.content.lessons[id] ?? [];
-        const done = lessons.filter(lesson => user.completedLessons.includes(lesson.id)).length;
+        const done = lessonsDone(user, id);
         const labRun = state.labRuns.find(run => run.userId === user.id && run.labId === id);
-        return { id, title: modulesById.get(id).title, tool: modulesById.get(id).tool, lessons: lessons.length, done, labScore: labRun?.score ?? null, quizToday: state.quizAttempts.some(attempt => attempt.userId === user.id && attempt.moduleId === id && attempt.date === dateKey(now())) };
+        return { id, title: modulesById.get(id).title, tool: modulesById.get(id).tool, lessons: lessonCount(id), done, labScore: labRun?.score ?? null, quizToday: state.quizAttempts.some(attempt => attempt.userId === user.id && attempt.moduleId === id && attempt.date === dateKey(now())) };
       });
       const streak = computeStreak(user.id);
       persist();
@@ -544,17 +598,43 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       await wait();
       const { user } = requireSession(token, deviceId, ["student", "admin"]);
       requireModule(user, moduleId);
-      return { module: modulesById.get(moduleId), lessons: (state.content.lessons[moduleId] ?? []).map(lesson => ({ ...lesson, done: user.completedLessons.includes(lesson.id) })) };
+      const course = courseFor(moduleId);
+      const done = (id) => user.completedLessons.includes(id);
+      return {
+        module: modulesById.get(moduleId),
+        materials: (state.content.lessons[moduleId] ?? []).map(lesson => ({ ...lesson, done: done(lesson.id) })),
+        lessons: (state.content.lessons[moduleId] ?? []).map(lesson => ({ ...lesson, done: done(lesson.id) })),
+        course: course ? { tagline: course.tagline, weeks: course.weeks.map(week => ({ ...week, lessons: week.lessons.map(lesson => ({ ...lesson, done: done(lesson.id) })) })), interview: course.interview, glossary: course.glossary } : null,
+        decks: state.decks.filter(deck => deck.moduleId === moduleId && (deck.status === "published" || user.type === "admin")).map(deck => deckView(deck, { slides: false })),
+        classes: state.classes.filter(item => item.moduleId === moduleId && item.status !== "cancelled").map(item => classView(item, user)).sort((a, b) => a.startsAt - b.startsAt),
+        progress: { done: lessonsDone(user, moduleId), total: lessonCount(moduleId) },
+      };
     },
     async completeLesson({ token, deviceId, lessonId }) {
       await wait();
       const { user } = requireSession(token, deviceId);
       const entry = Object.entries(state.content.lessons).find(([, lessons]) => lessons.some(lesson => lesson.id === lessonId));
-      if (!entry) throw new ApiError("NOT_FOUND", "Lesson not found.");
-      requireModule(user, entry[0]);
+      const structured = entry ? null : curriculum.modules.find(module => structuredLessons(module.id).some(lesson => lesson.id === lessonId));
+      if (!entry && !structured) throw new ApiError("NOT_FOUND", "Lesson not found.");
+      requireModule(user, entry ? entry[0] : structured.id);
       if (!user.completedLessons.includes(lessonId)) { user.completedLessons.push(lessonId); addPoints(user.id, 5, "lesson", lessonId); }
       persist();
-      return { points: totalPoints(user.id) };
+      return { points: totalPoints(user.id), completed: user.completedLessons };
+    },
+    // Published decks for study (enrolled learners) or any deck for admins with the content permission.
+    async deck({ token, deviceId, deckId }) {
+      await wait();
+      const { user } = requireSession(token, deviceId, ["student", "admin"]);
+      const deck = requireDeck(deckId);
+      if (user.type === "admin") { if (!hasPermission(user, "content") && !hasPermission(user, "classes")) throw new ApiError("FORBIDDEN", "Your role does not include course content."); return deckView(deck, { reveal: true, notes: true }); }
+      requireModule(user, deck.moduleId);
+      if (deck.status !== "published") throw new ApiError("NOT_PUBLISHED", "These slides are not published yet. Your instructor shares them after the class.");
+      return { ...deckView(deck, { reveal: true }), watermark: `${user.name} · ${user.studentId} · view only` };
+    },
+    async interviewPrep({ token, deviceId }) {
+      await wait();
+      const { user } = requireSession(token, deviceId);
+      return { general: interviewBank, modules: user.modules.map(id => ({ id, title: modulesById.get(id)?.title ?? id, interview: courseFor(id)?.interview ?? null })).filter(item => item.interview) };
     },
     async dailyQuiz({ token, deviceId, moduleId }) {
       await wait();
@@ -867,8 +947,8 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
         return { id: user.id, name: user.name, email: canSeeStudents ? user.email : null, city: user.city, status: user.status, modules: (user.modules.length ? user.modules : user.pendingModules).map(id => modulesById.get(id)?.title ?? id), paid: Boolean(payment), paymentId: canSeePayments ? payment?.id ?? null : null, currency: canSeePayments ? payment?.currency ?? user.currency : null, amount: canSeePayments ? payment?.subtotal ?? null : null, contactVerified: Boolean(user.contactVerifiedAt), registeredAt: user.createdAt, waitingSince: user.status === "pending_verification" ? user.paidAt : user.status === "pending_payment" ? user.createdAt : null, studentId: canSeeStudents ? user.studentId : null, preferredSlot: user.profile?.preferredSlot ?? "", referredBy: canSeeStudents && user.referredBy ? findUser(item => item.id === user.referredBy)?.name ?? null : null };
       }).sort((a, b) => ["pending_verification", "pending_payment", "active", "suspended"].indexOf(a.status) - ["pending_verification", "pending_payment", "active", "suspended"].indexOf(b.status) || b.registeredAt - a.registeredAt);
       const progress = students.filter(user => user.status === "active").map(user => {
-        const lessons = user.modules.flatMap(id => state.content.lessons[id] ?? []);
-        const done = lessons.filter(lesson => user.completedLessons.includes(lesson.id)).length;
+        const lessons = { length: user.modules.reduce((sum, id) => sum + lessonCount(id), 0) };
+        const done = user.modules.reduce((sum, id) => sum + lessonsDone(user, id), 0);
         const assignments = state.content.assignments.filter(item => user.modules.includes(item.moduleId));
         const graded = state.submissions.filter(item => item.userId === user.id && item.gradedAt).length;
         const submitted = state.submissions.filter(item => item.userId === user.id).length;
@@ -930,7 +1010,22 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       if (!host && item.status !== "live" && !(item.status === "scheduled" && item.startsAt - now() <= CLASS_JOIN_WINDOW_MS)) throw new ApiError("NOT_OPEN", item.status === "ended" ? "This class has ended." : "The class room opens 15 minutes before the start time.");
       // Hosts get the question bank without answer keys; keys stay on the server until the host closes a question.
       const questionBank = host ? (quizBank[item.moduleId] ?? []).map(({ id, question }) => ({ id, question })) : [];
-      return { room: { id: item.id, peerId: user.id, name: user.name, role: host ? "host" : "participant", avatar: user.avatar, iceServers }, class: classView(item, user), openQuiz: openQuizFor(item, user), questionBank };
+      // Hosts can present any deck of the module (drafts included); learners receive slides only while following live.
+      const decks = host ? state.decks.filter(deck => deck.moduleId === item.moduleId).map(deck => deckView(deck, { slides: false })) : [];
+      return { room: { id: item.id, peerId: user.id, name: user.name, role: host ? "host" : "participant", avatar: user.avatar, iceServers }, class: classView(item, user), openQuiz: openQuizFor(item, user), questionBank, decks };
+    },
+    async classDeck({ token, deviceId, classId, deckId }) {
+      await wait();
+      const { user } = requireSession(token, deviceId, ["student", "admin"]);
+      const item = requireClass(classId);
+      const deck = requireDeck(deckId);
+      if (deck.moduleId !== item.moduleId) throw new ApiError("FORBIDDEN", "That deck belongs to a different module.");
+      const host = user.type === "admin" && (item.hostId === user.id || hasPermission(user, "classes"));
+      if (host) return deckView(deck, { reveal: true, notes: true });
+      if (!user.modules.includes(item.moduleId)) throw new ApiError("NOT_ENROLLED", "This class is not in your plan.");
+      if (deck.status === "published") return deckView(deck, { reveal: true });
+      if (item.status !== "live") throw new ApiError("NOT_PUBLISHED", "These slides are shown during the live class and published by the instructor afterwards.");
+      return deckView(deck, { reveal: false });
     },
     async joinClass({ token, deviceId, classId }) {
       await wait();
@@ -977,11 +1072,65 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       if (!quiz) throw new ApiError("NOT_FOUND", "Quiz not found.");
       return quizView(quiz, user, item);
     },
+    // ---------- slide decks (admin) ----------
+    async adminDecks({ token, deviceId }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "content");
+      return { decks: state.decks.map(deck => deckView(deck, { slides: false })).sort((a, b) => b.updatedAt - a.updatedAt), modules: curriculum.modules.map(module => ({ id: module.id, title: module.title })), classes: state.classes.filter(item => ["scheduled", "live"].includes(item.status)).map(item => classView(item, admin)) };
+    },
+    async adminDeck({ token, deviceId, deckId }) {
+      await wait();
+      requireAdmin(token, deviceId, "content");
+      return deckView(requireDeck(deckId), { reveal: true, notes: true });
+    },
+    async adminUpsertDeck({ token, deviceId, deck }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "content");
+      const existing = deck?.id ? state.decks.find(item => item.id === deck.id) : null;
+      if (deck?.id && !existing) throw new ApiError("NOT_FOUND", "Slide deck not found.");
+      const clean = normaliseDeck(deck, existing, admin);
+      if (existing && existing.moduleId !== clean.moduleId && state.classes.some(item => item.deckId === existing.id)) throw new ApiError("INVALID_STATE", "Detach the deck from its classes before moving it to another module.");
+      const record = existing ?? { id: `deck-${randomToken(8).toLowerCase()}`, status: "draft", source: "admin", createdBy: admin.id, createdAt: now(), publishedAt: null };
+      Object.assign(record, clean);
+      if (!existing) state.decks.unshift(record);
+      audit(admin.id, existing ? "update_deck" : "create_deck", { deckId: record.id, slides: record.slides.length });
+      persist();
+      return deckView(record, { reveal: true, notes: true });
+    },
+    async adminSetDeckStatus({ token, deviceId, deckId, status }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "content");
+      const deck = requireDeck(deckId);
+      if (!["draft", "published"].includes(status)) throw new ApiError("VALIDATION", "Unknown deck status.");
+      if (deck.status === status) return deckView(deck, { reveal: true, notes: true });
+      deck.status = status;
+      deck.updatedAt = now();
+      if (status === "published") {
+        deck.publishedAt = now();
+        deck.publishedBy = admin.id;
+        completeTasks("deck", deck.id, admin.id);
+        for (const student of state.users) if (student.type === "student" && student.status === "active" && student.modules.includes(deck.moduleId)) notify(student, "content", `Slides published: ${deck.title}`, `${modulesById.get(deck.moduleId)?.title ?? deck.moduleId}: open the Slides tab of the module to read them (view only).`);
+      }
+      audit(admin.id, status === "published" ? "publish_deck" : "unpublish_deck", { deckId });
+      persist();
+      return deckView(deck, { reveal: true, notes: true });
+    },
+    async adminDeleteDeck({ token, deviceId, deckId }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "content");
+      const deck = requireDeck(deckId);
+      if (state.classes.some(item => item.deckId === deck.id && item.status === "live")) throw new ApiError("INVALID_STATE", "This deck is being used in a live class.");
+      for (const item of state.classes) if (item.deckId === deck.id) item.deckId = null;
+      state.decks = state.decks.filter(item => item.id !== deck.id);
+      audit(admin.id, "delete_deck", { deckId });
+      persist();
+      return { ok: true };
+    },
     async adminClasses({ token, deviceId }) {
       await wait();
       sweepClasses();
       const { user: admin } = requireAdmin(token, deviceId, "classes");
-      return { classes: state.classes.map(item => classView(item, admin)).sort((a, b) => b.startsAt - a.startsAt), hosts: state.users.filter(user => user.type === "admin" && user.status === "active" && hasPermission(user, "classes")).map(user => ({ id: user.id, name: user.name, roleLabel: ROLES[user.role]?.label })), questionBank: Object.fromEntries(curriculum.modules.map(module => [module.id, (quizBank[module.id] ?? []).map(({ id, question }) => ({ id, question }))])) };
+      return { classes: state.classes.map(item => classView(item, admin)).sort((a, b) => b.startsAt - a.startsAt), decks: state.decks.map(deck => deckView(deck, { slides: false })), hosts: state.users.filter(user => user.type === "admin" && user.status === "active" && hasPermission(user, "classes")).map(user => ({ id: user.id, name: user.name, roleLabel: ROLES[user.role]?.label })), questionBank: Object.fromEntries(curriculum.modules.map(module => [module.id, (quizBank[module.id] ?? []).map(({ id, question }) => ({ id, question }))])) };
     },
     async adminClassDetail({ token, deviceId, classId }) {
       await wait();
@@ -1004,11 +1153,14 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       if (mode === "external" && !/^https:\/\/[^\s]+$/i.test(cls?.externalUrl ?? "")) errors.externalUrl = "Paste the https:// meeting link.";
       const host = cls?.hostId ? findUser(user => user.id === cls.hostId && user.type === "admin") : admin;
       if (!host || host.status !== "active" || !hasPermission(host, "classes")) errors.hostId = "Choose an active host whose role includes live classes.";
+      const deck = cls?.deckId ? state.decks.find(item => item.id === cls.deckId) : null;
+      if (cls?.deckId && !deck) errors.deckId = "Choose an existing slide deck.";
+      if (deck && deck.moduleId !== cls.moduleId) errors.deckId = "The deck must belong to the same module as the class.";
       if (Object.keys(errors).length) throw new ApiError("VALIDATION", Object.values(errors)[0], { fields: errors });
       const existing = state.classes.find(item => item.id === cls.id);
       if (existing && ["ended", "cancelled"].includes(existing.status)) throw new ApiError("INVALID_STATE", "Ended or cancelled classes cannot be edited.");
       const record = existing ?? { id: `cls-${randomToken(8).toLowerCase()}`, status: "scheduled", createdBy: admin.id, createdAt: now(), startedAt: null, endedAt: null, attendance: [], quizzes: [], recordings: [], recordingUrl: "", chatCount: 0 };
-      Object.assign(record, { moduleId: cls.moduleId, title: String(cls.title).trim().slice(0, 120), description: String(cls.description ?? "").slice(0, 600), startsAt, durationMinutes: duration, mode, externalUrl: mode === "external" ? cls.externalUrl : "", hostId: host.id, hostName: host.name, updatedAt: now() });
+      Object.assign(record, { moduleId: cls.moduleId, title: String(cls.title).trim().slice(0, 120), description: String(cls.description ?? "").slice(0, 600), startsAt, durationMinutes: duration, mode, externalUrl: mode === "external" ? cls.externalUrl : "", hostId: host.id, hostName: host.name, deckId: deck?.id ?? null, updatedAt: now() });
       if (!existing) {
         state.classes.unshift(record);
         createTask({ title: `Host live class: ${record.title}`, type: "class", role: "content", refId: record.id, assigneeId: host.id, createdBy: admin.id, dueAt: startsAt, link: `#/admin/classes/${record.id}` });
@@ -1217,7 +1369,30 @@ function blankUser(overrides = {}) {
 }
 
 // Seed data is fictional preview content so every screen has something to show.
-async function seed(curriculum, assignmentBriefs, now) {
+// Workshop decks shipped with the course material. Preview: published, except the deck of the upcoming demo
+// class which stays a draft so the present → publish workflow can be demonstrated. Production: all drafts.
+function seedDecks(curriculum, courseContent, now, { status = "draft", draftIds = [] } = {}) {
+  return curriculum.modules.filter(module => courseContent[module.id]?.deck).map(module => ({
+    id: `deck-${module.id}-workshop`, moduleId: module.id, title: courseContent[module.id].deck.title, source: "seed",
+    slides: courseContent[module.id].deck.slides.map((slide, index) => ({ id: `${module.id}-s${index + 1}`, ...slide })),
+    status: draftIds.includes(module.id) ? "draft" : status, createdBy: "system", createdAt: now, updatedAt: now, publishedAt: status === "published" && !draftIds.includes(module.id) ? now : null,
+  }));
+}
+
+// Upgrades stored state from older versions without discarding data.
+export function migrateState(state, { courseContent = {}, now = Date.now() } = {}) {
+  const next = { ...state };
+  if (next.version < 7) {
+    next.decks = next.decks ?? [];
+    const present = new Set(next.decks.map(deck => deck.moduleId));
+    for (const [moduleId, content] of Object.entries(courseContent)) if (content?.deck && !present.has(moduleId)) next.decks.push({ id: `deck-${moduleId}-workshop`, moduleId, title: content.deck.title, source: "seed", slides: content.deck.slides.map((slide, index) => ({ id: `${moduleId}-s${index + 1}`, ...slide })), status: "draft", createdBy: "system", createdAt: now, updatedAt: now, publishedAt: null });
+    next.classes = (next.classes ?? []).map(item => ({ deckId: null, ...item }));
+    next.version = 7;
+  }
+  return next;
+}
+
+async function seed(curriculum, assignmentBriefs, now, courseContent = {}) {
   const day = 24 * 60 * 60 * 1000;
   const previewCredentials = {
     student: { id: "RV-26-0001", password: "Learn#2026" },
@@ -1300,11 +1475,13 @@ async function seed(curriculum, assignmentBriefs, now) {
   addEvent("u-student-1", 10, "live", "cls-demo-past:lq-demo1", now - 3 * day + 21 * 60 * 1000);
   addEvent("u-student-2", 2, "live", "cls-demo-past:lq-demo1", now - 3 * day + 21 * 60 * 1000);
   tasks.push({ id: crypto.randomUUID(), title: "Host live class: Week 1 live workshop: cleaning a sales register", type: "class", role: "content", refId: "cls-demo-live", assigneeId: "u-admin-2", createdBy: "u-admin-1", status: "open", createdAt: now - day, dueAt: now + 10 * 60 * 1000, completedAt: null, completedBy: null, link: "#/admin/classes/cls-demo-live", notes: "" });
+  const decks = seedDecks(curriculum, courseContent, now - day, { status: "published", draftIds: ["spreadsheets"] });
+  for (const item of classes) item.deckId = decks.find(deck => deck.moduleId === item.moduleId)?.id ?? null;
   return {
-    version: 6,
+    version: STATE_VERSION,
     rev: 0,
     settings: { deviceSwitchThreshold: 5, previewCredentials },
-    tasks, classes,
+    tasks, classes, decks,
     users, payments: users.filter(user => user.type === "student").map(user => ({ id: `PAY-SEED${user.id.slice(-1)}`, userId: user.id, items: user.modules.map(id => ({ id, kind: "module", title: curriculum.modules.find(module => module.id === id).title, amount: curriculum.modules.find(module => module.id === id)[`price${user.currency}`] })), subtotal: user.modules.reduce((sum, id) => sum + curriculum.modules.find(module => module.id === id)[`price${user.currency}`], 0), currency: user.currency, method: "preview-card", status: "succeeded", at: user.paidAt, preview: true })),
     sessions: [], otps: [], outbox: [], deviceAlerts: [], badges: [], opsNotes: [{ id: crypto.randomUUID(), text: "Preview data only. Replace with the live backend before any real enrollment.", at: now }],
     content: { lessons, assignments, announcements: [{ id: "ann-1", title: "Welcome to the Rolevia preview", body: "Everything here uses fictional data. Try today's quiz, open a lab and check the leaderboard.", at: now - day }, { id: "ann-2", title: "Live workshop calendar", body: "Dates and time zones are confirmed by email before each two-week module starts.", at: now - 3 * day }] },
@@ -1314,9 +1491,9 @@ async function seed(curriculum, assignmentBriefs, now) {
 
 
 // Production seed: no fictional people. Admin accounts are created from the operations view.
-async function emptySeed(now, opsPassphrase) {
+async function emptySeed(now, opsPassphrase, curriculum, courseContent = {}) {
   if (!opsPassphrase || String(opsPassphrase).length < 12) throw new Error("An operations passphrase of at least 12 characters is required to start with an empty database.");
   const ops = blankUser({ id: "u-ops", type: "ops", name: "Founder Operations", email: "ops@rolevia.local", phone: "+910000000000", status: "active", salt: randomToken(16) });
   ops.passHash = await sha256(`${ops.salt}:${opsPassphrase}`);
-  return { version: 6, rev: 0, settings: { deviceSwitchThreshold: 5, previewCredentials: null }, tasks: [], classes: [], users: [ops], payments: [], sessions: [], otps: [], outbox: [], deviceAlerts: [], badges: [], opsNotes: [], content: { lessons: {}, assignments: [], announcements: [] }, submissions: [], quizAttempts: [], labRuns: [], pointEvents: [], auditLog: [{ at: now, actor: "system", action: "init", meta: {} }], counters: { studentSeq: 0, adminSeq: 0 } };
+  return { version: STATE_VERSION, rev: 0, settings: { deviceSwitchThreshold: 5, previewCredentials: null }, tasks: [], classes: [], decks: seedDecks(curriculum, courseContent, now), users: [ops], payments: [], sessions: [], otps: [], outbox: [], deviceAlerts: [], badges: [], opsNotes: [], content: { lessons: {}, assignments: [], announcements: [] }, submissions: [], quizAttempts: [], labRuns: [], pointEvents: [], auditLog: [{ at: now, actor: "system", action: "init", meta: {} }], counters: { studentSeq: 0, adminSeq: 0 } };
 }

@@ -1,6 +1,7 @@
 import { h, icon, money, observeReveals, countUp, ring, skeleton, formatDate } from "../ui.js";
 import { ctx } from "../context.js";
 import { publicShell, orbit, marquee, quotesTicker, statCard, sectionHead, COMPANY_NAMES, errorBox, empty } from "./components.js";
+import { illustration } from "./deck.js";
 import { PRINCIPLES } from "../content/principles.js";
 import { LABS } from "./labs.js";
 
@@ -8,6 +9,7 @@ const accentClass = (module) => `accent-${module.accent}`;
 
 export function skillCard(module, { compact = false } = {}) {
   return h("a", { class: `skill-card ${accentClass(module)} reveal tilt`, href: `#/skills/${module.id}`, onMousemove: tilt, onMouseleave: untilt },
+    compact ? null : illustration(module.id, { class: "skill-card-art" }),
     h("div", { class: "skill-card-top" }, h("span", { class: "code" }, module.code), h("span", { class: "tag" }, module.tool)),
     h("h3", {}, module.title),
     h("p", { class: "muted" }, module.label),
@@ -91,6 +93,7 @@ export function skillDetailPage({ id }) {
     h("div", { class: "detail-grid" },
       h("div", {},
         h("p", { class: "eyebrow" }, `Skill ${module.code} · ${module.label}`), h("h1", {}, module.title), h("p", { class: "lead" }, module.bestFor),
+        illustration(module.id, { class: "detail-art reveal" }),
         h("div", { class: "outcome-list" }, module.outcomes.map(outcome => h("div", { class: "outcome reveal" }, icon("check", 16), outcome))),
         h("h2", { class: "h3" }, "Four practical sessions"),
         h("div", { class: "session-grid" }, module.sessions.map(([week, title, detail, output]) => h("div", { class: "session-card reveal" }, h("p", { class: "eyebrow" }, week), h("h3", {}, title), h("p", { class: "muted" }, detail), h("p", { class: "small" }, h("strong", {}, "You create: "), output)))),

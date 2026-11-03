@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Dashboard tiles with a trend line and bars">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#17302c"/><stop offset="1" stop-color="#0d1817"/></linearGradient>
+<linearGradient id="lime" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eef7bf"/><stop offset="1" stop-color="#c8dc78"/></linearGradient>
+<linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b7cdff"/><stop offset="1" stop-color="#7f9fe6"/></linearGradient>
+<linearGradient id="teal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#bfeadb"/><stop offset="1" stop-color="#7fc4aa"/></linearGradient>
+<linearGradient id="coral" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb8a8"/><stop offset="1" stop-color="#f08a74"/></linearGradient>
+<linearGradient id="plum" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#dcc8ff"/><stop offset="1" stop-color="#b393f2"/></linearGradient>
+<linearGradient id="ochre" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3d58a"/><stop offset="1" stop-color="#d9ab45"/></linearGradient>
+<filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<rect x="0" y="0" width="320" height="200" rx="24" fill="url(#bg)"/>
+<circle cx="80" cy="140" r="70" fill="#9fd8c3" opacity="0.18" filter="url(#soft)"/>
+<rect x="32" y="36" width="76" height="46" rx="10" fill="#122321" stroke="#2a4a45"/><rect x="42" y="46" width="30" height="6" rx="3" fill="#9fb3b0"/><rect x="42" y="60" width="48" height="12" rx="4" fill="url(#lime)"/>
+<rect x="122" y="36" width="76" height="46" rx="10" fill="#122321" stroke="#2a4a45"/><rect x="132" y="46" width="30" height="6" rx="3" fill="#9fb3b0"/><rect x="132" y="60" width="40" height="12" rx="4" fill="url(#blue)"/>
+<rect x="212" y="36" width="76" height="46" rx="10" fill="#122321" stroke="#2a4a45"/><rect x="222" y="46" width="30" height="6" rx="3" fill="#9fb3b0"/><rect x="222" y="60" width="52" height="12" rx="4" fill="url(#teal)"/>
+<rect x="32" y="96" width="150" height="72" rx="12" fill="#122321" stroke="#2a4a45"/>
+<polyline points="44,150 70,138 96,142 122,120 148,126 170,108" fill="none" stroke="url(#lime)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="170" cy="108" r="5" fill="#eef7bf"/>
+<rect x="196" y="96" width="92" height="72" rx="12" fill="#122321" stroke="#2a4a45"/>
+<rect x="208" y="130" width="12" height="28" rx="3" fill="url(#blue)"/><rect x="226" y="118" width="12" height="40" rx="3" fill="url(#blue)"/><rect x="244" y="136" width="12" height="22" rx="3" fill="url(#blue)"/><rect x="262" y="110" width="12" height="48" rx="3" fill="url(#teal)"/>
+</svg>

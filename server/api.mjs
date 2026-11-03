@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { createMockServer, ApiError } from "../site/app/store.js";
 import { QUIZ_BANK } from "../site/app/content/quiz-bank.js";
 import { ASSIGNMENT_BRIEFS } from "../site/app/content/assignments.js";
+import { COURSE_CONTENT, INTERVIEW_GENERAL } from "../site/app/content/modules/index.js";
 import { fileStorage, githubStorage } from "./storage.mjs";
 import { attachSignalling } from "./signal.mjs";
 
@@ -35,7 +36,7 @@ export async function createApp(options = {}) {
   // Without a payment provider the live server never grants anything on a client-side "success": students
   // receive transfer instructions and an admin with the payments permission confirms each payment.
   const paymentsMode = preview ? "preview" : "manual";
-  const core = await createMockServer({ storage, curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, deliver, seedMode: preview ? "demo" : "empty", opsPassphrase: env.ROLEVIA_OPS_PASSPHRASE, iceServers: env.ROLEVIA_ICE_SERVERS ? JSON.parse(env.ROLEVIA_ICE_SERVERS) : undefined, payments: paymentsMode, paymentInstructions: env.ROLEVIA_PAYMENT_INSTRUCTIONS || "" });
+  const core = await createMockServer({ storage, curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, courseContent: COURSE_CONTENT, interviewBank: INTERVIEW_GENERAL, deliver, seedMode: preview ? "demo" : "empty", opsPassphrase: env.ROLEVIA_OPS_PASSPHRASE, iceServers: env.ROLEVIA_ICE_SERVERS ? JSON.parse(env.ROLEVIA_ICE_SERVERS) : undefined, payments: paymentsMode, paymentInstructions: env.ROLEVIA_PAYMENT_INSTRUCTIONS || "" });
   const allowOrigin = env.ROLEVIA_ALLOW_ORIGIN || "";
   const config = () => ({ apiBase: "/", signalUrl: "/ws", googleClientId: env.ROLEVIA_GOOGLE_CLIENT_ID || "", iceServers: env.ROLEVIA_ICE_SERVERS ? JSON.parse(env.ROLEVIA_ICE_SERVERS) : [{ urls: ["stun:stun.l.google.com:19302"] }], mode: preview ? "preview" : "live", payments: paymentsMode });
 
@@ -61,6 +62,9 @@ export async function createApp(options = {}) {
     }
     if (url.pathname === "/config.json") { response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify(config())); return; }
     if (url.pathname === "/healthz") { response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, storage: options.storage ? "custom" : env.ROLEVIA_STORAGE === "github" ? "github" : "file", preview })); return; }
+    // Paid course material and quiz answer keys live under /app/content/; outside the preview they reach the
+    // browser only through the API, never as static files.
+    if (!preview && /^\/app\/content\//.test(url.pathname)) { response.writeHead(404, { "content-type": "text/plain" }).end("Not found"); return; }
     serveStatic(url.pathname, response);
   }
   // The relay stamps identity, role and display name from the session so no participant can claim to be the host.

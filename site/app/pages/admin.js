@@ -3,7 +3,7 @@ import { ctx, setAuth, withSession } from "../context.js";
 import { brand, errorBox, empty, previewBanner, copyButton } from "./components.js";
 import { signOut } from "./portal.js";
 
-const NAV = [["#/admin", "Overview", "grid", "overview", null], ["#/admin/tracker", "Tracker & tasks", "chart", "tracker", "tasks"], ["#/admin/classes", "Live classes", "play", "classes", "classes"], ["#/admin/students", "Students & verification", "user", "students", "students"], ["#/admin/content", "Lessons & assignments", "book", "content", "content"], ["#/admin/grading", "Grading queue", "clipboard", "grading", "grading"], ["#/admin/alerts", "Device alerts", "shield", "alerts", "alerts"], ["#/admin/payments", "Payments", "wallet", "payments", "payments"], ["#/admin/announce", "Announcements", "bell", "announce", "announce"], ["#/admin/audit", "Audit log", "eye", "audit", "audit"], ["#/admin/account", "My account", "lock", "account", null]];
+const NAV = [["#/admin", "Overview", "grid", "overview", null], ["#/admin/tracker", "Tracker & tasks", "chart", "tracker", "tasks"], ["#/admin/classes", "Live classes", "play", "classes", "classes"], ["#/admin/students", "Students & verification", "user", "students", "students"], ["#/admin/content", "Materials & assignments", "book", "content", "content"], ["#/admin/decks", "Slide decks", "play", "decks", "content"], ["#/admin/grading", "Grading queue", "clipboard", "grading", "grading"], ["#/admin/alerts", "Device alerts", "shield", "alerts", "alerts"], ["#/admin/payments", "Payments", "wallet", "payments", "payments"], ["#/admin/announce", "Announcements", "bell", "announce", "announce"], ["#/admin/audit", "Audit log", "eye", "audit", "audit"], ["#/admin/account", "My account", "lock", "account", null]];
 export const can = (permission) => !permission || (ctx.auth.user?.permissions ?? []).includes(permission);
 const rolePill = (role, label) => h("span", { class: `role-pill ${role}` }, label ?? role);
 
@@ -73,7 +73,7 @@ export async function adminContentPage(_, query) {
     await render();
     return host;
   });
-  return shell(content, { active: "content", title: "Lessons & assignments" });
+  return shell(content, { active: "content", title: "Materials & assignments" });
 }
 
 export async function adminGradingPage() {

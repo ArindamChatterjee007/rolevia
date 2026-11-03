@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="Rolevia orbit mark">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#17302c"/><stop offset="1" stop-color="#0d1817"/></linearGradient>
+<linearGradient id="lime" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eef7bf"/><stop offset="1" stop-color="#c8dc78"/></linearGradient>
+<linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b7cdff"/><stop offset="1" stop-color="#7f9fe6"/></linearGradient>
+<linearGradient id="teal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#bfeadb"/><stop offset="1" stop-color="#7fc4aa"/></linearGradient>
+<linearGradient id="coral" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb8a8"/><stop offset="1" stop-color="#f08a74"/></linearGradient>
+<linearGradient id="plum" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#dcc8ff"/><stop offset="1" stop-color="#b393f2"/></linearGradient>
+<linearGradient id="ochre" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f3d58a"/><stop offset="1" stop-color="#d9ab45"/></linearGradient>
+<filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<rect x="0" y="0" width="320" height="200" rx="24" fill="url(#bg)"/>
+<circle cx="160" cy="100" r="70" fill="#dfed9d" opacity="0.18" filter="url(#soft)"/>
+<circle cx="160" cy="100" r="66" fill="none" stroke="#2a4a45" stroke-dasharray="4 6"/><circle cx="160" cy="100" r="44" fill="none" stroke="#2a4a45"/>
+<circle cx="160" cy="100" r="26" fill="#122321" stroke="#2a4a45"/>
+<rect x="150" y="104" width="6" height="12" rx="2" fill="url(#lime)"/><rect x="158" y="96" width="6" height="20" rx="2" fill="url(#blue)"/><rect x="166" y="88" width="6" height="28" rx="2" fill="url(#teal)"/>
+<circle cx="226" cy="100" r="9" fill="url(#lime)"/><circle cx="94" cy="100" r="9" fill="url(#blue)"/><circle cx="160" cy="34" r="9" fill="url(#teal)"/><circle cx="160" cy="166" r="9" fill="url(#coral)"/>
+<circle cx="207" cy="53" r="6" fill="url(#plum)"/><circle cx="113" cy="147" r="6" fill="url(#ochre)"/>
+</svg>

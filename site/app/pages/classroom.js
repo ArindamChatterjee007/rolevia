@@ -2,7 +2,8 @@ import { h, icon, avatar, toast, busy, modal, field, formData, formatBytes, conf
 import { ctx, withSession, setAuth } from "../context.js";
 import { brand, errorBox } from "./components.js";
 import { createLocalTransport, createSocketTransport } from "../classroom/transport.js";
-import { createRoom, getCameraStream, getScreenStream } from "../classroom/rtc.js";
+import { createRoom, getCameraStream, getScreenStream, listMediaDevices } from "../classroom/rtc.js";
+import { slideView } from "./deck.js";
 import { createCompositeRecorder, listStoredRecordings, assembleRecording, deleteRecording } from "../classroom/recorder.js";
 import { driveConfigured, driveAuthUrl, driveToken, uploadToDrive, shareDriveFileWithLink } from "../classroom/drive.js";
 
@@ -34,6 +35,15 @@ function renderPrejoin(page, access) {
   const preview = h("video", { class: "prejoin-video", autoplay: true, playsinline: true, muted: true });
   const toggles = { mic: true, camera: true };
   let stream = null;
+  const devices = { videoDeviceId: null, audioDeviceId: null };
+  const pickers = h("div", { class: "device-pickers", hidden: true });
+  const renderPickers = async () => {
+    const found = await listMediaDevices().catch(() => ({ cameras: [], microphones: [] }));
+    if (found.cameras.length + found.microphones.length < 3) return; // one camera and one microphone: nothing to choose
+    const select = (label, key, items) => h("label", { class: "field compact" }, h("span", { class: "field-label" }, label), h("select", { class: "input compact", onChange: async (event) => { devices[key] = event.target.value || null; try { stream?.getTracks().forEach(track => track.stop()); stream = await getCameraStream(devices); preview.srcObject = stream; applyToggles(); status.textContent = "Devices switched. Check your framing, then join."; } catch (error) { status.textContent = `Could not switch device: ${error.message}`; } } }, h("option", { value: "" }, "Default"), items.map(item => h("option", { value: item.id }, item.label))));
+    pickers.replaceChildren(found.cameras.length > 1 ? select("Camera", "videoDeviceId", found.cameras) : null, found.microphones.length > 1 ? select("Microphone", "audioDeviceId", found.microphones) : null);
+    pickers.hidden = false;
+  };
   const status = h("p", { class: "small muted" }, builtin ? "Requesting camera and microphone…" : "This class uses an external meeting link for video. Rolevia keeps chat, hands and live questions here.");
   const applyToggles = () => { if (!stream) return; stream.getAudioTracks().forEach(track => { track.enabled = toggles.mic; }); stream.getVideoTracks().forEach(track => { track.enabled = toggles.camera; }); };
   const toggleButton = (key, label, iconName) => h("button", { class: `button ghost small ${toggles[key] ? "" : "off"}`, type: "button", "aria-pressed": String(toggles[key]), onClick: (event) => { toggles[key] = !toggles[key]; applyToggles(); event.currentTarget.classList.toggle("off", !toggles[key]); event.currentTarget.setAttribute("aria-pressed", String(toggles[key])); } }, icon(iconName, 14), label);
@@ -49,10 +59,10 @@ function renderPrejoin(page, access) {
   page.replaceChildren(h("div", { class: "classroom-gate" }, h("div", { class: "gate-card wide" },
     h("div", { class: "gate-head" }, brand(30), h("span", { class: `tag ${cls.status === "live" ? "live" : "pending"}` }, cls.status === "live" ? "Live now" : "Scheduled")),
     h("p", { class: "eyebrow" }, cls.moduleTitle), h("h1", {}, cls.title), h("p", { class: "muted small" }, `Host ${cls.hostName} · ${cls.durationMinutes} min · you join as ${isHost ? "host" : room.name}`),
-    builtin ? h("div", { class: "prejoin-grid" }, h("div", { class: "prejoin-preview" }, preview), h("div", { class: "stack" }, h("div", { class: "form-actions start" }, toggleButton("mic", "Microphone", "bell"), toggleButton("camera", "Camera", "eye")), status, withoutCamera, h("p", { class: "tiny muted" }, "One active device per account. Your camera and microphone stay on this device; the host may record the class and will say so in the room."))) : h("div", { class: "stack" }, status, cls.externalUrl ? h("a", { class: "button ghost", href: cls.externalUrl, target: "_blank", rel: "noopener noreferrer" }, "Open the meeting link") : null),
+    builtin ? h("div", { class: "prejoin-grid" }, h("div", { class: "prejoin-preview" }, preview), h("div", { class: "stack" }, h("div", { class: "form-actions start" }, toggleButton("mic", "Microphone", "bell"), toggleButton("camera", "Camera", "eye")), pickers, status, withoutCamera, h("p", { class: "tiny muted" }, "One active device per account. Your camera and microphone stay on this device; the host may record the class and will say so in the room."))) : h("div", { class: "stack" }, status, cls.externalUrl ? h("a", { class: "button ghost", href: cls.externalUrl, target: "_blank", rel: "noopener noreferrer" }, "Open the meeting link") : null),
     h("div", { class: "form-actions" }, h("a", { class: "button ghost", href: isHost ? "#/admin/classes" : "#/portal/classes" }, "Back"), join))));
   if (builtin) {
-    getCameraStream().then(media => { stream = media; preview.srcObject = media; applyToggles(); status.textContent = "Camera ready. Check your framing, then join."; join.disabled = false; })
+    getCameraStream().then(media => { stream = media; preview.srcObject = media; applyToggles(); status.textContent = "Camera ready. Check your framing, then join."; join.disabled = false; renderPickers(); })
       .catch(error => { status.textContent = `Camera/microphone unavailable: ${error.message}`; withoutCamera.hidden = false; join.disabled = true; });
   }
 }
@@ -80,6 +90,11 @@ function renderRoom(page, access, localStream, toggles) {
   let quizTimer = null;
   let pinned = null;
   let panel = "people";
+  // Presenting: the host drives { deckId, index }; learners follow, or browse on their own and return.
+  let presenting = null;
+  let deckCache = new Map();
+  let followHost = true;
+  let localIndex = 0;
   let ended = false;
   let recorder = null;
   let recordingTimer = null;
@@ -125,17 +140,18 @@ function renderRoom(page, access, localStream, toggles) {
     const people = participants();
     const sharer = people.find(person => person.screen);
     const featured = sharer ? { ...sharer, camera: sharer.screen, name: `${sharer.name} · screen`, state: { camera: true } } : people.find(person => person.id === pinned) ?? people.find(person => person.role === "host") ?? people[0];
-    stage.replaceChildren(featured ? h("div", { class: "stage-frame" }, featured.camera && featured.state?.camera !== false ? videoFor(`stage:${featured.id}:${sharer ? "screen" : "cam"}`, featured.camera, featured.self) : h("div", { class: "tile-placeholder large" }, avatar(featured, 120), h("p", { class: "muted" }, featured.name)), h("div", { class: "stage-label" }, featured.name)) : h("div", { class: "stage-empty" }, h("p", { class: "muted" }, "Waiting for participants…")));
+    const slideNode = presenting ? slideStage() : null;
+    stage.replaceChildren(slideNode ? slideNode : featured ? h("div", { class: "stage-frame" }, featured.camera && featured.state?.camera !== false ? videoFor(`stage:${featured.id}:${sharer ? "screen" : "cam"}`, featured.camera, featured.self) : h("div", { class: "tile-placeholder large" }, avatar(featured, 120), h("p", { class: "muted" }, featured.name)), h("div", { class: "stage-label" }, featured.name)) : h("div", { class: "stage-empty" }, h("p", { class: "muted" }, "Waiting for participants…")));
     tiles.replaceChildren(...people.map(person => tile(person)));
-    if (recorder?.active) recorder.update({ screen: sharer ? videoCache.get(`stage:${sharer.id}:screen`) : null, tiles: people.filter(person => person.camera).map(person => ({ video: videoCache.get(`${person.id}:cam`), label: person.name.replace(" (you)", "") })), audioStreams: [room.localStream, ...people.filter(person => !person.self && person.camera).map(person => person.camera)].filter(Boolean) });
+    if (recorder?.active) recorder.update({ slide: presenting ? { ...currentDeck()?.slides[presenting.index], deckTitle: currentDeck()?.title, index: presenting.index, total: currentDeck()?.slides.length } : null, screen: sharer ? videoCache.get(`stage:${sharer.id}:screen`) : null, tiles: people.filter(person => person.camera).map(person => ({ video: videoCache.get(`${person.id}:cam`), label: person.name.replace(" (you)", "") })), audioStreams: [room.localStream, ...people.filter(person => !person.self && person.camera).map(person => person.camera)].filter(Boolean) });
     renderPanel();
   };
 
   // ---------- side panel ----------
   const setPanel = (next) => { panel = next; renderPanel(); };
   const renderPanel = () => {
-    panelTabs.replaceChildren(...[["people", `People · ${room.peers.size + 1}`], ["chat", chat.length ? `Chat · ${chat.length}` : "Chat"], ["quiz", isHost ? "Live quiz" : "Questions"]].map(([key, label]) => h("button", { type: "button", role: "tab", class: key === panel ? "active" : "", "aria-selected": String(key === panel), onClick: () => setPanel(key) }, label)), h("button", { type: "button", class: "panel-close", "aria-label": "Close panel", onClick: () => sidePanel.classList.remove("open") }, icon("close", 16)));
-    if (panel === "people") renderPeople(); else if (panel === "chat") renderChat(); else renderQuizPanel();
+    panelTabs.replaceChildren(...[["people", `People · ${room.peers.size + 1}`], ["chat", chat.length ? `Chat · ${chat.length}` : "Chat"], ["quiz", isHost ? "Live quiz" : "Questions"], ...(isHost || presenting ? [["slides", presenting ? "Slides · live" : "Slides"]] : [])].map(([key, label]) => h("button", { type: "button", role: "tab", class: key === panel ? "active" : "", "aria-selected": String(key === panel), onClick: () => setPanel(key) }, label)), h("button", { type: "button", class: "panel-close", "aria-label": "Close panel", onClick: () => sidePanel.classList.remove("open") }, icon("close", 16)));
+    if (panel === "people") renderPeople(); else if (panel === "chat") renderChat(); else if (panel === "slides") renderSlidesPanel(); else renderQuizPanel();
   };
   const renderPeople = () => {
     panelBody.replaceChildren(h("div", { class: "stack" }, h("ul", { class: "roster" }, participants().map(person => h("li", {}, avatar(person, 32), h("div", { class: "grow" }, h("strong", {}, person.name), h("span", { class: "tiny muted block" }, [person.role === "host" ? "Host" : "Learner", person.state?.mic === false ? "muted" : "mic on", person.state?.camera === false ? "camera off" : null, person.state?.sharing ? "sharing" : null].filter(Boolean).join(" · "))), person.state?.hand ? h("span", { class: "tag pending" }, "✋ Hand") : null, isHost && !person.self && person.state?.mic !== false ? h("button", { class: "mini", type: "button", onClick: () => room.broadcast("request", { action: "mute" }, person.id) }, "Ask to mute") : null))),
@@ -230,8 +246,9 @@ function renderRoom(page, access, localStream, toggles) {
       isHost && builtin ? controlButton("record", recorder?.active ? "Stop recording" : "Record", "play", toggleRecording, { danger: Boolean(recorder?.active) }) : null,
       controlButton("chat", "Chat", "mail", () => { setPanel("chat"); sidePanel.classList.add("open"); }),
       isHost ? controlButton("quiz", "Live quiz", "quiz", () => { setPanel("quiz"); sidePanel.classList.add("open"); }) : null,
+      isHost ? controlButton("slides", presenting ? "Slides · on" : "Slides", "book", () => { setPanel("slides"); sidePanel.classList.add("open"); }) : null,
       controlButton("leave", isHost ? "End class" : "Leave", "logout", isHost ? endClass : leaveRoom, { danger: true })].filter(Boolean));
-    const classes = { mic: !state.mic, camera: !state.camera, share: state.sharing, hand: state.hand, record: recorder?.active };
+    const classes = { mic: !state.mic, camera: !state.camera, share: state.sharing, hand: state.hand, record: recorder?.active, slides: Boolean(presenting) };
     for (const [key, on] of Object.entries(classes)) controls.querySelector(`[data-control="${key}"]`)?.classList.toggle("on", Boolean(on));
   };
   const floatReaction = (emoji, from) => { const bubble = h("div", { class: "reaction" }, emoji, h("small", {}, from)); page.querySelector(".room-center").append(bubble); setTimeout(() => bubble.remove(), 2200); };
@@ -269,16 +286,75 @@ function renderRoom(page, access, localStream, toggles) {
       h("p", { class: "tiny muted" }, "The file also stays in this browser's storage until you delete it. To retry later, open the class details page and use \"Stored recordings on this device\".")), actions: [] });
   }
 
+  // ---------- slides ----------
+  async function loadDeck(deckId) {
+    if (!deckCache.has(deckId)) deckCache.set(deckId, await ctx.api.classDeck(withSession({ classId: cls.id, deckId })));
+    return deckCache.get(deckId);
+  }
+  const currentDeck = () => (presenting ? deckCache.get(presenting.deckId) ?? null : null);
+  async function presentDeck(deckId) {
+    try { await loadDeck(deckId); } catch (error) { toast(error.message, "error"); return; }
+    presenting = { deckId, index: 0 };
+    room.broadcast("deck", presenting);
+    setPanel("slides"); sidePanel.classList.add("open");
+    renderControls(); renderStage();
+    toast("Presenting to everyone in the room.", "success");
+  }
+  function navigateDeck(index) {
+    const deck = currentDeck();
+    if (!deck) return;
+    presenting = { deckId: presenting.deckId, index: Math.min(Math.max(0, index), deck.slides.length - 1) };
+    room.broadcast("deck", presenting);
+    renderStage(); if (panel === "slides") renderSlidesPanel();
+  }
+  function stopPresenting() {
+    presenting = null;
+    room.broadcast("deck", { deckId: null, index: 0 });
+    renderControls(); renderStage(); if (panel === "slides") renderSlidesPanel();
+  }
+  async function followDeck(payload) {
+    if (!payload?.deckId) { presenting = null; followHost = true; renderStage(); renderControls(); return; }
+    try { await loadDeck(payload.deckId); } catch (error) { toast(`Slides unavailable: ${error.message}`, "error"); return; }
+    const changed = presenting?.deckId !== payload.deckId;
+    presenting = { deckId: payload.deckId, index: Number(payload.index) || 0 };
+    if (changed) { followHost = true; localIndex = presenting.index; toast("The host is presenting slides.", "info", 2500); }
+    renderStage(); renderControls();
+  }
+  // Host: question slides become live polls through the same path as the quiz panel.
+  const askSlide = (slide) => sendQuiz({ question: slide.question.prompt, options: slide.question.options, answerIndex: slide.question.answerIndex, seconds: 60 });
+  const slideStage = () => {
+    const deck = currentDeck();
+    if (!deck) return null;
+    const index = isHost || followHost ? presenting.index : localIndex;
+    const slide = deck.slides[index];
+    const bar = isHost
+      ? h("div", { class: "slide-bar" }, h("button", { class: "button ghost small", type: "button", disabled: index === 0, onClick: () => navigateDeck(index - 1) }, icon("arrow", 14), "Previous"), h("span", { class: "tiny" }, `${index + 1} / ${deck.slides.length}`), slide.kind === "question" ? h("button", { class: "button ghost small", type: "button", disabled: Boolean(activeQuiz && !activeQuiz.closedAt), onClick: () => askSlide(slide) }, icon("quiz", 14), "Ask the room") : null, h("button", { class: "button primary small", type: "button", disabled: index === deck.slides.length - 1, onClick: () => navigateDeck(index + 1) }, "Next", icon("arrow", 14)), h("button", { class: "button ghost small", type: "button", onClick: stopPresenting }, "Stop presenting"))
+      : h("div", { class: "slide-bar" }, followHost ? h("span", { class: "tiny" }, `Following the host · ${index + 1} / ${deck.slides.length}`) : h("span", { class: "tiny" }, `Browsing on your own · ${index + 1} / ${deck.slides.length}`), !followHost ? h("button", { class: "button ghost small", type: "button", disabled: index === 0, onClick: () => { localIndex = index - 1; renderStage(); } }, icon("arrow", 14), "Previous") : null, !followHost ? h("button", { class: "button ghost small", type: "button", disabled: index === deck.slides.length - 1, onClick: () => { localIndex = index + 1; renderStage(); } }, "Next", icon("arrow", 14)) : null, h("button", { class: "button ghost small", type: "button", onClick: () => { followHost = !followHost; localIndex = presenting.index; renderStage(); } }, followHost ? "Browse on my own" : "Return to host"));
+    return h("div", { class: "stage-slide", onContextmenu: (event) => event.preventDefault() }, slideView(slide, { index, total: deck.slides.length, deckTitle: deck.title, reveal: isHost }), bar, !isHost ? h("div", { class: "deck-watermark light", "aria-hidden": "true" }, ...Array.from({ length: 4 }, () => h("span", {}, `${roomInfo.name} · view only`))) : null);
+  };
+  const renderSlidesPanel = () => {
+    if (!isHost) { const deck = currentDeck(); panelBody.replaceChildren(deck ? h("div", { class: "stack" }, h("p", { class: "eyebrow" }, "Now presenting"), h("strong", {}, deck.title), h("p", { class: "tiny muted" }, "Slides are shown on the stage. The instructor publishes them after the class so you can read them again; there is no download.")) : h("p", { class: "muted small" }, "When the host presents slides they appear on the stage here, no screen share needed.")); return; }
+    const deck = currentDeck();
+    if (deck) {
+      const slide = deck.slides[presenting.index];
+      panelBody.replaceChildren(h("div", { class: "stack" }, h("p", { class: "eyebrow" }, "Presenting"), h("strong", {}, deck.title), h("p", { class: "tiny muted" }, `Slide ${presenting.index + 1} of ${deck.slides.length}: ${slide.title}`), h("div", { class: "deck-notes open" }, h("strong", {}, "Presenter notes"), h("p", {}, slide.notes || "No notes for this slide.")), h("div", { class: "slide-jump" }, deck.slides.map((item, index) => h("button", { type: "button", class: `deck-dot ${index === presenting.index ? "active" : ""}`, title: item.title, "aria-label": `Go to slide ${index + 1}`, onClick: () => navigateDeck(index) }))), h("button", { class: "button ghost small", type: "button", onClick: stopPresenting }, "Stop presenting")));
+      return;
+    }
+    const decks = access.decks ?? [];
+    panelBody.replaceChildren(h("div", { class: "stack" }, h("p", { class: "small muted" }, "Present a deck and every participant sees the slide on their stage, without screen sharing. Drafts can be presented; publish after the class."), decks.length ? h("div", { class: "deck-rows" }, decks.map(deck => h("div", { class: "deck-row" }, h("div", { class: "grow" }, h("strong", {}, deck.title), h("span", { class: "tiny muted block" }, `${deck.slideCount} slides · ${deck.status}${cls.deckId === deck.id ? " · attached to this class" : ""}`)), h("button", { class: "button primary small", type: "button", onClick: () => presentDeck(deck.id) }, icon("play", 14), "Present")))) : h("p", { class: "muted small" }, "No deck for this module yet. Create one under Admin → Slide decks."), h("a", { class: "link-button", href: "#/admin/decks", target: "_blank", rel: "noopener" }, "Manage slide decks")));
+  };
+
   // ---------- room events ----------
-  room.on("peer", (peer) => { renderStage(); if (!peer.announced) { peer.announced = true; toast(`${peer.name} joined.`, "info", 2500); if (isHost && activeQuiz && !activeQuiz.closedAt) room.broadcast("quiz", { quiz: { ...activeQuiz, answerIndex: null, counts: null, explanation: null } }, peer.id); if (recorder?.active) room.broadcast("recording", { on: true }, peer.id); } });
+  room.on("peer", (peer) => { renderStage(); if (!peer.announced) { peer.announced = true; toast(`${peer.name} joined.`, "info", 2500); if (isHost && activeQuiz && !activeQuiz.closedAt) room.broadcast("quiz", { quiz: { ...activeQuiz, answerIndex: null, counts: null, explanation: null } }, peer.id); if (isHost && presenting) room.broadcast("deck", presenting, peer.id); if (recorder?.active) room.broadcast("recording", { on: true }, peer.id); } });
   room.on("stream", renderStage);
   room.on("state", renderStage);
   room.on("leave", (peer) => { renderStage(); toast(`${peer.name} left.`, "info", 2000); });
   // Host-only instructions are honoured only when the sender's verified role is host (stamped by the relay in
   // production; self-declared only in the same-browser preview).
-  const HOST_ONLY = new Set(["quiz", "quiz-close", "request", "recording", "ended"]);
+  const HOST_ONLY = new Set(["quiz", "quiz-close", "request", "recording", "ended", "deck"]);
   room.on("message", async ({ from, type, payload }) => {
     if (HOST_ONLY.has(type) && from.role !== "host") return;
+    if (type === "deck" && !isHost) { await followDeck(payload); return; }
     if (type === "chat") { chat.push({ from: from.name, text: String(payload.text ?? "").slice(0, 500), self: false, at: Date.now() }); if (panel === "chat") renderChat(); else renderPanel(); }
     else if (type === "quiz" && !isHost) showQuizOverlay(payload.quiz);
     else if (type === "answered" && isHost) refreshQuizCounts();

@@ -1,7 +1,11 @@
 import { h, icon, avatar, toast, relative, modal, copyText } from "../ui.js";
 import { ctx, authed, setAuth, withSession } from "../context.js";
 
-export const COMPANY_NAMES = ["Accenture", "Genpact", "Amazon", "Freshworks", "HubSpot", "Unilever", "Deloitte", "Infosys", "Zoho", "Swiggy", "Razorpay", "Tata Consultancy Services"];
+// Company NAMES only (nominative use with the disclaimer below). Logos are trademarks and appear only with the
+// owner's written permission, so none are bundled here.
+export const COMPANY_NAMES = ["Accenture", "Genpact", "Amazon", "Freshworks", "HubSpot", "Unilever", "Deloitte", "Infosys", "Zoho", "Swiggy", "Razorpay", "Tata Consultancy Services", "Wipro", "HCLTech", "Capgemini", "Cognizant", "Flipkart", "Zomato", "PhonePe", "ICICI Bank", "HDFC Bank", "Mahindra", "EY", "KPMG", "Nykaa", "Meesho", "Urban Company", "Tech Mahindra"];
+const COMPANY_TINTS = ["blue", "teal", "lime", "coral", "plum", "ochre"];
+const monogram = (name) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(word => word[0]).join("").toUpperCase();
 
 export function brand(size = 34) {
   return h("a", { class: "brand", href: "#/", "aria-label": "Rolevia home" },
@@ -53,7 +57,7 @@ export function orbit(modules) {
 }
 
 export function marquee(items, { label = "Research targets: the kinds of companies where these skills are used", reverse = false } = {}) {
-  const track = h("div", { class: `marquee-track ${reverse ? "reverse" : ""}` }, [...items, ...items].map(name => h("span", { class: "wordmark" }, name)));
+  const track = h("div", { class: `marquee-track ${reverse ? "reverse" : ""}` }, [...items, ...items].map((name, index) => h("span", { class: `wordmark tint-${COMPANY_TINTS[index % COMPANY_TINTS.length]}` }, h("span", { class: "monogram", "aria-hidden": "true" }, monogram(name)), name)));
   return h("div", { class: "marquee-wrap" }, h("p", { class: "eyebrow center" }, label), h("div", { class: "marquee", "aria-hidden": "true" }, track), h("p", { class: "small muted center" }, "Illustrative company names only. Rolevia has no partnership with, endorsement from or placement arrangement with any of them; logos appear only with written permission."));
 }
 

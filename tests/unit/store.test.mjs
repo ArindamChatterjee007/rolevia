@@ -4,13 +4,14 @@ import { readFile } from "node:fs/promises";
 import { createMockServer, memoryStorage, ApiError } from "../../site/app/store.js";
 import { QUIZ_BANK } from "../../site/app/content/quiz-bank.js";
 import { ASSIGNMENT_BRIEFS } from "../../site/app/content/assignments.js";
+import { COURSE_CONTENT, INTERVIEW_GENERAL } from "../../site/app/content/modules/index.js";
 
 const curriculum = JSON.parse(await readFile(new URL("../../site/data/curriculum.json", import.meta.url), "utf8"));
 const DAY = 24 * 60 * 60 * 1000;
 
 async function server(start = Date.UTC(2026, 10, 3, 9)) {
   let clock = start;
-  const api = await createMockServer({ storage: memoryStorage(), curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, now: () => clock });
+  const api = await createMockServer({ storage: memoryStorage(), curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, courseContent: COURSE_CONTENT, interviewBank: INTERVIEW_GENERAL, now: () => clock });
   return { api, tick: (ms) => { clock += ms; }, latestCode: (purpose = "code") => api._state().outbox.find(message => message.channel === "email" && message.body.includes("Code"))?.body.match(/Code (\d{6})/)?.[1] };
 }
 const device = (label) => ({ deviceId: `device-${label}`, deviceLabel: label });
@@ -504,4 +505,106 @@ test("live classes: learners cannot read unpaid quizzes, only active hosts with 
   assert.ok(detail.quizzes.every(entry => entry.closedAt), "open questions are closed and scored");
   assert.ok(api._state().auditLog.some(entry => entry.action === "class_auto_ended" && entry.meta.classId === cls.id));
   assert.equal((await api.adminTracker(hostAuth)).tasks.find(task => task.type === "class" && task.refId === cls.id).status, "done");
+});
+
+test("course material and slide decks: lessons via the API only, drafts for admins, published decks for learners, live following, publish tasks and migration", async () => {
+  const { api, latestCode, tick } = await server();
+  const ananya = await signIn(api, "RV-26-0001", "Learn#2026", device("ananya"), latestCode); // spreadsheets, dashboards, business-ai, canva, budgeting
+  const priya = await signIn(api, "RV-26-0003", "Learn#2026", device("priya"), latestCode); // hr-tracker, spreadsheets
+  const ananyaAuth = { token: ananya.token, deviceId: "device-ananya" };
+  const priyaAuth = { token: priya.token, deviceId: "device-priya" };
+
+  const decks = api._state().decks;
+  assert.equal(decks.length, 8, "one workshop deck per module is seeded");
+  assert.equal(decks.find(deck => deck.moduleId === "spreadsheets").status, "draft", "the demo class deck stays a draft until the instructor publishes it");
+  assert.ok(decks.filter(deck => deck.status === "published").length === 7);
+  assert.equal(api._state().classes.find(item => item.id === "cls-demo-live").deckId, "deck-spreadsheets-workshop");
+
+  const material = await api.lessons({ ...ananyaAuth, moduleId: "spreadsheets" });
+  assert.equal(material.course.weeks.length, 2);
+  assert.ok(material.course.weeks[0].lessons[0].sections.length >= 2, "lessons carry their sections");
+  assert.ok(material.course.interview.questions.length >= 8);
+  assert.equal(material.decks.length, 0, "a draft deck is not listed for learners");
+  assert.equal(material.progress.done, 0);
+  await rejects(api.lessons({ ...priyaAuth, moduleId: "canva" }), "NOT_ENROLLED");
+
+  const firstLesson = material.course.weeks[0].lessons[0];
+  const before = (await api.dashboard(ananyaAuth)).points;
+  await api.completeLesson({ ...ananyaAuth, lessonId: firstLesson.id });
+  assert.equal((await api.dashboard(ananyaAuth)).points, before + 5, "structured lessons award five points once");
+  await api.completeLesson({ ...ananyaAuth, lessonId: firstLesson.id });
+  assert.equal((await api.dashboard(ananyaAuth)).points, before + 5);
+  assert.equal((await api.lessons({ ...ananyaAuth, moduleId: "spreadsheets" })).progress.done, 1);
+  await rejects(api.completeLesson({ ...priyaAuth, lessonId: "canva-w1-l1" }), "NOT_ENROLLED");
+
+  await rejects(api.deck({ ...ananyaAuth, deckId: "deck-spreadsheets-workshop" }), "NOT_PUBLISHED");
+  await rejects(api.deck({ ...priyaAuth, deckId: "deck-canva-workshop" }), "NOT_ENROLLED");
+  const published = await api.deck({ ...ananyaAuth, deckId: "deck-canva-workshop" });
+  assert.match(published.watermark, /Ananya Iyer · RV-26-0001 · view only/);
+  const questionSlide = published.slides.find(slide => slide.kind === "question");
+  assert.ok(Number.isInteger(questionSlide.question.answerIndex), "study mode reveals answers for self-checking");
+  assert.equal(questionSlide.notes, undefined, "presenter notes never reach learners");
+
+  // Live following: the draft deck is readable only while the class is live, without answers or notes.
+  await rejects(api.classDeck({ ...ananyaAuth, classId: "cls-demo-live", deckId: "deck-spreadsheets-workshop" }), "NOT_PUBLISHED");
+  await rejects(api.classDeck({ ...ananyaAuth, classId: "cls-demo-live", deckId: "deck-canva-workshop" }), "FORBIDDEN");
+  const host = await adminToken(api, latestCode, "content");
+  const hostAuth = { token: host, deviceId: "device-admin-laptop" };
+  await api.adminSetClassStatus({ ...hostAuth, classId: "cls-demo-live", status: "live" });
+  const following = await api.classDeck({ ...ananyaAuth, classId: "cls-demo-live", deckId: "deck-spreadsheets-workshop" });
+  const followingQuestion = following.slides.find(slide => slide.kind === "question");
+  assert.equal(followingQuestion.question.answerIndex, null);
+  assert.equal(followingQuestion.notes, undefined);
+  const hostDeck = await api.classDeck({ ...hostAuth, classId: "cls-demo-live", deckId: "deck-spreadsheets-workshop" });
+  assert.ok(hostDeck.slides.every(slide => typeof slide.notes === "string"), "the host sees presenter notes");
+  await rejects(api.classDeck({ ...priyaAuth, classId: "cls-demo-live", deckId: "deck-spreadsheets-workshop" }).then(() => api.classDeck({ ...priyaAuth, classId: "cls-demo-past", deckId: "deck-business-ai-workshop" })), "NOT_ENROLLED");
+  const access = await api.classAccess({ ...hostAuth, classId: "cls-demo-live" });
+  assert.ok(access.decks.some(deck => deck.id === "deck-spreadsheets-workshop"), "hosts get the module's decks to present");
+  assert.equal((await api.classAccess({ ...ananyaAuth, classId: "cls-demo-live" })).decks.length, 0);
+
+  // Ending the class queues a publish task; publishing completes it and notifies enrolled learners.
+  await api.adminSetClassStatus({ ...hostAuth, classId: "cls-demo-live", status: "ended" });
+  const tracker = await api.adminTracker(hostAuth);
+  const publishTask = tracker.tasks.find(task => task.type === "deck" && task.refId === "deck-spreadsheets-workshop");
+  assert.ok(publishTask && publishTask.assigneeId === "u-admin-2", "publish-after-class task goes to the host");
+  const success = await adminToken(api, latestCode, "success");
+  await rejects(api.adminDecks({ token: success, deviceId: "device-admin-laptop" }), "FORBIDDEN");
+  await rejects(api.adminSetDeckStatus({ token: success, deviceId: "device-admin-laptop", deckId: "deck-spreadsheets-workshop", status: "published" }), "FORBIDDEN");
+  await api.adminSetDeckStatus({ ...hostAuth, deckId: "deck-spreadsheets-workshop", status: "published" });
+  assert.equal((await api.adminTracker(hostAuth)).tasks.find(task => task.id === publishTask.id).status, "done");
+  assert.ok((await api.notifications(ananyaAuth)).some(item => item.title.startsWith("Slides published")));
+  assert.equal((await api.lessons({ ...ananyaAuth, moduleId: "spreadsheets" })).decks.length, 1);
+  assert.equal((await api.classes(ananyaAuth)).find(item => item.id === "cls-demo-live").deckStatus, "published");
+
+  // Admin authoring: validation, image slides, attaching to a class, deleting.
+  await rejects(api.adminUpsertDeck({ ...hostAuth, deck: { title: "Bad", moduleId: "crm", slides: [{ kind: "question", title: "Q", question: { prompt: "Which?", options: ["A", "A", "B", "C"], answerIndex: 0, explanation: "Because this option is the right one here." } }] } }), "VALIDATION");
+  const png = `data:image/png;base64,${Buffer.from("fake-png-bytes").toString("base64")}`;
+  const created = await api.adminUpsertDeck({ ...hostAuth, deck: { title: "CRM clinic slides", moduleId: "crm", slides: [{ kind: "title", title: "CRM clinic", notes: "Welcome everyone and state the goal of the hour." }, { kind: "image", title: "Our pipeline", image: { name: "pipeline.png", size: 14, type: "image/png", dataUrl: png }, caption: "Stages left to right" }, { kind: "question", title: "Quick check", question: { prompt: "Which stage comes first?", options: ["Lead", "Qualified", "Proposal", "Won"], answerIndex: 0, explanation: "A lead is the earliest stage before any qualification call." } }] } });
+  assert.equal(created.status, "draft");
+  assert.equal(created.slides[1].image.dataUrl, png);
+  const startsAt = Date.UTC(2026, 10, 5, 9);
+  await rejects(api.adminUpsertClass({ ...hostAuth, cls: { moduleId: "canva", title: "Wrong module deck", startsAt, deckId: created.id } }), "VALIDATION");
+  const clinic = await api.adminUpsertClass({ ...hostAuth, cls: { moduleId: "crm", title: "CRM clinic", startsAt, deckId: created.id } });
+  assert.equal(clinic.deckId, created.id);
+  assert.equal(clinic.deckTitle, "CRM clinic slides");
+  await rejects(api.adminUpsertDeck({ ...hostAuth, deck: { ...created, moduleId: "canva" } }), "INVALID_STATE");
+  await api.adminSetClassStatus({ ...hostAuth, classId: clinic.id, status: "live" });
+  await rejects(api.adminDeleteDeck({ ...hostAuth, deckId: created.id }), "INVALID_STATE");
+  await api.adminSetClassStatus({ ...hostAuth, classId: clinic.id, status: "ended" });
+  await api.adminDeleteDeck({ ...hostAuth, deckId: created.id });
+  assert.equal((await api.adminClassDetail({ ...hostAuth, classId: clinic.id })).deckId, null, "deleting a deck detaches it from classes");
+
+  const prep = await api.interviewPrep(ananyaAuth);
+  assert.ok(prep.general.sections.length >= 3);
+  assert.equal(prep.modules.length, 5);
+
+  // Migration: a stored version-6 state gains decks as drafts and keeps its users.
+  const old = { ...api._state(), version: 6 };
+  delete old.decks;
+  const migrated = await createMockServer({ storage: memoryStorage(old), curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, courseContent: COURSE_CONTENT, interviewBank: INTERVIEW_GENERAL });
+  assert.equal(migrated._state().version, 7);
+  assert.equal(migrated._state().users.length, old.users.length, "no re-seed on upgrade");
+  assert.equal(migrated._state().decks.length, 8);
+  assert.ok(migrated._state().decks.every(deck => deck.status === "draft"));
+  tick(1);
 });

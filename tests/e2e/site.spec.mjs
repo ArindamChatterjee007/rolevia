@@ -24,7 +24,7 @@ async function open(page, route = "/") {
   await page.waitForSelector("#splash", { state: "detached" });
 }
 const latestCode = (page) => page.evaluate(() => {
-  const state = JSON.parse(localStorage.getItem("rolevia.preview.v6"));
+  const state = JSON.parse(localStorage.getItem("rolevia.preview.v7"));
   return state.outbox.find(message => message.channel === "email" && /Code \d{6}/.test(message.body)).body.match(/Code (\d{6})/)[1];
 });
 async function enterOtpBoxes(page) {
@@ -150,6 +150,72 @@ test("preview shortcuts: one-click demo sign-in for a student and an admin; misr
   await page.fill("input[name=code]", await latestCode(page));
   await page.click("button[type=submit]");
   await expect(page.locator("h1")).toHaveText("Overview", { timeout: 15_000 });
+});
+
+test("course material: tabbed module page, lesson reader with checkpoints, view-only slides with a watermark, interview prep", async ({ page }) => {
+  await studentLogin(page);
+  await open(page, "/portal/learn/spreadsheets");
+  await expect(page.locator(".learn-tabs button.active")).toContainText("Overview");
+  await expect(page.locator(".week-grid .week")).toHaveCount(2);
+  await expect(page.locator(".learn-art")).toBeVisible();
+  await shot(page, "17-learn-overview");
+  await page.locator('.learn-tabs [data-tab="lessons"]').click();
+  const lessonLinks = page.locator(".lesson-list a.lesson");
+  expect(await lessonLinks.count()).toBeGreaterThanOrEqual(4);
+  await lessonLinks.first().click();
+  await expect(page.locator(".reader-head h2")).toBeVisible();
+  expect(await page.locator(".reader-section").count()).toBeGreaterThanOrEqual(3);
+  await page.locator(".checkpoint summary").first().click();
+  await expect(page.locator(".checkpoint[open] p").first()).toBeVisible();
+  expect(await page.locator("a[download]").count()).toBe(0);
+  await shot(page, "18-lesson-reader");
+  await page.getByRole("button", { name: /Mark complete/ }).click();
+  await expect(page.locator(".toast", { hasText: "+5 points" })).toBeVisible();
+  await open(page, "/portal/learn/spreadsheets?tab=slides");
+  await expect(page.locator(".learn-panel")).toContainText("No slides are published");
+  await open(page, "/portal/learn/business-ai?tab=slides");
+  await page.locator(".deck-card").first().click();
+  await expect(page.locator(".deck-viewer")).toBeVisible();
+  await expect(page.locator(".deck-watermark")).toContainText("Ananya Iyer");
+  expect(await page.locator("a[download]").count()).toBe(0);
+  const total = await page.locator(".deck-dot").count();
+  expect(total).toBeGreaterThanOrEqual(8);
+  await page.locator(".deck-next").click();
+  await expect(page.locator(".slide-count")).toHaveText(`2 / ${total}`);
+  await page.locator(".deck-viewer").focus();
+  for (let step = 0; step < total && !(await page.locator(".slide.kind-question").count()); step += 1) await page.keyboard.press("ArrowRight");
+  await expect(page.locator(".slide.kind-question")).toBeVisible();
+  await page.locator(".slide-option").first().click();
+  await expect(page.locator(".slide-explanation")).toBeVisible();
+  await shot(page, "19-slides-viewer");
+  await open(page, "/portal/interview");
+  await page.locator(".qa summary").first().click();
+  await expect(page.locator(".qa[open] .reader-bullets li").first()).toBeVisible();
+  expect(await page.locator(".star").count()).toBeGreaterThanOrEqual(2);
+});
+
+test("content manager builds a slide deck, previews it as a learner would see it, and publishes it", async ({ page }) => {
+  await adminLogin(page, "content");
+  await open(page, "/admin/decks");
+  await expect(page.locator(".deck-row")).toHaveCount(8);
+  await page.getByRole("link", { name: "New deck" }).click();
+  await page.fill("input[name=title]", "Budgeting clinic: reading a cash forecast");
+  await page.selectOption("select[name=moduleId]", "budgeting");
+  await page.locator(".slide-form input.input").first().fill("Reading a cash forecast");
+  await page.locator(".add-slide").getByRole("button", { name: "Points" }).click();
+  await expect(page.locator(".slide-item")).toHaveCount(2);
+  await page.locator(".slide-form input.input").first().fill("Three habits");
+  await page.locator(".slide-form textarea").first().fill("Opening balance first\nInflows before outflows\nFlag the lowest week");
+  await expect(page.locator(".deck-preview .slide-bullets li")).toHaveCount(3);
+  await page.getByRole("button", { name: "Create draft" }).click();
+  await expect(page).toHaveURL(/#\/admin\/decks\/deck-/);
+  await expect(page.locator(".slide-item")).toHaveCount(2);
+  await page.getByRole("button", { name: "Present preview" }).click();
+  await expect(page.locator(".modal .deck-viewer")).toBeVisible();
+  await page.locator(".modal").getByRole("button", { name: "Close", exact: true }).click();
+  await page.getByRole("button", { name: "Publish for learners" }).click();
+  await expect(page.locator(".deck-actions")).toContainText("Published", { timeout: 15_000 });
+  await shot(page, "20-admin-deck-editor");
 });
 
 test("registration pays first, a human verifies, credentials arrive by message, OTP sign-in forces a password change", async ({ page }) => {
@@ -404,11 +470,25 @@ test("live class: host starts, learner joins with video, screen share, live quiz
   await expect(studentPage.locator(".stage-label")).toContainText("screen", { timeout: 20_000 });
   await expect.poll(() => studentPage.evaluate(() => document.querySelector(".stage-frame video")?.videoWidth ?? 0), { timeout: 20_000 }).toBeGreaterThan(0);
 
+  // Present the attached deck: learners see the slide on their stage without any screen share.
+  await hostPage.locator('[data-control="slides"]').click();
+  await hostPage.locator(".deck-row", { hasText: "attached to this class" }).getByRole("button", { name: "Present" }).click();
+  await expect(studentPage.locator(".stage-slide .slide")).toBeVisible({ timeout: 15_000 });
+  const firstTitle = await hostPage.locator(".stage-slide .slide h2").innerText();
+  await expect(studentPage.locator(".stage-slide .slide h2")).toHaveText(firstTitle);
+  await expect(studentPage.locator(".slide-bar")).toContainText("Following the host");
+  await hostPage.locator(".slide-bar").getByRole("button", { name: "Next" }).click();
+  await expect(studentPage.locator(".stage-slide .slide-count")).toContainText("2 /", { timeout: 10_000 });
+  await expect(studentPage.locator(".stage-slide .deck-notes")).toHaveCount(0);
+  await shot(hostPage, "21-classroom-presenting", false);
+  await hostPage.locator(".slide-bar").getByRole("button", { name: "Stop presenting" }).click();
+  await expect(studentPage.locator(".stage-slide")).toHaveCount(0, { timeout: 10_000 });
+
   await hostPage.locator('[data-control="quiz"]').click();
   await hostPage.locator('select[aria-label="Question from the module bank"]').selectOption({ index: 1 });
   await hostPage.getByRole("button", { name: "Send to class" }).click();
   await expect(studentPage.locator(".quiz-card h3")).toBeVisible({ timeout: 15_000 });
-  const answerIndex = await studentPage.evaluate(() => { const state = JSON.parse(localStorage.getItem("rolevia.preview.v6")); return state.classes.find(item => item.id === "cls-demo-live").quizzes.at(-1).answerIndex; });
+  const answerIndex = await studentPage.evaluate(() => { const state = JSON.parse(localStorage.getItem("rolevia.preview.v7")); return state.classes.find(item => item.id === "cls-demo-live").quizzes.at(-1).answerIndex; });
   await studentPage.locator(".quiz-option").nth(answerIndex).click();
   await expect(studentPage.locator(".quiz-card")).toContainText("Answer recorded");
   await expect(hostPage.locator(".result-bars")).toContainText("1 of 1 answered", { timeout: 15_000 });
@@ -447,7 +527,14 @@ test("live class: host starts, learner joins with video, screen share, live quiz
   await expect(detailCard("Attendance")).toContainText("Ananya Iyer");
   await expect(detailCard("Live questions")).toContainText("1 answered · 1 correct");
   await expect(detailCard("Recordings")).toContainText("kept on the host's device");
+  await expect(detailCard("Slides for this class")).toContainText("Draft");
+  await detailCard("Slides for this class").getByRole("button", { name: "Publish slides" }).click();
+  await expect(detailCard("Slides for this class")).toContainText("Published", { timeout: 15_000 });
   await shot(hostPage, "16-admin-class-detail");
   await open(studentPage, "/portal/classes");
-  await expect(studentPage.locator(".class-card", { hasText: "Week 1 live workshop" })).toContainText("You attended · 1/1 correct");
+  const endedCard = studentPage.locator(".class-card", { hasText: "Week 1 live workshop" });
+  await expect(endedCard).toContainText("You attended · 1/1 correct");
+  await endedCard.getByRole("link", { name: "Open slides" }).click();
+  await expect(studentPage.locator(".deck-viewer")).toBeVisible();
+  await expect(studentPage.locator(".deck-watermark")).toContainText("view only");
 });
