@@ -10,7 +10,7 @@ async function open(page, route = "/") {
   await page.waitForSelector("#splash", { state: "detached" });
 }
 const latestCode = (page) => page.evaluate(() => {
-  const state = JSON.parse(localStorage.getItem("rolevia.preview.v4"));
+  const state = JSON.parse(localStorage.getItem("rolevia.preview.v5"));
   return state.outbox.find(message => message.channel === "email" && /Code \d{6}/.test(message.body)).body.match(/Code (\d{6})/)[1];
 });
 async function enterOtpBoxes(page) {
@@ -93,6 +93,9 @@ test("registration pays first, a human verifies, credentials arrive by message, 
   await page.click(".choice[data-id=spreadsheets]");
   await page.click(".choice[data-id=budgeting]");
   await expect(page.locator(".plan-total")).toContainText("INR 4,998");
+  await page.getByRole("button", { name: "Review and pay" }).click();
+  await expect(page.locator(".alert.error")).toContainText("accept the proposed terms");
+  await page.check("input[name=acceptedTerms]");
   await page.getByRole("button", { name: "Review and pay" }).click();
   await expect(page.locator("h1")).toHaveText("Review and pay.");
   await expect(page.locator(".order-summary")).toContainText("INR 4,998");
@@ -236,7 +239,8 @@ test("content manager uploads a lesson with a file, grades a submission, announc
   await page.getByRole("button", { name: "Enter" }).click();
   await expect(page.locator("h1")).toHaveText("Operations snapshot");
   await expect(page.locator(".cohort")).toHaveCount(8);
-  await expect(page.locator(".ops")).toContainText("Career-kit reserve to ring-fence");
+  await expect(page.locator(".ops")).toContainText("collections (preview)");
+  await expect(page.locator(".ops")).not.toContainText("reserve to ring-fence");
   await expect(page.locator(".ops table").first()).toContainText("RV-ADM-003");
   const createAdmin = page.locator(".edit-row.new", { hasText: "Create an admin account" });
   await createAdmin.locator("summary").click();

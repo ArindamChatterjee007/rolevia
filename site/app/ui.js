@@ -92,7 +92,8 @@ export function toast(message, type = "info", timeout = 4200) {
 }
 
 export function modal({ title, body, actions = [], onClose }) {
-  const close = () => { overlay.classList.remove("show"); setTimeout(() => overlay.remove(), 250); onClose?.(); };
+  const previouslyFocused = document.activeElement;
+  const close = () => { overlay.classList.remove("show"); document.removeEventListener("keydown", escape); setTimeout(() => overlay.remove(), 250); onClose?.(); if (previouslyFocused?.focus) previouslyFocused.focus({ preventScroll: true }); };
   const overlay = h("div", { class: "modal-overlay", role: "dialog", "aria-modal": "true", "aria-label": title, onClick: (event) => { if (event.target === overlay) close(); } },
     h("div", { class: "modal" },
       h("div", { class: "modal-head" }, h("h3", {}, title), h("button", { class: "icon-button", type: "button", "aria-label": "Close dialog", onClick: close }, icon("close"))),
@@ -100,8 +101,8 @@ export function modal({ title, body, actions = [], onClose }) {
       actions.length ? h("div", { class: "modal-actions" }, actions.map(action => h("button", { class: `button ${action.variant ?? "primary"}`, type: "button", onClick: async () => { const keep = await action.onClick?.(); if (!keep) close(); } }, action.label))) : null,
     ));
   document.body.append(overlay);
-  requestAnimationFrame(() => overlay.classList.add("show"));
-  const escape = (event) => { if (event.key === "Escape") { close(); document.removeEventListener("keydown", escape); } };
+  requestAnimationFrame(() => { overlay.classList.add("show"); (overlay.querySelector("input, select, textarea, .modal-actions button, .icon-button") ?? overlay.querySelector("button"))?.focus(); });
+  const escape = (event) => { if (event.key === "Escape") close(); if (event.key === "Tab") { const focusable = [...overlay.querySelectorAll("a[href], button:not([disabled]), input, select, textarea")]; if (!focusable.length) return; const first = focusable[0], last = focusable[focusable.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } } };
   document.addEventListener("keydown", escape);
   return { close };
 }

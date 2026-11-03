@@ -3,7 +3,9 @@
 ## Principles
 
 - No self-service passwords before payment and human verification. Credentials are issued by an admin and sent to the learner's registered email and phone.
-- Every sign-in needs the password **and** a one-time code (6 digits, 5-minute expiry, 5 attempts, single use).
+- Every student and admin sign-in needs the password **and** a one-time code (6 digits, 5-minute expiry, 5 attempts, single use). Student and admin sign-in pages only accept their own account type.
+- The unlisted operations gate uses a passphrase with the same lockout as passwords; production must add server-side authorisation (and a second factor) before any real data appears there.
+- Temporary passwords must be replaced at first sign-in; the backend refuses other calls until then.
 - One active device per account. A new sign-in signs the previous device out; frequent switching triggers notices and an admin alert.
 - Admin and operations roles are separate accounts and separate sessions; a student token can never reach admin or ops methods (`FORBIDDEN`).
 - Audit log for every privileged action (verification, status changes, grading, content edits, announcements, device alerts).

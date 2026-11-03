@@ -22,7 +22,7 @@ async function boot() {
   ctx.curriculum = await response.json();
   ctx.quizBank = QUIZ_BANK;
   const testMode = new URLSearchParams(location.search).has("fast");
-  ctx.api = await createMockServer({ storage: browserStorage("rolevia.preview.v4", localStorage), curriculum: ctx.curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, latency: () => (testMode ? 0 : 220 + Math.random() * 320) });
+  ctx.api = await createMockServer({ storage: browserStorage("rolevia.preview.v5", localStorage), curriculum: ctx.curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, latency: () => (testMode ? 0 : 220 + Math.random() * 320) });
 
   const router = createRouter([
     { path: "/", render: homePage },
@@ -66,7 +66,8 @@ async function boot() {
 
   document.body.append(previewDrawer());
   let overlayShown = false;
-  const sessionLost = (error) => { if (overlayShown) return; overlayShown = true; setAuth({}); document.body.append(sessionLostOverlay(error?.extra?.reason ?? error?.code)); };
+  const sessionLost = (error) => { setAuth({}); if (overlayShown) return; overlayShown = true; document.body.append(sessionLostOverlay(error?.extra?.reason ?? error?.code, () => { overlayShown = false; })); };
+  window.addEventListener("storage", (event) => { if (event.key === "rolevia.preview.v5") ctx.api.reloadFromStorage(); });
   document.addEventListener("rolevia:session-lost", (event) => sessionLost(event.detail));
   const checkSession = async () => {
     if (!ctx.auth.token || ctx.auth.type === "ops") return;

@@ -5,7 +5,7 @@
 | Concern | Preview (this repository) | Production (next phase) |
 | --- | --- | --- |
 | Hosting | GitHub Pages, static `site/` | Static front end on any CDN; API on a small Node/edge service with a database |
-| Data | `localStorage` key `rolevia.preview.v3` seeded with fictional learners | PostgreSQL/SQLite with migrations; encrypted backups; retention and deletion schedule |
+| Data | `localStorage` key `rolevia.preview.v5` seeded with fictional learners (placeholder contacts; no internal economics) | PostgreSQL/SQLite with migrations; encrypted backups; retention and deletion schedule |
 | Messages | Preview inbox panel | Transactional email (e.g. SES/Postmark) and SMS provider for one-time codes; templates in `store.js` wording |
 | Payments | Simulated success/declined | Payment provider checkout (Razorpay/Stripe), server-side order creation, signed webhooks, reconciliation before verification |
 | Secrets | None; demo credentials are published on purpose | Environment variables only; never in the repository |
@@ -34,12 +34,14 @@ must not exist in the production API.
 - Signing in revokes every other active session for the account. If the previous session was on a different device the account's `deviceSwitches` counter increments and a history entry is stored.
 - At every `deviceSwitchThreshold` (default 5) the learner receives an in-app notification and an email ("You are using multiple devices"), and an admin alert opens.
 - `me()` rejects a token presented from a different device (`DEVICE_MISMATCH`) or a revoked token (`SESSION_REVOKED`), which the front end turns into the "signed out on another device" screen. Sessions idle for 7 days expire.
+- Accounts with a temporary password receive `PASSWORD_CHANGE_REQUIRED` from every method except `me`, `changePassword` and `logout` until a new password is set.
+- Device alerts and review tasks are raised for students; staff accounts still follow the one-active-device rule and receive the security notice.
 - Production should additionally bind the device identity to a secure, httpOnly cookie, rate-limit by IP and account, and log sign-ins with coarse geolocation.
 
 ## Content pipeline
 
-- Admin uploads recordings to private storage or an unlisted video host and pastes an `https://` link per lesson. The preview stores links only.
-- Assignments accept text, an `https://` link and a file name in preview; production stores uploads in private object storage with virus scanning and per-learner access.
+- Admin uploads recordings to private storage or an unlisted video host and pastes an `https://` link per lesson; small slides/worksheets can be attached directly.
+- Assignments and lesson materials accept text, `https://` links and files; the preview stores files up to 400 KB (base64, with a client-computed SHA-256 recorded as metadata) and records larger files by name. Production stores uploads in private object storage with server-side checksums, virus scanning and per-learner access.
 - Daily quizzes pick 5 of 8 questions per module deterministically from the date, so every learner sees the same set on a given day; one attempt per module per day.
 
 ## Deployment sequence

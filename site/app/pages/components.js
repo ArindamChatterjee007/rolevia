@@ -49,9 +49,9 @@ export function orbit(modules) {
   return wrapper;
 }
 
-export function marquee(items, { label = "Skills used by business teams at", reverse = false } = {}) {
+export function marquee(items, { label = "Research targets: the kinds of companies where these skills are used", reverse = false } = {}) {
   const track = h("div", { class: `marquee-track ${reverse ? "reverse" : ""}` }, [...items, ...items].map(name => h("span", { class: "wordmark" }, name)));
-  return h("div", { class: "marquee-wrap" }, h("p", { class: "eyebrow center" }, label), h("div", { class: "marquee", "aria-hidden": "true" }, track), h("p", { class: "tiny muted center" }, "Company names are illustrative research targets from public career portals. No partnership, endorsement or placement is implied; logos appear only with written permission."));
+  return h("div", { class: "marquee-wrap" }, h("p", { class: "eyebrow center" }, label), h("div", { class: "marquee", "aria-hidden": "true" }, track), h("p", { class: "small muted center" }, "Illustrative company names only. Rolevia has no partnership with, endorsement from or placement arrangement with any of them; logos appear only with written permission."));
 }
 
 export function quotesTicker(quotes) {
@@ -102,14 +102,16 @@ export function previewDrawer() {
     list, h("hr"), creds, h("div", { class: "drawer-actions" }, simulate, reset));
   document.addEventListener("rolevia:inbox", () => { drawer.hidden = false; refresh(); });
   document.addEventListener("rolevia:inbox-refresh", refresh);
-  const fab = h("button", { class: "inbox-fab", type: "button", "aria-label": "Open preview inbox", onClick: () => { drawer.hidden = !drawer.hidden; if (!drawer.hidden) refresh(); } }, icon("mail", 20), h("span", {}, "Inbox"));
+  const fab = h("button", { class: "inbox-fab", type: "button", "aria-label": "Open preview inbox", onClick: () => { drawer.hidden = !drawer.hidden; if (!drawer.hidden) refresh(); } }, icon("mail", 20), h("span", { class: "inbox-fab-label" }, "Inbox"));
   return h("div", {}, drawer, fab);
 }
 
-export function sessionLostOverlay(reason) {
+export function sessionLostOverlay(reason, onClose) {
   const text = reason === "new_device_login" ? "This account signed in on another device, so this device was signed out. Rolevia allows one active device at a time." : reason === "expired" ? "Your session expired after a week of inactivity." : "You were signed out.";
+  const link = h("a", { class: "button primary", href: "#/login", onClick: () => { overlay.remove(); onClose?.(); } }, "Sign in again");
   const overlay = h("div", { class: "modal-overlay show", role: "alertdialog", "aria-modal": "true", "aria-label": "Signed out" },
-    h("div", { class: "modal" }, h("div", { class: "modal-head" }, h("h3", {}, icon("device", 20), "Signed out")), h("div", { class: "modal-body" }, h("p", {}, text), h("p", { class: "small muted" }, "If this was not you, sign in again and change your password from Profile.")), h("div", { class: "modal-actions" }, h("a", { class: "button primary", href: "#/login", onClick: () => overlay.remove() }, "Sign in again"))));
+    h("div", { class: "modal" }, h("div", { class: "modal-head" }, h("h3", {}, icon("device", 20), "Signed out")), h("div", { class: "modal-body" }, h("p", {}, text), h("p", { class: "small muted" }, "If this was not you, sign in again and change your password from Profile.")), h("div", { class: "modal-actions" }, link)));
+  requestAnimationFrame(() => link.focus());
   return overlay;
 }
 

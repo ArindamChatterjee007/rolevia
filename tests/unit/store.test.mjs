@@ -20,7 +20,11 @@ async function signIn(api, identifier, password, dev, latestCode) {
 }
 const ADMINS = { lead: ["RV-ADM-001", "Lead-Arindam-2026"], content: ["RV-ADM-002", "Content-Ayush-2026"], success: ["RV-ADM-003", "Success-Souvik-2026"] };
 async function adminToken(api, latestCode, role = "lead") {
-  return (await signIn(api, ...ADMINS[role], device("admin-laptop"), latestCode)).token;
+  const [adminId, password] = ADMINS[role];
+  const challenge = await api.login({ identifier: adminId, password, ...device("admin-laptop"), expectedType: "admin" });
+  const session = await api.verifyOtp({ challengeId: challenge.challengeId, code: latestCode(), ...device("admin-laptop") });
+  if (session.mustChangePassword) await api.changePassword({ token: session.token, deviceId: "device-admin-laptop", currentPassword: password, newPassword: password });
+  return session.token;
 }
 const DETAILS = { name: "Nisha Rao", email: "Nisha@Example.com", phone: "+91 98000 11111", city: "Hyderabad", education: "mba", graduationYear: "2025", currentStatus: "fresher", preferredSlot: "weekend-morning", goal: "Move into a reporting role within six months.", acceptedTerms: true };
 const contactCode = (api, email) => api._state().otps.find(otp => otp.purpose === "contact" && otp.contact === email.toLowerCase()).code;
@@ -43,6 +47,15 @@ test("content integrity: 8 modules, 64 reviewed questions, matching assignment b
     }
     assert.ok(module.priceINR >= 1999 && module.priceINR <= 2999);
   }
+  assert.equal(curriculum.economics, undefined, "internal cost assumptions must not ship in the public data file");
+});
+
+test("seeded preview accounts use placeholder contact details only", async () => {
+  const { api } = await server();
+  for (const user of api._state().users) {
+    assert.ok(/^\+\d{12,13}$/.test(user.phone) && user.phone.includes("0000000"), `${user.name} phone must be a placeholder`);
+    assert.match(user.email, /@(example\.com|rolevia\.demo)$/, `${user.name} email must be a placeholder`);
+  }
 });
 
 test("registration requires payment, then human verification issues the Student ID and temporary password", async () => {
@@ -61,6 +74,14 @@ test("registration requires payment, then human verification issues the Student 
   await rejects(api.login({ identifier: "nisha@example.com", password: "anything", ...device("phone") }), "NOT_VERIFIED");
   const content = await adminToken(api, latestCode, "content");
   await rejects(api.adminStudents({ token: content, deviceId: "device-admin-laptop" }), "FORBIDDEN");
+  const contentOverview = await api.adminOverview({ token: content, deviceId: "device-admin-laptop" });
+  assert.equal(contentOverview.revenue, null, "content role must not see revenue");
+  assert.equal(contentOverview.recentAudit, null, "content role must not see the audit log");
+  const contentTracker = await api.adminTracker({ token: content, deviceId: "device-admin-laptop" });
+  assert.ok(contentTracker.pipeline.length > 0);
+  assert.ok(contentTracker.pipeline.every(row => row.email === null && row.amount === null && row.paymentId === null), "content role must not see contact details or amounts");
+  await rejects(api.adminCreateTask({ token: content, deviceId: "device-admin-laptop", title: "Verify someone", role: "success" }), "FORBIDDEN");
+  await rejects(api.login({ identifier: "RV-ADM-002", password: "Content-Ayush-2026", ...device("phone") }), "INVALID_CREDENTIALS");
   const admin = await adminToken(api, latestCode, "success");
   const students = await api.adminStudents({ token: admin, deviceId: "device-admin-laptop" });
   const pending = students.find(student => student.email === "nisha@example.com");
@@ -70,6 +91,8 @@ test("registration requires payment, then human verification issues the Student 
   const verifyTask = tracker.tasks.find(task => task.type === "verify" && task.refId === pending.id);
   assert.equal(verifyTask.status, "open");
   assert.equal(verifyTask.mine, true, "verification tasks route to the success role");
+  await rejects(api.adminUpdateTask({ token: content, deviceId: "device-admin-laptop", taskId: verifyTask.id, action: "claim" }), "FORBIDDEN");
+  await rejects(api.adminUpdateTask({ token: admin, deviceId: "device-admin-laptop", taskId: verifyTask.id, action: "done" }), "INVALID_STATE");
   const issued = await api.adminVerify({ token: admin, deviceId: "device-admin-laptop", userId: pending.id });
   assert.equal((await api.adminTracker({ token: admin, deviceId: "device-admin-laptop" })).tasks.find(task => task.id === verifyTask.id).status, "done");
   assert.match(issued.studentId, /^RV-26-\d{4}$/);
@@ -78,6 +101,7 @@ test("registration requires payment, then human verification issues the Student 
   const session = await signIn(api, issued.studentId, issued.previewTemporaryPassword, device("phone"), latestCode);
   assert.equal(session.mustChangePassword, true);
   assert.deepEqual(session.user.modules, ["spreadsheets", "budgeting"]);
+  await rejects(api.dashboard({ token: session.token, deviceId: "device-phone" }), "PASSWORD_CHANGE_REQUIRED");
   await rejects(api.changePassword({ token: session.token, deviceId: "device-phone", currentPassword: issued.previewTemporaryPassword, newPassword: "short" }), "WEAK_PASSWORD");
   await api.changePassword({ token: session.token, deviceId: "device-phone", currentPassword: issued.previewTemporaryPassword, newPassword: "Nisha-2026!" });
   const me = await api.me({ token: session.token, deviceId: "device-phone" });
@@ -273,8 +297,10 @@ test("admin content management validates links and attachments; roles gate pages
   const summary = await api.opsSummary({ token: ops.token, deviceId: "device-founder" });
   assert.equal(summary.cohorts.length, 8);
   const inr = summary.byCurrency.find(row => row.currency === "INR");
-  assert.equal(inr.bonusReserve, inr.moduleSales * 600);
-  assert.equal(inr.referralReserve, inr.moduleSales * 300);
+  assert.ok(inr.moduleSales > 0 && inr.learners > 0);
+  assert.equal(inr.bonusReserve, undefined, "reserve economics are not exposed by the preview API");
+  for (let attempt = 0; attempt < 5; attempt += 1) await rejects(api.opsLogin({ passphrase: "nope", ...device("founder") }), "INVALID_CREDENTIALS");
+  await rejects(api.opsLogin({ passphrase: "ROLEVIA-OPS-PREVIEW", ...device("founder") }), "LOCKED");
   await rejects(api.dashboard({ token: ops.token, deviceId: "device-founder" }), "FORBIDDEN");
 });
 

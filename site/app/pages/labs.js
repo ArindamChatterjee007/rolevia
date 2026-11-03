@@ -1,5 +1,5 @@
 // Interactive practice labs. Each lab renders an animated exercise and calls onComplete(score 0-100).
-import { h, icon, money, toast } from "../ui.js";
+import { h, icon, money, toast, modal, field, formData } from "../ui.js";
 
 const shuffle = (items) => items.map(item => [Math.random(), item]).sort((a, b) => a[0] - b[0]).map(([, item]) => item);
 const resultPanel = (score, lines, onComplete, retry) => {
@@ -129,7 +129,7 @@ function crmLab(onComplete) {
 // 06 HR tracker: consistent scoring and a fairness check.
 function hrLab(onComplete) {
   const criteria = [["excel", "Spreadsheet test score", true, 0], ["comms", "Written communication sample", true, 1], ["process", "Process-mapping exercise", true, 2], ["college", "Studied at my college", false, null], ["gut", "Gut feeling", false, null]];
-  const candidates = [["Candidate A", [4, 3, 5]], ["Candidate B", [3, 5, 4]], ["Candidate C", [5, 2, 3]]];
+  const candidates = [["Candidate A", [4, 3, 5]], ["Candidate B", [3, 5, 3]], ["Candidate C", [5, 2, 3]]];
   const kept = new Set(criteria.map(([id]) => id));
   let advance = null;
   const host = h("div", { class: "lab" });
@@ -154,7 +154,11 @@ function trelloLab(onComplete) {
   const host = h("div", { class: "lab" });
   const move = (card, col) => {
     if (col === "Doing" && cards.filter(item => item.col === "Doing").length >= limit) { events.push("wip-rejected"); toast(`Doing is limited to ${limit} cards. Finish or block something first.`, "error"); host.querySelector(".kanban-col.doing")?.classList.add("shake"); setTimeout(() => host.querySelector(".kanban-col.doing")?.classList.remove("shake"), 500); return; }
-    if (col === "Blocked" && !card.reason) { const reason = prompt("Why is this card blocked? (one line)"); if (!reason) return; card.reason = reason; }
+    if (col === "Blocked" && !card.reason) {
+      const form = h("form", { class: "form-grid", novalidate: true }, field({ label: "Why is this card blocked?", name: "reason", required: true, placeholder: "e.g. waiting for venue confirmation" }));
+      modal({ title: `Block "${card.title}"`, body: form, actions: [{ label: "Block card", onClick: () => { const reason = formData(form).reason?.trim(); if (!reason) { toast("A blocker needs a written reason.", "error"); return true; } card.reason = reason; card.col = col; events.push(`${card.id}:${col}`); render(); } }] });
+      return;
+    }
     card.col = col; events.push(`${card.id}:${col}`); render();
   };
   const render = () => {

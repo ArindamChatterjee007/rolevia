@@ -97,7 +97,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
   const servicesById = new Map(curriculum.services.map(service => [service.id, service]));
   const interview = curriculum.interviewCourse;
   let state = storage.get();
-  if (!state || state.version !== 4) {
+  if (!state || state.version !== 5) {
     state = await seed(curriculum, assignmentBriefs, now());
     storage.set(state);
   }
@@ -132,6 +132,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     const record = { name: String(file.name).slice(0, 120), size: Number(file.size) || 0, type: String(file.type ?? "").slice(0, 80), sha256: file.sha256 ? String(file.sha256).slice(0, 64) : null, dataUrl: null, stored: false };
     if (file.dataUrl) {
       if (!/^data:[\w.+/-]+;base64,/.test(file.dataUrl)) throw new ApiError("VALIDATION", "Unsupported file encoding.");
+      record.size = Math.max(record.size, Math.floor((file.dataUrl.length - file.dataUrl.indexOf(",") - 1) * 3 / 4));
       if (record.size > MAX_ATTACHMENT_BYTES) throw new ApiError("FILE_TOO_LARGE", "Preview stores files up to 400 KB. Share larger files with an https link; production uses private cloud storage.");
       if (attachmentBytes() + file.dataUrl.length > MAX_TOTAL_ATTACHMENT_BYTES) throw new ApiError("STORAGE_FULL", "Preview storage for attachments is full. Use a link for this file.");
       record.dataUrl = file.dataUrl;
@@ -163,7 +164,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
   }
   const checkPassword = async (user, password) => user.passHash === await sha256(`${user.salt}:${password}`);
 
-  function requireSession(token, deviceId, types = ["student"]) {
+  function requireSession(token, deviceId, types = ["student"], { allowPendingPassword = false } = {}) {
     const session = state.sessions.find(item => item.token === token);
     if (!session) throw new ApiError("AUTH_REQUIRED", "Please sign in.");
     if (session.revokedAt) throw new ApiError("SESSION_REVOKED", "You were signed out because this account signed in on another device.", { reason: session.revokedReason });
@@ -172,6 +173,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     const user = findUser(item => item.id === session.userId);
     if (!user || !types.includes(user.type)) throw new ApiError("FORBIDDEN", "This area needs a different account.");
     if (user.status === "suspended") throw new ApiError("SUSPENDED", "This account is suspended. Contact support.");
+    if (user.mustChangePassword && !allowPendingPassword) throw new ApiError("PASSWORD_CHANGE_REQUIRED", "Set a new password before continuing.");
     session.lastSeen = now();
     return { session, user };
   }
@@ -216,9 +218,11 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
         warned = true;
         notify(user, "security", "You are using multiple devices", `Your account signed in from a new device ${user.deviceSwitches} times. Rolevia allows one active device at a time. If this was not you, change your password now.`);
         send(user, "email", "Security notice: multiple devices", `Your Rolevia account has switched devices ${user.deviceSwitches} times. Only one active device is allowed. If this was not you, change your password immediately.`);
-        const alert = { id: crypto.randomUUID(), userId: user.id, count: user.deviceSwitches, at: now(), status: "open" };
-        state.deviceAlerts.unshift(alert);
-        createTask({ title: `Review device alert: ${user.name} (${user.deviceSwitches} switches)`, type: "alert", role: "success", refId: alert.id, link: "#/admin/alerts" });
+        if (user.type === "student") {
+          const alert = { id: crypto.randomUUID(), userId: user.id, count: user.deviceSwitches, at: now(), status: "open" };
+          state.deviceAlerts.unshift(alert);
+          createTask({ title: `Review device alert: ${user.name} (${user.deviceSwitches} switches)`, type: "alert", role: "success", refId: alert.id, link: "#/admin/alerts" });
+        }
         audit("system", "device_alert", { userId: user.id, count: user.deviceSwitches });
       }
     }
@@ -289,7 +293,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       if (!EMAIL_PATTERN.test(normalisedEmail)) throw new ApiError("VALIDATION", "Enter a valid email address.", { field: "email" });
       if (!PHONE_PATTERN.test(String(phone ?? "").replace(/[\s-]/g, ""))) throw new ApiError("VALIDATION", "Enter a valid mobile number with country code.", { field: "phone" });
       const existing = findUser(user => user.email === normalisedEmail);
-      if (existing && existing.status !== "pending_payment") throw new ApiError("DUPLICATE", "An account with this email already exists. Sign in instead.", { field: "email" });
+      if (existing && !["pending_payment", "rejected"].includes(existing.status)) throw new ApiError("DUPLICATE", "An account with this email already exists. Sign in instead.", { field: "email" });
       state.otps = state.otps.filter(otp => otp.expiresAt > now() - 60 * 60 * 1000);
       const otp = { id: crypto.randomUUID(), userId: null, contact: normalisedEmail, code: randomCode(), purpose: "contact", expiresAt: now() + OTP_TTL_MS, attempts: 0, consumedAt: null };
       state.otps.push(otp);
@@ -325,7 +329,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       for (const id of uniqueModules) if (!modulesById.has(id)) throw new ApiError("NOT_FOUND", `Unknown module ${id}`);
       const normalisedEmail = String(email).trim().toLowerCase();
       const existing = findUser(user => user.email === normalisedEmail);
-      if (existing && existing.status !== "pending_payment") throw new ApiError("DUPLICATE", "An account with this email already exists. Sign in instead.");
+      if (existing && !["pending_payment", "rejected"].includes(existing.status)) throw new ApiError("DUPLICATE", "An account with this email already exists. Sign in instead.");
       const referrer = referralCode ? findUser(user => user.referralCode === referralCode.trim().toUpperCase()) : null;
       if (referralCode && !referrer) throw new ApiError("VALIDATION", "That referral code was not found.");
       const user = existing ?? blankUser({ type: "student", createdAt: now() });
@@ -362,11 +366,11 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     },
 
     // ---------- authentication ----------
-    async login({ identifier, password, deviceId, deviceLabel }) {
+    async login({ identifier, password, deviceId, deviceLabel, expectedType = "student" }) {
       await wait();
       const needle = String(identifier ?? "").trim().toLowerCase();
       const user = findUser(item => item.studentId?.toLowerCase() === needle || item.adminId?.toLowerCase() === needle || item.email === needle);
-      if (!user) throw new ApiError("INVALID_CREDENTIALS", "We could not match that ID or password.");
+      if (!user || user.type !== expectedType) throw new ApiError("INVALID_CREDENTIALS", "We could not match that ID or password.");
       if (user.lockUntil && user.lockUntil > now()) throw new ApiError("LOCKED", `Too many attempts. Try again in ${Math.ceil((user.lockUntil - now()) / 60000)} minutes.`);
       if (user.status === "pending_payment" || user.status === "pending_verification") throw new ApiError("NOT_VERIFIED", "Your registration is being verified. We will email your Student ID and password once approved.");
       if (user.status === "suspended") throw new ApiError("SUSPENDED", "This account is suspended. Contact support.");
@@ -393,7 +397,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     },
     async me({ token, deviceId }) {
       await wait();
-      const { session, user } = requireSession(token, deviceId, ["student", "admin"]);
+      const { session, user } = requireSession(token, deviceId, ["student", "admin"], { allowPendingPassword: true });
       persist();
       return { user: publicUser(user), session: { deviceLabel: session.deviceLabel, createdAt: session.createdAt, lastSeen: session.lastSeen }, unread: user.notifications.filter(item => !item.read).length, threshold: state.settings.deviceSwitchThreshold };
     },
@@ -405,7 +409,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     },
     async changePassword({ token, deviceId, currentPassword, newPassword }) {
       await wait();
-      const { user } = requireSession(token, deviceId, ["student", "admin"]);
+      const { user } = requireSession(token, deviceId, ["student", "admin"], { allowPendingPassword: true });
       if (!(await checkPassword(user, currentPassword ?? ""))) throw new ApiError("INVALID_CREDENTIALS", "Your current password is not right.");
       await setPassword(user, newPassword);
       user.mustChangePassword = false;
@@ -594,7 +598,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       const myTasks = state.tasks.filter(task => task.status !== "done" && (task.assigneeId === admin.id || (!task.assigneeId && hasPermission(admin, task.role === "content" ? "grading" : task.role === "success" ? "verify" : "tasks"))));
       const students = state.users.filter(user => user.type === "student");
       const count = (status) => students.filter(user => user.status === status).length;
-      return { me: publicUser(admin), myTasks: myTasks.slice(0, 8), openTasks: state.tasks.filter(task => task.status !== "done").length, pendingVerification: count("pending_verification"), pendingPayment: count("pending_payment"), active: count("active"), suspended: count("suspended"), ungraded: state.submissions.filter(item => !item.gradedAt).length, openAlerts: state.deviceAlerts.filter(alert => alert.status === "open").length, revenue: ["INR", "USD"].map(currency => ({ currency, amount: state.payments.filter(payment => payment.status === "succeeded" && payment.currency === currency).reduce((sum, payment) => sum + payment.subtotal, 0) })), recentAudit: state.auditLog.slice(0, 12) };
+      return { me: publicUser(admin), myTasks: myTasks.slice(0, 8), openTasks: state.tasks.filter(task => task.status !== "done").length, pendingVerification: count("pending_verification"), pendingPayment: count("pending_payment"), active: count("active"), suspended: count("suspended"), ungraded: state.submissions.filter(item => !item.gradedAt).length, openAlerts: state.deviceAlerts.filter(alert => alert.status === "open").length, revenue: hasPermission(admin, "payments") ? ["INR", "USD"].map(currency => ({ currency, amount: state.payments.filter(payment => payment.status === "succeeded" && payment.currency === currency).reduce((sum, payment) => sum + payment.subtotal, 0) })) : null, recentAudit: hasPermission(admin, "audit") ? state.auditLog.slice(0, 12) : null };
     },
     async adminStudents({ token, deviceId }) {
       await wait();
@@ -744,7 +748,9 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       const students = state.users.filter(user => user.type === "student");
       const pipeline = students.filter(user => user.status !== "rejected").map(user => {
         const payment = state.payments.find(item => item.userId === user.id && item.status === "succeeded");
-        return { id: user.id, name: user.name, email: user.email, city: user.city, status: user.status, modules: (user.modules.length ? user.modules : user.pendingModules).map(id => modulesById.get(id)?.title ?? id), paid: Boolean(payment), paymentId: payment?.id ?? null, currency: payment?.currency ?? user.currency, amount: payment?.subtotal ?? null, contactVerified: Boolean(user.contactVerifiedAt), registeredAt: user.createdAt, waitingSince: user.status === "pending_verification" ? user.paidAt : user.status === "pending_payment" ? user.createdAt : null, studentId: user.studentId, preferredSlot: user.profile?.preferredSlot ?? "", referredBy: user.referredBy ? findUser(item => item.id === user.referredBy)?.name ?? null : null };
+        const canSeeStudents = hasPermission(admin, "students");
+        const canSeePayments = hasPermission(admin, "payments");
+        return { id: user.id, name: user.name, email: canSeeStudents ? user.email : null, city: user.city, status: user.status, modules: (user.modules.length ? user.modules : user.pendingModules).map(id => modulesById.get(id)?.title ?? id), paid: Boolean(payment), paymentId: canSeePayments ? payment?.id ?? null : null, currency: canSeePayments ? payment?.currency ?? user.currency : null, amount: canSeePayments ? payment?.subtotal ?? null : null, contactVerified: Boolean(user.contactVerifiedAt), registeredAt: user.createdAt, waitingSince: user.status === "pending_verification" ? user.paidAt : user.status === "pending_payment" ? user.createdAt : null, studentId: canSeeStudents ? user.studentId : null, preferredSlot: user.profile?.preferredSlot ?? "", referredBy: canSeeStudents && user.referredBy ? findUser(item => item.id === user.referredBy)?.name ?? null : null };
       }).sort((a, b) => ["pending_verification", "pending_payment", "active", "suspended"].indexOf(a.status) - ["pending_verification", "pending_payment", "active", "suspended"].indexOf(b.status) || b.registeredAt - a.registeredAt);
       const progress = students.filter(user => user.status === "active").map(user => {
         const lessons = user.modules.flatMap(id => state.content.lessons[id] ?? []);
@@ -764,6 +770,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       if (!String(title ?? "").trim() || String(title).trim().length < 4) throw new ApiError("VALIDATION", "Give the task a clear title.", { fields: { title: "At least 4 characters." } });
       if (!ROLES[role]) throw new ApiError("VALIDATION", "Unknown role.");
       if (assigneeId && !findUser(user => user.id === assigneeId && user.type === "admin")) throw new ApiError("NOT_FOUND", "Assignee not found.");
+      if (!hasPermission(admin, "audit") && (role !== admin.role || (assigneeId && assigneeId !== admin.id))) throw new ApiError("FORBIDDEN", "Only the programme lead creates tasks for other roles or people. You can add tasks for your own role or yourself.");
       if (link && !/^(#\/|https:\/\/)/.test(link)) throw new ApiError("VALIDATION", "Links must be an in-app route (#/...) or https://", { fields: { link: "Use #/admin/... or https://" } });
       const task = createTask({ title: String(title).trim(), type: "custom", role, refId: null, assigneeId, createdBy: admin.id, dueAt: Number(dueAt) || null, link });
       audit(admin.id, "create_task", { taskId: task.id, role, assigneeId });
@@ -775,6 +782,10 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       const { user: admin } = requireAdmin(token, deviceId, "tasks");
       const task = state.tasks.find(item => item.id === taskId);
       if (!task) throw new ApiError("NOT_FOUND", "Task not found.");
+      const systemPermission = { verify: "verify", grade: "grading", alert: "alerts" }[task.type];
+      if (systemPermission && !hasPermission(admin, systemPermission)) throw new ApiError("FORBIDDEN", `This task belongs to the ${ROLES[task.role]?.label ?? task.role} role.`);
+      if (systemPermission && action === "done") throw new ApiError("INVALID_STATE", "System tasks complete automatically when the verification, grade or alert review is done.");
+      if (task.type === "custom" && task.assigneeId && task.assigneeId !== admin.id && !hasPermission(admin, "audit") && action !== "claim") throw new ApiError("FORBIDDEN", "This task is assigned to someone else.");
       if (action === "claim") { task.assigneeId = admin.id; task.status = "in_progress"; }
       else if (action === "done") { task.status = "done"; task.completedAt = now(); task.completedBy = admin.id; }
       else if (action === "reopen") { task.status = "open"; task.completedAt = null; task.completedBy = null; }
@@ -790,7 +801,15 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     async opsLogin({ passphrase, deviceId, deviceLabel = "Unknown device" }) {
       await wait();
       const ops = findUser(user => user.type === "ops");
-      if (!ops || !(await checkPassword(ops, passphrase ?? ""))) throw new ApiError("INVALID_CREDENTIALS", "That passphrase is not right.");
+      if (!ops) throw new ApiError("INVALID_CREDENTIALS", "That passphrase is not right.");
+      if (ops.lockUntil && ops.lockUntil > now()) throw new ApiError("LOCKED", `Too many attempts. Try again in ${Math.ceil((ops.lockUntil - now()) / 60000)} minutes.`);
+      if (!(await checkPassword(ops, passphrase ?? ""))) {
+        ops.failedLogins = (ops.failedLogins ?? 0) + 1;
+        if (ops.failedLogins >= LOCK_AFTER_FAILURES) { ops.lockUntil = now() + LOCK_MS; ops.failedLogins = 0; audit(ops.id, "lockout"); }
+        persist();
+        throw new ApiError("INVALID_CREDENTIALS", "That passphrase is not right.");
+      }
+      ops.failedLogins = 0;
       const { session } = openSession(ops, deviceId, deviceLabel);
       audit(ops.id, "ops_login", { deviceLabel });
       persist();
@@ -804,11 +823,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       const succeeded = state.payments.filter(payment => payment.status === "succeeded");
       const byCurrency = ["INR", "USD"].map(currency => {
         const payments = succeeded.filter(payment => payment.currency === currency);
-        const moduleSales = payments.reduce((sum, payment) => sum + payment.items.filter(item => item.kind === "module").length, 0);
-        const economics = curriculum.economics[currency];
-        const kitCost = economics.bonusFulfilment.reduce((sum, [, value]) => sum + value, 0);
-        const kitsUnlocked = students.filter(user => user.currency === currency && kitUnlocked(user)).length;
-        return { currency, gross: payments.reduce((sum, payment) => sum + payment.subtotal, 0), moduleSales, bonusReserve: moduleSales * economics.careerBonusReserve, referralReserve: moduleSales * economics.referralReserve, kitsUnlocked, kitLiability: kitsUnlocked * kitCost, processingAllowance: Math.round(payments.reduce((sum, payment) => sum + payment.subtotal, 0) * economics.paymentFeePercent) / 100 };
+        return { currency, gross: payments.reduce((sum, payment) => sum + payment.subtotal, 0), moduleSales: payments.reduce((sum, payment) => sum + payment.items.filter(item => item.kind === "module").length, 0), serviceSales: payments.reduce((sum, payment) => sum + payment.items.filter(item => item.kind === "service").length, 0), kitsUnlocked: students.filter(user => user.currency === currency && kitUnlocked(user)).length, learners: students.filter(user => user.currency === currency && user.status === "active").length };
       });
       const cohorts = curriculum.modules.map(module => ({ id: module.id, title: module.title, enrolled: students.filter(user => user.status === "active" && user.modules.includes(module.id)).length, limit: curriculum.skillFormat.proposedCohortLimit }));
       return { funnel, byCurrency, cohorts, openAlerts: state.deviceAlerts.filter(alert => alert.status === "open").length, ungraded: state.submissions.filter(item => !item.gradedAt).length, notes: state.opsNotes, generatedAt: now() };
@@ -887,6 +902,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     },
     async previewReset() { state = await seed(curriculum, assignmentBriefs, now()); persist(); return { ok: true }; },
     previewCredentials() { return state.settings.previewCredentials; },
+    reloadFromStorage() { const fresh = storage.get(); if (fresh && fresh.version === state.version) state = fresh; },
     _state: () => state,
   };
 
@@ -912,7 +928,7 @@ async function seed(curriculum, assignmentBriefs, now) {
   const previewCredentials = {
     student: { id: "RV-26-0001", password: "Learn#2026" },
     admins: [
-      { adminId: "RV-ADM-001", name: "Arindam Chatterjee", email: "arindam@rolevia.demo", phone: "+917001730528", role: "lead", password: "Lead-Arindam-2026" },
+      { adminId: "RV-ADM-001", name: "Arindam Chatterjee", email: "arindam@rolevia.demo", phone: "+910000000001", role: "lead", password: "Lead-Arindam-2026" },
       { adminId: "RV-ADM-002", name: "Ayush", email: "ayush@rolevia.demo", phone: "+910000000002", role: "content", password: "Content-Ayush-2026" },
       { adminId: "RV-ADM-003", name: "Souvik", email: "souvik@rolevia.demo", phone: "+910000000003", role: "success", password: "Success-Souvik-2026" },
     ],
@@ -979,7 +995,7 @@ async function seed(curriculum, assignmentBriefs, now) {
     { id: crypto.randomUUID(), title: "Confirm live-session calendar for batch 1", type: "custom", role: "success", refId: null, assigneeId: "u-admin-3", createdBy: "u-admin-1", status: "open", createdAt: now - day, dueAt: now + 5 * day, completedAt: null, completedBy: null, link: "", notes: "" },
   ];
   return {
-    version: 4,
+    version: 5,
     settings: { deviceSwitchThreshold: 5, previewCredentials },
     tasks,
     users, payments: users.filter(user => user.type === "student").map(user => ({ id: `PAY-SEED${user.id.slice(-1)}`, userId: user.id, items: user.modules.map(id => ({ id, kind: "module", title: curriculum.modules.find(module => module.id === id).title, amount: curriculum.modules.find(module => module.id === id)[`price${user.currency}`] })), subtotal: user.modules.reduce((sum, id) => sum + curriculum.modules.find(module => module.id === id)[`price${user.currency}`], 0), currency: user.currency, method: "preview-card", status: "succeeded", at: user.paidAt, preview: true })),

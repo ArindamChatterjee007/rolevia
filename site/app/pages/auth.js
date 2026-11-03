@@ -20,7 +20,7 @@ function authShell(content, { title, eyebrow, aside }) {
 export function registerPage(_, query) {
   const draft = loadDraft();
   if (query.module && !draft.moduleIds?.includes(query.module)) { draft.moduleIds = [...(draft.moduleIds ?? []), query.module]; saveDraft(draft); }
-  const step = draft.applicationId ? (draft.paid ? 4 : 3) : Number(query.step) || (draft.name ? 2 : 1);
+  const step = draft.paid ? 4 : Number(query.step) || (draft.applicationId ? 3 : draft.name ? 2 : 1);
   if (step === 1) return detailsStep(draft);
   if (step === 2) return skillsStep(draft);
   if (step === 3) return paymentStep(draft);
@@ -106,7 +106,7 @@ function skillsStep(draft) {
     h("span", { class: "choice-check" }, icon("check", 14)), h("span", { class: "code" }, module.code), h("strong", {}, module.title), h("small", { class: "muted" }, module.tool), h("span", { class: "price" }, money(module.priceINR), h("small", {}, ` / ${money(module.priceUSD, "USD")}`)))));
   refresh();
   const error = h("div");
-  const terms = h("input", { type: "checkbox", name: "acceptedTerms", checked: true, required: true });
+  const terms = h("input", { type: "checkbox", name: "acceptedTerms", required: true });
   const next = h("button", { class: "button primary large", type: "button", onClick: async (event) => {
     if (!selected.size) { error.replaceChildren(errorBox(new Error("Choose at least one skill module."))); return; }
     if (!terms.checked) { error.replaceChildren(errorBox(new Error("Please accept the proposed terms to continue."))); return; }
@@ -270,8 +270,7 @@ export function adminLoginPage() {
     const button = credentials.querySelector("button[type=submit]");
     busy(button, true, "Checking");
     try {
-      challenge = await ctx.api.login({ identifier: values.identifier, password: values.password, deviceId: ctx.device.id, deviceLabel: ctx.device.label });
-      if (challenge.accountType !== "admin") throw new Error("This sign-in is for programme administrators.");
+      challenge = await ctx.api.login({ identifier: values.identifier, password: values.password, deviceId: ctx.device.id, deviceLabel: ctx.device.label, expectedType: "admin" });
       document.dispatchEvent(new CustomEvent("rolevia:inbox-refresh"));
       wrapper.replaceChildren(otpForm);
     } catch (apiError) { error.replaceChildren(errorBox(apiError)); busy(button, false); }

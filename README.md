@@ -30,16 +30,17 @@ credential emails appear in the **preview inbox** (bottom-right button).
 
 | Role | Can do | Cannot do |
 | --- | --- | --- |
-| Programme lead | Everything, including audit log, task creation and reassignment | — |
-| Learning & content manager | Upload lessons (links + files), create assignments, grade, announce, work tasks | Verify students, change student status, view payments/alerts/audit |
-| Student success & verification | Verify paid registrations and issue IDs, suspend/reactivate, review device alerts and payments, work tasks | Edit lessons/assignments, grade, announce, view audit |
+| Programme lead | Everything, including revenue, audit log and creating or assigning tasks to any role or person | — |
+| Learning & content manager | Upload lessons (links + files), create assignments, grade, announce, work tasks for the content role (and create tasks for itself) | Verify students, see contact details, payments, revenue, alerts or audit |
+| Student success & verification | Verify paid registrations and issue IDs, suspend/reactivate, review device alerts and payments, work tasks for the success role | Edit lessons/assignments, grade, announce, see revenue or audit |
 
 The tracker (`#/admin/tracker`) shows the registration pipeline (unpaid → awaiting verification → active),
 learner progress (lessons, quiz days, labs, assignments, points, last activity, device switches) and the task
 queue. Tasks are created automatically when a payment succeeds (verify), an assignment is submitted (grade)
-or a device alert opens (review), and complete themselves when the work is done. The lead can create and
-assign custom tasks. The founder manages admin accounts (create, reset password, suspend, change role) in
-the operations view.
+or a device alert opens (review), and complete themselves when the work is done (they cannot be ticked off
+manually). The lead can create and assign custom tasks to anyone; other roles can only create tasks for
+their own role or themselves. The founder manages admin accounts (create, reset password, suspend, change
+role) in the operations view. Every admin must replace the temporary password before any other action.
 
 ### Registration form and uploads
 
@@ -74,7 +75,8 @@ npm run test:e2e
 
 ## Honest boundaries
 
-- Preview payments, OTP delivery, credentials and messages are simulated in the browser. Nothing is charged or sent.
+- Preview payments, OTP delivery, credentials and messages are simulated in the browser. Nothing is charged or sent by the site itself; the LinkedIn buttons open LinkedIn after a confirmation that explains preview badge links only resolve in your own browser.
+- The preview keeps all data in the visitor's browser (single browser, synced across tabs on reload); demo accounts use placeholder emails and phone numbers, and the public data file contains no internal cost or margin figures.
 - Company names are research targets from public career portals; no partnership, endorsement or placement is implied and no third-party logos are embedded.
 - Fees, dates, terms and the brand name are proposals until confirmed in writing. No job, salary or interview outcome is guaranteed.
 - Unlisted routes are not security. Production must put the admin and operations areas behind server-side authorisation.

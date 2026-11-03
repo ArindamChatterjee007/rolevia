@@ -21,7 +21,7 @@ export async function signOut() {
 
 async function load(render) {
   const host = h("div", {}, skeleton(5, "page-skeleton"));
-  Promise.resolve().then(render).then(node => host.replaceChildren(node)).catch(error => { if (error.code === "SESSION_REVOKED" || error.code === "AUTH_REQUIRED" || error.code === "SESSION_EXPIRED" || error.code === "DEVICE_MISMATCH") { document.dispatchEvent(new CustomEvent("rolevia:session-lost", { detail: error })); return; } host.replaceChildren(errorBox(error)); });
+  Promise.resolve().then(render).then(node => host.replaceChildren(node)).catch(error => { if (error.code === "PASSWORD_CHANGE_REQUIRED") { if (!location.hash.startsWith("#/portal/profile")) location.hash = "#/portal/profile?first=1"; return; } if (error.code === "SESSION_REVOKED" || error.code === "AUTH_REQUIRED" || error.code === "SESSION_EXPIRED" || error.code === "DEVICE_MISMATCH") { document.dispatchEvent(new CustomEvent("rolevia:session-lost", { detail: error })); return; } host.replaceChildren(errorBox(error)); });
   return host;
 }
 
@@ -166,7 +166,7 @@ export async function leaderboardPage(_, query) {
       const max = Math.max(1, ...data.rows.map(row => row.points));
       const badgeUrl = data.badge ? `${location.origin}${location.pathname}#/badge/${data.badge.code}` : null;
       host.replaceChildren(
-        data.topper ? h("div", { class: "topper-card" }, h("div", { class: "badge-seal small" }, icon("trophy", 26)), h("div", { class: "grow" }, h("p", { class: "eyebrow" }, data.topper.kind), h("strong", {}, data.topper.name), h("span", { class: "small muted" }, ` · ${data.topper.points} points`)), data.badge ? h("div", { class: "share-row" }, h("a", { class: "button primary small", href: linkedinShareUrl(badgeUrl), target: "_blank", rel: "noopener noreferrer" }, icon("linkedin", 14), "Share on LinkedIn"), h("a", { class: "button ghost small", href: linkedinCertificationUrl({ name: `Rolevia ${data.badge.kind}`, certId: data.badge.code, certUrl: badgeUrl, issued: data.badge.issuedAt }), target: "_blank", rel: "noopener noreferrer" }, "Add to LinkedIn profile"), copyButton(badgeUrl, "Copy badge link")) : h("span", { class: "tiny muted" }, "Reach #1 to earn a shareable badge.")) : null,
+        data.topper ? h("div", { class: "topper-card" }, h("div", { class: "badge-seal small" }, icon("trophy", 26)), h("div", { class: "grow" }, h("p", { class: "eyebrow" }, data.topper.kind), h("strong", {}, data.topper.name), h("span", { class: "small muted" }, ` · ${data.topper.points} points`)), data.badge ? h("div", { class: "share-row" }, previewShareLink(linkedinShareUrl(badgeUrl), "Share on LinkedIn", "primary"), previewShareLink(linkedinCertificationUrl({ name: `Rolevia ${data.badge.kind}`, certId: data.badge.code, certUrl: badgeUrl, issued: data.badge.issuedAt }), "Add to LinkedIn profile", "ghost"), copyButton(badgeUrl, "Copy badge link"), h("span", { class: "tiny muted block" }, "Preview badges live only in this browser; production badges are verified on the server.")) : h("span", { class: "tiny muted" }, "Reach #1 to earn a shareable badge.")) : null,
         h("div", { class: "board" }, data.rows.map((row, index) => h("div", { class: `board-row pop ${row.userId === ctx.auth.user.id ? "me" : ""}`, style: { "--i": index } }, h("span", { class: `rank r${row.rank}` }, `#${row.rank}`), avatar(row, 36), h("div", { class: "grow" }, h("div", { class: "board-name" }, h("strong", {}, row.name), h("small", { class: "muted" }, ` · ${row.city} · ${row.modules} modules`)), h("div", { class: "bar" }, h("div", { class: "bar-fill", style: { width: `${(row.points / max) * 100}%` } })), h("div", { class: "tiny muted" }, `quiz ${row.quiz} · labs ${row.labs} · assignments ${row.assignments} · lessons ${row.lessons}`)), h("strong", { class: "points" }, `${row.points} pts`)))),
         data.me ? h("p", { class: "small muted center" }, `You are #${data.me.rank} with ${data.me.points} points${period === "week" ? " this week" : ""}.`) : null);
     };
@@ -227,4 +227,11 @@ export async function notificationsPage() {
     return items.length ? h("div", { class: "stack" }, items.map(item => h("div", { class: `card notice-card ${item.kind}` }, h("div", { class: "card-head" }, h("strong", {}, item.title), h("span", { class: "tiny muted" }, formatTime(item.at))), h("p", { class: "small" }, item.body)))) : empty("No notifications yet.");
   });
   return portalShell(content, { active: "dashboard", title: "Notifications", user: user() });
+}
+
+function previewShareLink(href, label, variant) {
+  return h("a", { class: `button ${variant} small`, href, target: "_blank", rel: "noopener noreferrer", onClick: (event) => {
+    event.preventDefault();
+    modal({ title: "Sharing from the preview", body: h("div", {}, h("p", {}, "This preview runs in your browser only, so the badge link will not resolve for other people yet. In production the badge is verified on the server before sharing."), h("p", { class: "small muted" }, "Continue to LinkedIn only if you understand this is a demonstration.")), actions: [{ label: "Continue to LinkedIn", onClick: () => { window.open(href, "_blank", "noopener,noreferrer"); } }] });
+  } }, label.includes("Share") ? icon("linkedin", 14) : null, label);
 }
