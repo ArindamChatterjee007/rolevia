@@ -30,6 +30,8 @@ export function attachSignalling(httpServer, { authorize, path = "/ws", log = ()
     ws.isAlive = true;
     ws.identity = identity;
     ws.on("pong", () => { ws.isAlive = true; });
+    // Protocol errors (including frames over maxPayload) must be logged, never thrown: ws closes the socket with 1009.
+    ws.on("error", (error) => log(`[ws] ${peer}: ${error.message}`));
     ws.on("message", (raw) => {
       let message;
       try { message = JSON.parse(raw); } catch { return; }
