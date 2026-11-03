@@ -55,8 +55,8 @@ export function deckViewer(deck, { watermark = null, index = 0, nav = true, show
   const ask = onAsk ? h("button", { class: "button ghost small", type: "button", hidden: true, onClick: () => onAsk(deck.slides[current], current) }, icon("quiz", 14), "Ask the room") : null;
   const render = () => {
     const slide = deck.slides[current];
-    stage.replaceChildren(slideView(slide, { index: current, total, deckTitle: deck.title, reveal, chosen: answers.get(slide.id) ?? null, onChoose: interactive && reveal && slide.kind === "question" ? (choice) => { answers.set(slide.id, choice); render(); } : null, accent }),
-      watermark ? h("div", { class: "deck-watermark", "aria-hidden": "true" }, ...Array.from({ length: 6 }, () => h("span", {}, watermark))) : null);
+    stage.replaceChildren(...[slideView(slide, { index: current, total, deckTitle: deck.title, reveal, chosen: answers.get(slide.id) ?? null, onChoose: interactive && reveal && slide.kind === "question" ? (choice) => { answers.set(slide.id, choice); render(); } : null, accent }),
+      watermark ? h("div", { class: "deck-watermark", "aria-hidden": "true" }, ...Array.from({ length: 6 }, () => h("span", {}, watermark))) : null].filter(Boolean));
     dots.replaceChildren(...deck.slides.map((item, dotIndex) => h("button", { type: "button", role: "tab", class: `deck-dot ${dotIndex === current ? "active" : ""} ${dotIndex < current ? "seen" : ""}`, "aria-selected": String(dotIndex === current), "aria-label": `Slide ${dotIndex + 1}: ${item.title}`, title: item.title, onClick: () => goTo(dotIndex) })));
     counter.textContent = `${current + 1} of ${total}`;
     prev.disabled = current === 0;

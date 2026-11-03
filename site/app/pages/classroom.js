@@ -41,7 +41,7 @@ function renderPrejoin(page, access) {
     const found = await listMediaDevices().catch(() => ({ cameras: [], microphones: [] }));
     if (found.cameras.length + found.microphones.length < 3) return; // one camera and one microphone: nothing to choose
     const select = (label, key, items) => h("label", { class: "field compact" }, h("span", { class: "field-label" }, label), h("select", { class: "input compact", onChange: async (event) => { devices[key] = event.target.value || null; try { stream?.getTracks().forEach(track => track.stop()); stream = await getCameraStream(devices); preview.srcObject = stream; applyToggles(); status.textContent = "Devices switched. Check your framing, then join."; } catch (error) { status.textContent = `Could not switch device: ${error.message}`; } } }, h("option", { value: "" }, "Default"), items.map(item => h("option", { value: item.id }, item.label))));
-    pickers.replaceChildren(found.cameras.length > 1 ? select("Camera", "videoDeviceId", found.cameras) : null, found.microphones.length > 1 ? select("Microphone", "audioDeviceId", found.microphones) : null);
+    pickers.replaceChildren(...[found.cameras.length > 1 ? select("Camera", "videoDeviceId", found.cameras) : null, found.microphones.length > 1 ? select("Microphone", "audioDeviceId", found.microphones) : null].filter(Boolean));
     pickers.hidden = false;
   };
   const status = h("p", { class: "small muted" }, builtin ? "Requesting camera and microphone…" : "This class uses an external meeting link for video. Rolevia keeps chat, hands and live questions here.");
