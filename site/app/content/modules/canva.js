@@ -86,11 +86,36 @@ export default {
                 title: "A preference is not an order",
                 text: "The fictional preference figures explain an idea for review. They do not prove demand, sales, willingness to pay or permission to produce kits. Keep those different claims separate."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A clear outline prevents expensive design rework. Check the decision and the evidence boundary before choosing images, colours or a template."
+              ],
+              bullets: [
+                "Starting with a template's page order → outline the audience, proposal, evidence, risks and request first.",
+                "Calling fictional preferences proven demand → retain the constructed-data label and avoid purchase claims.",
+                "Ending only with thanks → name the requested review, its owner and the fictional due date.",
+                "Filling every slide with background → give each page one job and move detailed workings to the matching brief."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer can tick these from the written outline alone. The storyline should work before decorative choices are added."
+              ],
+              bullets: [
+                "The audience and decision sentence identify Priya and the ten-kit prototype-plan review.",
+                "Five headlines cover audience/problem, proposal, evidence, costs or risks, and the next-step request.",
+                "Three supporting points each have a source reference or a clearly labelled assumption.",
+                "The fictional preference limitation and the provisional INR 2,000 cost scope remain visible.",
+                "The final request names 9 November and retains omitted-cost checks before any spending."
+              ]
             }
           ],
           practice: {
             labId: "canva",
-            instruction: "Open Order the story. Arrange its five cards from problem through evidence and options to recommendation and decision. Explain the job of each card, then keep the assessment's required five-page structure in your own outline."
+            instruction: "Open Order the story. Task 1: sequence the five slides as problem, evidence, options, recommendation and decision. Explain each slide's job, then retain the assessment's audience/problem, proposal, evidence, costs or risks, and request roles in your own outline."
           },
           checkpoint: [
             {
@@ -189,11 +214,36 @@ export default {
                 title: "Keep the evidence, not just a label",
                 text: "Record enough detail to identify the asset and the permission you relied on. A note saying found online is not a licence record, and giving credit does not replace permission."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "Consistency and readability should survive the actual delivery setting. Review these failure points before adding more decorative elements."
+              ],
+              bullets: [
+                "Shrinking text to fit → shorten the message or move detail to the brief while keeping essential caveats readable.",
+                "Using colour as the only identifier → add direct labels so the distinction survives a poor display or monochrome print.",
+                "Changing fonts and margins on every page → duplicate a base slide and follow the recorded style rules.",
+                "Assuming free means unrestricted → check the asset's terms, record the permission basis and omit unclear assets."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer should be able to tick these from the five-slide draft, a normal-size viewing check and the asset log, not just from your editing intentions."
+              ],
+              bullets: [
+                "Heading and body styles, colour meanings, margins and source-note positions follow one recorded style.",
+                "The headline, evidence and source note have a clear reading order on every page.",
+                "Chart labels and important caveats are readable at the intended presentation size.",
+                "Options have text labels as well as colour, with clear text-background contrast.",
+                "Every non-original asset has an identifiable origin, permission record and any required credit."
+              ]
             }
           ],
           practice: {
             labId: "canva",
-            instruction: "Revisit Order the story and choose a readable style for its projector scenario. Explain your choice using text-background contrast, then apply a consistent readable style to your own five-slide draft."
+            instruction: "Revisit Order the story. Task 2: choose the most readable style for a projector and explain its text-background contrast. Apply that choice to a consistent five-slide draft, then inspect your own chart labels and caveats at presentation size."
           },
           checkpoint: [
             {
@@ -298,9 +348,37 @@ export default {
                 title: "Keep the requested step proportionate",
                 text: "Ask for review of the costed prototype plan, not an unqualified launch. The omitted-cost check and the absence of real demand evidence should stay visible in both the slides and the brief."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A chart and its caption must preserve the same measured concept as the source. Check the cost story with the same care as the preference story."
+              ],
+              bullets: [
+                "Plotting Total beside its parts → chart only the two preferences and retain 24 as the sample-size check.",
+                "Cropping a bar axis to exaggerate the gap → use a shared zero baseline and the same response scale.",
+                "Calling 15 preferences 15 orders → label the constructed responses and keep the no-purchase limitation.",
+                "Labelling INR 2,000 the full cost → state materials, packaging and reserve, with labour, tax and delivery still unpriced."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "These checks should be visible in the source table, evidence slide and costs slide. A reviewer should be able to verify the story without guessing its units."
+              ],
+              bullets: [
+                "The table reconciles 15 plus 9 to 24 and shows shares of 62.5% and 37.5%.",
+                "Only the two preference categories are charted, with values, units and a shared zero baseline.",
+                "The caption names the fictional source, date and sample size and rules out purchase commitments.",
+                "The cost table shows INR 1,800 direct cost plus INR 200 reserve equals the INR 2,000 scoped cap.",
+                "Labour, tax and delivery exclusions remain readable beside the cost claim and in the brief."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "canva",
+            instruction: "Open Order the story. Task 1: sequence the five slides and explain why evidence and options come before a decision. Task 2: choose the projector-readable style. Apply that clarity to your own chart caption and cost caveat; the lab does not replace your source checks."
+          },
           checkpoint: [
             {
               question: "Why should the Total row of 24 not be plotted as a third preference category?",
@@ -381,9 +459,11 @@ export default {
               }
             },
             {
-              heading: "Export both files and inspect the exports",
+              heading: "Export, inspect and submit the communication package",
               body: [
-                "Export the five-slide presentation and one-page brief separately so each can be reviewed without opening the editing workspace. A PDF is suitable for checking the static layout and sharing the finished story. Keep the editable design as well, because corrections may still be needed. Open the downloaded files and inspect every page, not just the first preview. Exporting can expose cropped text, tiny labels or missing credits that were easy to overlook while working in the editor."
+                "Export the five-slide presentation and one-page brief separately so each can be reviewed without opening the editing workspace. A PDF is suitable for checking the static layout and sharing the finished story. Keep the editable design as well, because corrections may still be needed. Open the downloaded files and inspect every page, not just the first preview. Exporting can expose cropped text, tiny labels or missing credits that were easy to overlook while working in the editor.",
+                "Your final package contains the five-slide pitch, the matching one-page brief, the fictional source table, the asset-rights record and the rehearsal log. The slide roles, chart and next-step request should be easy to identify. Include the actual rehearsal duration and make sure it does not exceed three minutes. Keep the presentation framed as a fictional proposal, not a completed business launch. You should be able to explain why each page exists and which evidence supports its main claim.",
+                "Explain a design choice through its purpose. Instead of saying the slide looks better, explain that a clearer label exposes the unit, extra spacing separates ideas or a visible caveat prevents an unsupported conclusion."
               ],
               steps: [
                 "In the presentation, use Share > Download and choose PDF Standard; select all five intended slides.",
@@ -391,17 +471,6 @@ export default {
                 "Open the deck export and check page count, order, captions, chart values, source notes and the final request.",
                 "Open the brief export and confirm it is one page with readable tables, consistent figures and required credits.",
                 "If anything is clipped or unclear, repair the editable design, export again and inspect the revised files."
-              ],
-              callout: {
-                type: "definition",
-                title: "Export check",
-                text: "A review of the actual delivered file, not just the design editor, to confirm that its pages, text, evidence and credits remain intact and readable."
-              }
-            },
-            {
-              heading: "Submit an explainable communication package",
-              body: [
-                "Your final package contains the five-slide pitch, the matching one-page brief, the fictional source table, the asset-rights record and the rehearsal log. The slide roles, chart and next-step request should be easy to identify. Include the actual rehearsal duration and make sure it does not exceed three minutes. Keep the presentation framed as a fictional proposal, not a completed business launch. You should be able to explain why each page exists and which evidence supports its main claim."
               ],
               bullets: [
                 "Five slides: audience/problem, proposal, evidence, costs or risks, and a specific request.",
@@ -411,13 +480,41 @@ export default {
                 "Checked exports and a measured rehearsal lasting at most three minutes."
               ],
               callout: {
-                type: "tip",
-                title: "Explain a design choice through its purpose",
-                text: "Instead of saying the slide looks better, explain that a clearer label exposes the unit, extra spacing separates ideas or a visible caveat prevents an unsupported conclusion."
+                type: "definition",
+                title: "Export check",
+                text: "A review of the actual delivered file, not just the design editor, to confirm that its pages, text, evidence and credits remain intact and readable."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "Final delivery is where inconsistent versions and unreadable details become visible. Inspect what the reviewer receives rather than relying on the editing workspace."
+              ],
+              bullets: [
+                "Checking only the editor preview → open both downloaded files and inspect every page at normal reading size.",
+                "Calling the brief's amount a complete cost → match the slides' scoped estimate and retain the exclusions.",
+                "Recording planned narration as actual timing → measure a full spoken run, including transitions, and log revisions.",
+                "Fixing a slide without replacing its export → export again, check the new version and keep the matching brief aligned."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Use the delivered files and rehearsal evidence for this checklist. A completed download or a polished preview is not the same as a checked package."
+              ],
+              bullets: [
+                "The exported deck has five intended slides in order and the matching brief is one readable page.",
+                "Both files agree on counts, percentages, cost scope, exclusions, owner, date and pending review.",
+                "Captions, source notes, chart labels and required asset credits remain readable and unclipped.",
+                "The source table, asset-rights log and editable versions are retained with the delivered package.",
+                "A rehearsal log records an actual run of at most 180 seconds and any revision or retest performed."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "canva",
+            instruction: "Return to Order the story. Task 1: recheck the five-slide decision sequence. Task 2: confirm the most readable projector style. Then use those two checks on your own pitch before inspecting both exports and recording an actual three-minute-or-shorter rehearsal."
+          },
           checkpoint: [
             {
               question: "What is the difference between the planned 170-second narration and the rehearsal evidence you submit?",
@@ -430,6 +527,112 @@ export default {
             {
               question: "What would be inconsistent if the slides say 'provisional scoped cap' but the brief says 'complete project cost'?",
               answer: "The brief would imply that all costs are included, even though labour, tax and delivery are unpriced. Use the same INR 2,000 materials-and-packaging scope and exclusions in both files. A matching brief must preserve meaning, not only repeat the amount."
+            }
+          ]
+        },
+        {
+          id: "canva-w2-l3",
+          title: "Case study: Nila Study Corner end to end",
+          minutes: 60,
+          objective: "Turn a fictional preference table and cost model into a five-slide proposal, a matching brief and a checked, measured presentation package.",
+          sections: [
+            {
+              heading: "Define the reader, decision and evidence",
+              body: [
+                "Fictional Nila Study Corner asks Kavya to review a twelve-pack revision-card prototype plan by 13 November 2026. The provisional planning cap is INR 1,500 for paper, printing, packaging and a reserve only. Labour, tax and delivery need separate checks before any spending. The purpose is to review a small plan, not to claim that customers will buy it.",
+                "Source P2 is a constructed preference table dated 6 November 2026, with one option for each of 30 fictional responses. The check is 18 + 12 = 30. Bundled packs receive 18 / 30 x 100 = 60%; separate cards receive 12 / 30 x 100 = 40%. The difference is six responses. None are orders or purchase commitments. Keep this table in the brief and label its fictional nature beside the chart."
+              ],
+              table: {
+                columns: ["Preference", "Fictional responses", "Share of responses"],
+                rows: [
+                  ["Bundled revision pack", "18", "60%"],
+                  ["Separate cards", "12", "40%"],
+                  ["Total, check only", "30", "All recorded responses"]
+                ]
+              }
+            },
+            {
+              heading: "Work the costs before writing the request",
+              body: [
+                "Cost assumptions C2 allocate INR 70 of paper, INR 20 of printing and INR 10 of packaging per pack. The direct rate is 70 + 20 + 10 = INR 100, so twelve packs cost 12 x 100 = INR 1,200. Add the separate INR 120 reserve to obtain a scoped estimate of INR 1,320. Against the provisional INR 1,500 cap, 1500 - 1320 = INR 180 remains unallocated within that scope. These are invented planning assumptions, not supplier quotes."
+              ],
+              table: {
+                columns: ["Item", "Working", "Amount, INR"],
+                rows: [
+                  ["Paper", "12 x 70", "840"],
+                  ["Printing", "12 x 20", "240"],
+                  ["Packaging", "12 x 10", "120"],
+                  ["Direct subtotal", "840 + 240 + 120", "1200"],
+                  ["Provisional reserve", "One allowance of 120", "120"],
+                  ["Scoped estimate", "1200 + 120", "1320"],
+                  ["Provisional planning cap", "Ceiling for the stated scope only", "1500"],
+                  ["Unallocated headroom", "1500 - 1320", "180"]
+                ]
+              },
+              callout: {
+                type: "example",
+                title: "A specific request with honest boundaries",
+                text: "Kavya, please review the twelve-pack prototype plan by 13 November. Its scoped estimate is INR 1,320, including a reserve, against a provisional INR 1,500 cap. Confirm labour, tax and delivery before any spending. The 18 of 30 fictional preferences are not proof of demand."
+              }
+            },
+            {
+              heading: "Build, export and rehearse the five-page story",
+              body: [
+                "Create five slides in Canva Free using the roles below, plus a matching one-page brief containing P2 and C2. Use a simple bar chart of 18 and 12 responses with direct labels and one zero baseline; do not plot the total of 30. Caption it: 18 of 30 fictional preferences favour a bundled pack, or 60%; constructed P2 table, 6 November 2026, not purchase commitments. Keep the caption readable on a projector.",
+                "Plan 25 seconds for the question, 30 for the proposal, 40 for the evidence, 45 for costs and risks, and 30 for the request. The sum is 25 + 30 + 40 + 45 + 30 = 170 seconds; ten seconds of transition allowance brings the plan to 180 seconds. Measure the actual spoken run, revise anything unclear and retest. A plan is not evidence of a completed rehearsal.",
+                "Use original text, charts and basic shapes, recording any other asset's licence and required credit. Export the five-slide deck and one-page brief as separate PDFs, open both and check the numbers, captions and request. The two files must retain the same scope and exclusions. Save the checked exports, source tables, asset record and actual rehearsal log as the handover package."
+              ],
+              steps: [
+                "Slide 1, audience and problem: Kavya needs to decide whether a small revision-pack plan is worth reviewing.",
+                "Slide 2, proposal: prepare a twelve-pack prototype plan, not a full launch.",
+                "Slide 3, evidence: show 18 versus 12 fictional preferences and the 60% share with its denominator and caveat.",
+                "Slide 4, costs and risks: show INR 1320 against the INR 1500 scoped cap, and identify unpriced labour, tax and delivery.",
+                "Slide 5, request: ask Kavya to review the plan by 13 November, with cost checks before spending and no approval implied."
+              ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "This case should remain understandable when you are not there to explain it. Inspect the chart, financial wording and delivered files for these avoidable errors."
+              ],
+              bullets: [
+                "Turning 18 preferences into 18 purchases → retain the fictional-response label and the no-commitment caveat.",
+                "Adding 30 as another bar → chart only 18 and 12, keeping 30 as the denominator and total check.",
+                "Adding the direct subtotal twice → sum paper, printing and packaging once, then add the separate INR 120 reserve.",
+                "Treating INR 180 headroom as an all-cost surplus → disclose that labour, tax and delivery are still unpriced.",
+                "Claiming a three-minute presentation without timing it → record the actual spoken run, including slide changes."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "The case is ready for review when these checks can be supported by the actual files and evidence log, rather than by a description of your intentions."
+              ],
+              bullets: [
+                "Five slides and a matching one-page brief state the twelve-pack plan, Kavya's review and the 13 November date.",
+                "The chart reconciles 18 plus 12 to 30 and shows 60% and 40% with the fictional-source limitation.",
+                "C2 reconciles INR 1,200 direct cost plus INR 120 reserve to INR 1,320, leaving INR 180 within the scoped cap.",
+                "Both exports retain readable source notes, cost exclusions, consistent figures and any required asset credits.",
+                "The package includes source tables, asset records and a measured rehearsal of at most 180 seconds."
+              ]
+            }
+          ],
+          practice: {
+            labId: "canva",
+            instruction: "Open Order the story. Task 1: sequence its five slides into problem, evidence, options, recommendation and decision. Task 2: choose the most readable projector style. Transfer that reasoning to Nila's pitch while retaining its required page roles, checked figures and caveats."
+          },
+          checkpoint: [
+            {
+              question: "What does the 60% headline mean in Nila's case, and what must appear beside it?",
+              answer: "It is 18 / 30 x 100 = 60% of the constructed preference responses, not customers or sales. Keep the count of 18, denominator of 30, P2 source date and fictional-data caveat near the chart. The other 12 responses account for 40%, so the two categories reconcile to the total."
+            },
+            {
+              question: "How do INR 1,200, INR 1,320, INR 1,500 and INR 180 describe different parts of the cost story?",
+              answer: "INR 1,200 is the direct cost: 12 x (70 + 20 + 10). Adding the INR 120 reserve gives the INR 1,320 scoped estimate. INR 1,500 is the provisional cap, leaving 1500 - 1320 = INR 180 unallocated in that scope. Labour, tax and delivery remain unpriced, so this is not a full-cost surplus or permission to spend."
+            },
+            {
+              question: "The outline totals 180 seconds and looks clear in the editor. What delivery evidence is still missing?",
+              answer: "Measure an actual spoken run with slide transitions and retain its duration and revision notes. Open the exported five-slide deck and one-page brief to check readability, figures, source notes, exclusions and request. A timing plan and editor preview cannot establish that the delivered package works."
             }
           ]
         }
@@ -695,6 +898,28 @@ export default {
           "Keep the final request, evidence limitations and cost exclusions in the spoken explanation."
         ],
         tip: "Distinguish your planned timing from the run you actually measured."
+      },
+      {
+        question: "A projector makes the source note unreadable, and a reviewer suggests deleting it. How would you repair the slide?",
+        type: "scenario",
+        answerGuide: [
+          "Keep the fictional-source label and material caveat because removing them changes the claim's meaning.",
+          "Shorten the main text, remove decoration and enlarge the essential source and limitation text.",
+          "Use strong text-background contrast and direct labels, moving detailed workings to the brief.",
+          "Retest the slide at presentation size and inspect the refreshed export rather than trusting a close editing zoom."
+        ],
+        tip: "Explain how the repair improves reading without weakening the evidence boundary."
+      },
+      {
+        question: "Show how you would check Nila's preference headline and cost request across the slides and one-page brief.",
+        type: "practical",
+        answerGuide: [
+          "Reconcile 18 + 12 = 30 and calculate 18 / 30 x 100 = 60%, retaining the fictional preference label.",
+          "Calculate 12 x (70 + 20 + 10) = 1200 and add the separate 120 reserve to obtain the 1320 scoped estimate.",
+          "Compare the 1500 cap with 1320 to show 180 unallocated, without calling it a full-cost surplus while costs remain unpriced.",
+          "Check both exports for the same figures, exclusions, Kavya's review request and the 13 November date."
+        ],
+        tip: "Use source tables as your reference, not one exported file as the sole proof that the other is correct."
       }
     ]
   },

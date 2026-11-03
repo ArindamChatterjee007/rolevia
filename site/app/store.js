@@ -551,8 +551,11 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     },
     async me({ token, deviceId }) {
       await wait();
+      const previousSeen = state.sessions.find(item => item.token === token)?.lastSeen ?? 0;
       const { session, user } = requireSession(token, deviceId, ["student", "admin"], { allowPendingPassword: true });
-      persist();
+      // Background polls must not write on every call: a write from an idle tab can overwrite another tab's
+      // change made in the same instant. Record activity at most once a minute.
+      if (now() - previousSeen >= 60 * 1000) persist(); else session.lastSeen = previousSeen;
       return { user: publicUser(user), session: { deviceLabel: session.deviceLabel, createdAt: session.createdAt, lastSeen: session.lastSeen }, unread: user.notifications.filter(item => !item.read).length, threshold: state.settings.deviceSwitchThreshold };
     },
     async logout({ token }) {
@@ -601,7 +604,6 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
         return { id, title: modulesById.get(id).title, tool: modulesById.get(id).tool, lessons: lessonCount(id), done, labScore: labRun?.score ?? null, quizToday: state.quizAttempts.some(attempt => attempt.userId === user.id && attempt.moduleId === id && attempt.date === dateKey(now())) };
       });
       const streak = computeStreak(user.id);
-      persist();
       return { user: publicUser(user), modules, streak, points: totalPoints(user.id), weekPoints: totalPoints(user.id, now() - 7 * 24 * 60 * 60 * 1000), announcements: state.content.announcements.slice(0, 3), notifications: user.notifications.slice(0, 5), kit: { unlocked: kitUnlocked(user), count: distinctPaidModules(user), required: curriculum.careerBonus.qualifyingModules }, devices: { switches: user.deviceSwitches, threshold: state.settings.deviceSwitchThreshold, history: user.deviceHistory.slice(0, 5) }, rank: leaderboardRows("all").find(row => row.userId === user.id)?.rank ?? null };
     },
     async lessons({ token, deviceId, moduleId }) {

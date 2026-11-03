@@ -90,11 +90,36 @@ export default {
                 title: "A traceable cleaning bridge",
                 text: "In a copy, repeating K03 once creates five rows totalling INR 7,100. Removing that confirmed duplicate excludes INR 2,100 and leaves four rows totalling INR 5,000. Keep the original copy and log the exclusion."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "Cleaning should leave a trail that explains each change. These checks prevent a tidy-looking register from quietly changing the underlying business records."
+              ],
+              bullets: [
+                "Overwriting Raw → keep the original records and make repairs in a separate Clean tab.",
+                "Sorting only Sales → sort the whole table so each amount stays with its order ID.",
+                "Guessing a blank or ambiguous date → seek source evidence and label unresolved values instead of inventing them.",
+                "Changing number formatting only → use VALUE after confirming the comma convention, then check the numeric result."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer should be able to tick these checks by inspecting the workbook, without needing you to explain an undocumented repair from memory."
+              ],
+              bullets: [
+                "Raw is unchanged and the working copy is clearly labelled as fictional practice.",
+                "The dictionary states row meaning, field types, currency and excluded charges.",
+                "Each repair records an order ID, old value, new value and reason.",
+                "Region labels, numeric sales and confirmed dates have been checked, with unresolved items listed.",
+                "The four-row teaching total is independently checked as INR 5,000 and kept separate from lab totals."
+              ]
             }
           ],
           practice: {
             labId: "spreadsheets",
-            instruction: "Open Clean the register. Match each flagged row to its specific repair. Record which repairs need source evidence, especially the blank region; the lab uses a different dataset from the lesson."
+            instruction: "Open Clean and summarise the register. Task 1: clean Region with TRIM and UPPER in F2:F9. Task 2: convert sales with VALUE in G2:G9. Check the trailing space, lower-case region and text 2,100 in the lab's eight Kiran Stationery orders; keep Raw unchanged."
           },
           checkpoint: [
             {
@@ -188,9 +213,37 @@ export default {
                 title: "Keep tests readable",
                 text: "Use columns for test name, input, expected, actual and pass or investigate. A deliberately missing-code test can pass because the lookup correctly exposes the missing code."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A plausible result is not enough. Test the rule, the references and the meaning of the output separately before using a formula in a management summary."
+              ],
+              bullets: [
+                "Using >1500 → use >=1500 and test 1499, 1500 and 1501 against the stated review rule.",
+                "Counting when asked for sales value → use SUMIFS for amounts and COUNTIFS for qualifying order counts.",
+                "Hiding #N/A or using an approximate lookup → retain an exact match and investigate unexpected missing codes.",
+                "Copying teaching columns into the lab → use F for cleaned Region, G for numeric Sales and H for the flag across rows 2 to 9."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Keep these observable checks beside the calculations. A reviewer should see why the formula passes, not merely a cell containing a number."
+              ],
+              bullets: [
+                "IF, SUMIFS, COUNTIFS and the exact lookup each have at least two labelled tests.",
+                "Expected answers were calculated independently and are shown beside actual results.",
+                "The threshold amount is included and deliberately missing codes are explained.",
+                "Amount and criteria ranges cover the same rows, with fixed references where required.",
+                "The source total reconciles, and currency totals, counts and labels have distinct headings."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "spreadsheets",
+            instruction: "Open Clean and summarise the register after Tasks 1 and 2. Task 3: total G2:G9 with SUM. Task 4: total North with SUMIFS using F and G. Task 5: count orders of 1,500 or more with COUNTIFS. Task 6: fill H2:H9 with IF Review/Routine flags; test the boundary."
+          },
           checkpoint: [
             {
               question: "What error would a test at exactly INR 1,500 catch in the review rule?",
@@ -288,11 +341,36 @@ export default {
                 title: "Reconciliation",
                 text: "Reconciliation means comparing independently obtained totals under the same rules, then explaining any difference. It is not editing one total until it matches the other."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "Summary errors often come from a changed question rather than faulty addition. Keep the source scope, grouping and interpretation visible together."
+              ],
+              bullets: [
+                "Accepting a pivot's default Count → choose Sum for sales value and reconcile it to the numeric source.",
+                "Leaving the final row outside the pivot → inspect the full source range before interpreting any group.",
+                "Calling a sales share profit → label the denominator and obtain cost evidence before discussing profit.",
+                "Comparing a partial month with a full month → use equivalent coverage or disclose the difference prominently."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A good summary can be traced back to the register and supports a limited next step. Tick these only after checking the actual cells and note."
+              ],
+              bullets: [
+                "The pivot uses every intended clean row and sums Sales by Product and Region.",
+                "North INR 3,000 plus South INR 2,000 reconciles to the teaching total of INR 5,000.",
+                "N1 INR 1,400 plus N2 INR 3,600 reconciles to the same checked total.",
+                "The title states the period, completed-order scope and INR unit.",
+                "The note contains a supported finding, a data limitation and a named next check."
+              ]
             }
           ],
           practice: {
             labId: "spreadsheets",
-            instruction: "Revisit Clean the register and finish the regional summary. Independently add the retained South amounts, then compare your result with the lab feedback. Keep the lab calculation separate from the Kiran Stationery example."
+            instruction: "Revisit Clean and summarise the register. Task 3: check the full sales total. Task 4: independently add the cleaned North rows before comparing SUMIFS. Task 5: list the orders of 1,500 or more and compare COUNTIFS. Use the lab's eight rows, not the four-row teaching totals."
           },
           checkpoint: [
             {
@@ -388,9 +466,37 @@ export default {
                 title: "Explain the work in plain language",
                 text: "Practise describing one repair, one formula test, one reconciled pivot and one limitation. Point to the cells that support each explanation."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "Handover is a test of whether another reader can repeat the work. Look for silent version changes and missing update instructions before sharing."
+              ],
+              bullets: [
+                "Testing new rows in the submitted original → use a labelled copy and preserve the original reporting evidence.",
+                "Clicking Refresh without checking ranges → confirm the new row changes the grand total and affected groups.",
+                "Writing only 'update weekly' → name the input tab, formula ranges, pivot refresh and reconciliation checks.",
+                "Calling an unexplained difference complete → retain an unresolved-item list with its reporting impact and next action."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "The handover is ready when a reviewer can reproduce the original totals and the controlled update without mixing their versions or assumptions."
+              ],
+              bullets: [
+                "Raw, Clean, the summary and any exclusions have reconciled row counts and sales totals.",
+                "The update-test copy shows INR 5,700 overall, INR 3,700 for North and INR 2,100 for N1.",
+                "The original decision note still cites the four-order version and its limitations.",
+                "The handover names where to add rows, extend formulas, refresh the pivot and recheck totals.",
+                "The delivered workbook reopens with its dictionary, cleaning log, tests and appropriate reader access intact."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "spreadsheets",
+            instruction: "Revisit Clean and summarise the register. Audit Tasks 1 and 2 across F2:G9; independently check Tasks 3, 4 and 5. For Task 6, compare every H2:H9 flag with its numeric sales amount. Keep formulas and record expected versus actual results for the handover."
+          },
           checkpoint: [
             {
               question: "After adding K05 for INR 700, what three totals demonstrate that the update reached the right groups?",
@@ -403,6 +509,110 @@ export default {
             {
               question: "What handover information would help Rohit update the workbook next week without guessing?",
               answer: "State where new records belong, which formulas and pivot ranges must expand, how to refresh and which totals to recheck. Include the dictionary, reporting boundaries and unresolved items so Rohit preserves the same meanings as well as the calculations."
+            }
+          ]
+        },
+        {
+          id: "spreadsheets-w2-l3",
+          title: "Case study: Tara Office Supplies end to end",
+          minutes: 60,
+          objective: "Clean an eight-order fictional register, calculate and reconcile its totals, then hand over a bounded stock-review note with visible workings.",
+          sections: [
+            {
+              heading: "Read the brief and preserve the eight source rows",
+              body: [
+                "Tara Office Supplies asks fictional coordinator Leela which product needs a stock check after 2 to 5 November 2026. Each row below is one completed order, with sales in INR excluding tax and delivery. Keep Raw unchanged and copy the headers and records into Clean!A1:E9. This worked case is separate from both the four-order Kiran teaching example and the eight-order Kiran lab; do not transfer totals between them.",
+                "The displayed quotes below mark raw text and are not part of the region label. T03 has one trailing space after North and a sales value stored as text 2,100; T06 has lower-case south. To recreate the amount in Google Sheets, type an apostrophe before 2,100. Confirm that the workbook locale treats the comma as a thousands separator before using VALUE. No rows are duplicates or missing in this case."
+              ],
+              table: {
+                columns: ["Order ID", "Sale date", "Raw Region", "Product", "Raw Sales, INR"],
+                rows: [
+                  ["T01", "2026-11-02", "North", "N1", "900"],
+                  ["T02", "2026-11-02", "South", "N2", "1500"],
+                  ["T03", "2026-11-03", "'North '", "N2", "2,100 (text)"],
+                  ["T04", "2026-11-03", "South", "N1", "500"],
+                  ["T05", "2026-11-04", "North", "N1", "700"],
+                  ["T06", "2026-11-04", "south", "N2", "1800"],
+                  ["T07", "2026-11-05", "North", "N1", "1200"],
+                  ["T08", "2026-11-05", "South", "N2", "2300"]
+                ]
+              }
+            },
+            {
+              heading: "Calculate with helpers and independent arithmetic",
+              body: [
+                "Add Clean region, Numeric sales and Review flag as headers in F1:H1. Keep the formulas so the reviewer can inspect how each output was produced. Independent addition gives 900 + 1500 + 2100 + 500 + 700 + 1800 + 1200 + 2300 = INR 11,000. North is 900 + 2100 + 700 + 1200 = INR 4,900; South is 1500 + 500 + 1800 + 2300 = INR 6,100. The regions reconcile: 4900 + 6100 = 11000."
+              ],
+              steps: [
+                "Enter =TRIM(UPPER(C2)) in F2 and fill to F9; the only outputs should be NORTH and SOUTH.",
+                "Enter =VALUE(E2) in G2 and fill to G9; inspect T03's numeric result of 2100, not just its display format.",
+                "Outside the register, enter =SUM(G2:G9); compare the result with the independently added 11000.",
+                "Enter =SUMIFS($G$2:$G$9,$F$2:$F$9,\"NORTH\"); expect 4900. Repeat for SOUTH and expect 6100.",
+                "Enter =COUNTIFS($G$2:$G$9,\">=1500\"); expect 4, from T02, T03, T06 and T08.",
+                "Enter =IF(G2>=1500,\"Review\",\"Routine\") in H2 and fill to H9; expect four Review and four Routine labels."
+              ],
+              callout: {
+                type: "example",
+                title: "A test that catches the wrong comparison",
+                text: "T02 is exactly INR 1,500 and must be Review. A mistaken >1500 rule would leave only T03, T06 and T08, a count of 3 instead of 4. Check the flagged order IDs as well as the count."
+              }
+            },
+            {
+              heading: "Reconcile the product view and write the handover",
+              body: [
+                "Build a product summary from Numeric sales, not raw text amounts. N1 contributes 900 + 500 + 700 + 1200 = INR 3,300. N2 contributes 1500 + 2100 + 1800 + 2300 = INR 7,700. The check is 3300 + 7700 = 11000, and N2's sales-value share is 7700 / 11000 x 100 = 70%. This does not measure unit demand, margin or available stock.",
+                "Handover note: Tara's eight completed orders total INR 11,000 for 2 to 5 November. N2 accounts for INR 7,700, or 70% of recorded sales value. Leela should check N2 stock before proposing a reorder; stock quantities, unit demand and costs are not supplied. Keep the source, cleaning log, formulas and expected-versus-actual checks with the note. For future rows, fill helpers, extend summary ranges and rerun the independent checks."
+              ],
+              bullets: [
+                "Keep eight source IDs and eight clean IDs; normalising labels changes neither order count nor legitimate sales value.",
+                "Log the space removal, case normalisation and text-to-number conversion with their affected IDs.",
+                "Retain both regional and product reconciliations, not just the grand total.",
+                "Share the original case version separately from any later update-test copy."
+              ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "The case combines small source defects with reporting risks. Fix the data without introducing a stronger business claim than the register supports."
+              ],
+              bullets: [
+                "Summing the raw text column → calculate from numeric G2:G9 and check T03's conversion to 2100.",
+                "Entering the displayed region quotes as data → enter only the region text, including T03's single trailing space.",
+                "Checking only the four Review labels → inspect their IDs and the exact 1500 boundary as well.",
+                "Calling N2's 70% share a reorder quantity → request stock and unit-demand evidence before proposing a quantity.",
+                "Expecting the lab to total INR 11,000 → recalculate its separate Kiran Stationery dataset from its own rows."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer can reproduce the entire case from the source table and find these results without relying on a hidden manual adjustment."
+              ],
+              bullets: [
+                "All eight IDs remain present, and F2:H9 contain the intended row-level formulas.",
+                "SUM returns INR 11,000; regional checks return North INR 4,900 and South INR 6,100.",
+                "COUNTIFS returns 4 and the Review IDs are T02, T03, T06 and T08.",
+                "Product totals of INR 3,300 and INR 7,700 reconcile, and the 70% share is labelled sales value.",
+                "The note names a stock check, missing evidence and repeatable update instructions, with Raw preserved."
+              ]
+            }
+          ],
+          practice: {
+            labId: "spreadsheets",
+            instruction: "Open Clean and summarise the register. Complete Tasks 1 and 2 in F2:G9, Task 3 with SUM, Task 4 with SUMIFS, Task 5 with COUNTIFS and Task 6 in H2:H9 with IF. Recalculate the lab's own eight Kiran orders; record the checks rather than copying Tara's totals."
+          },
+          checkpoint: [
+            {
+              question: "Which workings independently confirm Tara's grand total and its North total?",
+              answer: "All eight amounts add to INR 11,000. North uses T01, T03, T05 and T07: 900 + 2100 + 700 + 1200 = INR 4,900. South's INR 6,100 completes the reconciliation. Identify source IDs as well as adding values so an incorrect grouping cannot hide behind an unchanged grand total."
+            },
+            {
+              question: "A learner gets three orders in Review. Which boundary should they inspect first?",
+              answer: "Inspect T02 at exactly INR 1,500. The rule is >=1500, so T02, T03, T06 and T08 qualify, giving four orders. A >1500 test excludes T02. Also confirm the flags use numeric column G and cover all eight rows."
+            },
+            {
+              question: "Does N2's INR 7,700 contribution justify buying 70% more N2 stock?",
+              answer: "No. 7700 / 11000 x 100 = 70% is a share of recorded sales value, not growth or a stock requirement. The register lacks units, stock on hand and costs. Recommend checking those inputs before deciding a reorder quantity."
             }
           ]
         }
@@ -667,6 +877,28 @@ export default {
           "Mention any feedback you actually received, or explain your own reader review."
         ],
         tip: "Point to a specific handover instruction instead of only saying the workbook is user-friendly."
+      },
+      {
+        question: "A regional total is too low, although every order is visible. How would you check spaces, letter case and text sales?",
+        type: "scenario",
+        answerGuide: [
+          "Preserve Raw and inspect the affected order IDs rather than changing the reported total manually.",
+          "Normalise region labels in a helper column with TRIM and UPPER, checking the resulting categories.",
+          "Confirm the comma convention and convert text sales with VALUE before rerunning SUMIFS.",
+          "Reconcile regional totals to the independent grand total and retain a log of each repair."
+        ],
+        tip: "Distinguish a text-cleaning problem from a missing order; both can produce a plausible but incomplete subtotal."
+      },
+      {
+        question: "Using Tara's eight-order case, demonstrate a checked total, North subtotal and review count.",
+        type: "practical",
+        answerGuide: [
+          "Show F2:F9 cleaned with TRIM and UPPER and G2:G9 converted with VALUE, without overwriting the source.",
+          "Use SUM on G2:G9 for 11000 and SUMIFS on numeric sales and cleaned region for North's 4900.",
+          "Use COUNTIFS with >=1500 for 4; show IF flags for T02, T03, T06 and T08.",
+          "Check North 4900 plus South 6100 equals 11000, and explain why the lab needs its own expected totals."
+        ],
+        tip: "Show the formula ranges and source IDs, not just three typed answers."
       }
     ]
   },

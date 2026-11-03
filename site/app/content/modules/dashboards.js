@@ -15,7 +15,7 @@ export default {
             {
               heading: "Write the reporting question first",
               body: [
-                "Use Looker Studio (formerly Google Data Studio) to help Priya at fictional Sundar Traders review completed sales by region. The decision is which regional records and pipeline need attention before setting the next sales plan. Start from that question, not a favourite chart. You need basic spreadsheet skills and access to a learning account that can read the source. Use the supplied fictional data through Google Sheets; this exercise needs no paid connector."
+                "Use Looker Studio to help Priya at fictional Sundar Traders review completed sales by region. The decision is which regional records and pipeline need attention before setting the next sales plan. Start from that question, not a favourite chart. You need basic spreadsheet skills and access to a learning account that can read the source. Use the supplied fictional data through Google Sheets; this exercise needs no paid connector."
               ],
               bullets: [
                 "Audience: a sales manager reviewing recorded activity.",
@@ -88,11 +88,36 @@ export default {
                 title: "Keep the source private",
                 text: "Use fictional records and restricted sharing. Do not publish a sheet to the open web just to make a connection work; first check that the learning account has the intended access."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "The first reporting errors often happen before a chart exists. Write down what qualifies for each measure and prove that the connected source can supply it."
+              ],
+              bullets: [
+                "Choosing a favourite chart first → name the reader's decision and select measures that answer it.",
+                "Treating all INR 7,700 as November completed sales → exclude October, cancelled and pending records under the stated rule.",
+                "Assuming connection means correct data → inspect the selected worksheet, field types and sample rows.",
+                "Using distinct count to hide duplicate rows → resolve duplicates before summing sales as well as counting orders."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer can use this checklist to approve the reporting setup before you spend time arranging charts. Each item needs visible evidence."
+              ],
+              bullets: [
+                "The audience, reporting question and fictional source are named.",
+                "Exactly three KPIs state their calculation, unit, qualifying records and period.",
+                "The source checklist records the workbook, tab, row meaning, field types and check date.",
+                "The source expectation is INR 5,400, three orders and INR 1,800 per order for November completed records.",
+                "Excluded source rows remain available for testing, and sharing stays restricted."
+              ]
             }
           ],
           practice: {
             labId: "dashboards",
-            instruction: "Open Build an honest dashboard. Choose the three KPIs that support its sales scenario and select a chart for the monthly trend. Write why these lab KPIs differ from the three completed-order measures in your report."
+            instruction: "Open Build an honest dashboard. Task 1: choose three decision KPIs for its sales scenario. Task 2: pick the chart for its monthly trend. Explain why the lab's KPI choices differ from this lesson's completed-order measures and identify the evidence each would need."
           },
           checkpoint: [
             {
@@ -187,9 +212,37 @@ export default {
                 title: "Round for display, not for checking",
                 text: "Reconcile the underlying numbers first. Choose a consistent display precision afterwards, and document any rounding so a small display difference is not mistaken for a source error."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A readable page still needs consistent calculations. Inspect how each component obtains its value before accepting the appearance of agreement."
+              ],
+              bullets: [
+                "Averaging regional averages → divide combined sales by the combined qualifying order count.",
+                "Filtering only a headline card → apply the same completion rule and dates to every relevant component.",
+                "Using a line to imply regional sequence → use bars for categories and a chronological line for a time trend.",
+                "Rounding until values look equal → reconcile unrounded values first, then choose a stated display precision."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Tick these against the report in viewing mode and its calculation settings. A draft is useful when its structure and its numbers can both be inspected."
+              ],
+              bullets: [
+                "Three scorecards share the Completed filter and SaleDate reporting scope.",
+                "The overall values are INR 5,400, three orders and INR 1,800 per order before display rounding.",
+                "The regional bars show North INR 3,000 and South INR 2,400 on a shared zero baseline.",
+                "Headings, units, reporting period and source context are readable at normal size.",
+                "The average uses total sales divided by qualifying orders and has a clear no-denominator treatment."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "dashboards",
+            instruction: "Open Build an honest dashboard. Task 1: justify the three decision KPIs rather than adding decorative measures. Task 2: select the monthly-trend chart and explain its ordered time axis. Keep the lab's scenario separate from your regional completed-sales report."
+          },
           checkpoint: [
             {
               question: "Why would averaging the two regional average order values give the wrong overall result here?",
@@ -292,9 +345,37 @@ export default {
                 title: "Do not force a tidy result",
                 text: "Never fill a missing region with the largest region or replace an unknown amount with zero. Record the uncertainty and how it affects the reported measures."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "Interactive controls can produce a convincing but inconsistent page. Test what every component actually shows, including selections that return no records."
+              ],
+              bullets: [
+                "Testing only one card after filtering → check all three scorecards and the comparison chart for the same selection.",
+                "Leaving fixed dates on a chart → remove overrides that prevent the date control from governing it.",
+                "Filling an empty average with zero → show no records when there is no denominator, and distinguish a genuine zero-value order.",
+                "Keeping evidence without filter labels → record the exact dates, region, expected values, observations and reset result."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "These checks should be supported by observations from viewing mode. Expected figures alone do not prove that the controls worked."
+              ],
+              bullets: [
+                "Date and Region controls visibly affect all intended report components.",
+                "November plus North gives INR 3,000, two orders and INR 1,500 per order.",
+                "The 4 November selection shows no qualifying completed records and no stale average.",
+                "Resetting restores November, all regions and the 5400, 3 and 1800 headline values.",
+                "Missing-date, missing-sales and missing-region risks are logged separately from valid empty selections."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "dashboards",
+            instruction: "Return to Build an honest dashboard. Task 3: check each tile's customers divided by leads and select the inconsistent conversion. Record its numerator, denominator and displayed rate. Then apply the same scope check to your report's separate date-and-region tests."
+          },
           checkpoint: [
             {
               question: "What does a reset test add beyond checking the date and region controls once?",
@@ -389,11 +470,36 @@ export default {
                 title: "Use the lab as a separate checking exercise",
                 text: "The lab's tiles use monthly leads and customers, not this lesson's order data. Check each displayed conversion against its own numerator and denominator; do not copy the lesson's KPI values into that exercise."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A final check should be able to reveal an error. Retain the independent workings, exact report state and version that make each conclusion reproducible."
+              ],
+              bullets: [
+                "Copying the scorecard into Expected → calculate from source rows independently before comparing values.",
+                "Signing off after checking only sales → reconcile order count and average as well as the sales total.",
+                "Reusing old evidence after a refresh → rerun affected tests and date the new checked version.",
+                "Explaining South's lower count as poor demand → state the observation and request missing pipeline evidence before assigning a cause."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "The delivered dashboard and its checking pack should let another reader repeat the test and understand the limits of the recommendation."
+              ],
+              bullets: [
+                "All three KPIs reconcile independently under the default and combined-filter selections.",
+                "Each of the five validation points has settings, workings or observed test evidence attached.",
+                "No-records behaviour and reset results are documented with visible filter context.",
+                "The checked version, source date, access settings and unresolved issues are recorded.",
+                "The recommendation cites a checked observation and states the missing evidence rather than inventing a cause."
+              ]
             }
           ],
           practice: {
             labId: "dashboards",
-            instruction: "Return to Build an honest dashboard. Recalculate each tile's customers divided by leads and select the inconsistent tile. Record the displayed rate, your checked rate and the reason the difference matters."
+            instruction: "Return to Build an honest dashboard. Task 3: recalculate every tile's customers divided by leads, select the inconsistent tile and record its displayed and checked conversion rates. Revisit Tasks 1 and 2 to confirm the KPI and chart choices support the stated decision."
           },
           checkpoint: [
             {
@@ -407,6 +513,105 @@ export default {
             {
               question: "What evidence makes a five-point checklist stronger than five unqualified ticks?",
               answer: "Include the tested settings, filter states, expected and observed values, source references and any unresolved issues. Another reader should be able to repeat the checks. A tick alone does not show what was tested or which version passed."
+            }
+          ]
+        },
+        {
+          id: "dashboards-w2-l3",
+          title: "Case study: Tara Learning Kits end to end",
+          minutes: 60,
+          objective: "Build and defend a three-KPI funnel view, correct a misleading conversion tile and deliver a tested recommendation using a fictional cohort table.",
+          sections: [
+            {
+              heading: "Define the decision and the cohort source",
+              body: [
+                "Fictional Tara Learning Kits asks Leela whether its enquiry follow-up deserves a closer review. Source F1, checked on 30 April 2026, groups unique qualified leads by first-enquiry month. Each lead appears in one cohort only. Customers are the subset of that cohort making a first purchase within 30 days; all three cohorts have completed that observation window. These are constructed practice records, not real customer data.",
+                "Choose three KPIs for this case: qualified leads, converted customers and conversion rate. The first two are counts; conversion is converted customers divided by qualified leads for the same selected cohorts. The table contains no revenue, cost or retention evidence, so it cannot support those measures. Enter the three monthly source rows in Google Sheets; calculate the total separately rather than loading it as a fourth month."
+              ],
+              table: {
+                columns: ["First-enquiry month, 2026", "Qualified leads", "Customers within 30 days", "Checked conversion"],
+                rows: [
+                  ["January", "200", "30", "30 / 200 x 100 = 15%"],
+                  ["February", "250", "45", "45 / 250 x 100 = 18%"],
+                  ["March", "300", "60", "60 / 300 x 100 = 20%"],
+                  ["Total, check only", "750", "135", "135 / 750 x 100 = 18%"]
+                ]
+              }
+            },
+            {
+              heading: "Build the view and repair the conversion tile",
+              body: [
+                "Use a real month date field, such as 1 January 2026, for each cohort. In Looker Studio, create scorecards for SUM(Leads), SUM(Customers) and SUM(Customers) / SUM(Leads), formatting the final ratio as a percentage. Do not multiply by 100 again when using percentage formatting. Add a chronological line chart of monthly conversion with a labelled percentage axis and source note.",
+                "Independent checks give 200 + 250 + 300 = 750 leads and 30 + 45 + 60 = 135 customers. Combined conversion is 135 / 750 = 0.18, displayed as 18%. The simple mean (15 + 18 + 20) / 3 is about 17.7%, but it gives unequal cohorts equal weight. Recompute the ratio from totals whenever the selected months change."
+              ],
+              callout: {
+                type: "example",
+                title: "A plausible tile can still be wrong",
+                text: "A draft March tile says 25% beside 300 leads and 60 customers. Its check is 60 / 300 x 100 = 20%, so the tile overstates conversion by 5 percentage points. At 25%, those 300 leads would imply 75 customers, not the recorded 60."
+              },
+              steps: [
+                "Connect only the three monthly rows, with Leads and Customers numeric and the cohort month recognised as a date.",
+                "Apply the same cohort-date selection to the three scorecards and the trend chart.",
+                "Replace the draft March rate with the calculated ratio; retain its original value and the correction in a test log.",
+                "Label the trend as 30-day conversion by first-enquiry month, not purchases made within each calendar month."
+              ]
+            },
+            {
+              heading: "Test selections and deliver a bounded finding",
+              body: [
+                "For March only, expect 300 leads, 60 customers and 20%. For February plus March, expect 250 + 300 = 550 leads and 45 + 60 = 105 customers; 105 / 550 x 100 is about 19.1%, rounded to one decimal place. Selecting April finds no source cohort, so show no records and an unavailable conversion, not the previous rate. Reset to January through March and confirm 750, 135 and 18% return.",
+                "Handover note: the fictional January-to-March cohorts show conversion rising from 15% to 20%, a difference of 5 percentage points. Leela should inspect follow-up records and lead-source mix before recommending a process change. The table does not show which action caused the difference or whether the customers were profitable. Include F1, definitions, corrected tile evidence, filter tests and the source-check date with the report."
+              ],
+              bullets: [
+                "Keep observed filter results beside the independent expectations and retain any unresolved mismatch.",
+                "Use the same completed 30-day window for every cohort and show it beside the chart.",
+                "A relative increase from 15% to 20% is (20 - 15) / 15 x 100, about 33.3%, not 5%.",
+                "Treat further follow-up analysis as the next action, not proof that a particular sales method worked."
+              ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "This case tests denominator discipline as well as chart choice. Correct the data story before making the page look more polished."
+              ],
+              bullets: [
+                "Loading the total as another month → connect only January, February and March, keeping the total as an independent check.",
+                "Averaging the displayed rates → divide 135 customers by 750 leads for the combined 18% rate.",
+                "Accepting the March 25% tile → recompute 60 / 300 and log the 20% correction.",
+                "Calling a 5-point rise a 5% rise → distinguish percentage points from the relative increase of about 33.3%.",
+                "Attributing the trend to follow-up alone → request lead-source and process evidence before making a causal claim."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "The finished case should satisfy these reproducible checks. A reviewer should not need access to your memory of how the chart was configured."
+              ],
+              bullets: [
+                "The default scorecards show 750 qualified leads, 135 converted customers and 18% conversion.",
+                "The trend shows January 15%, February 18% and March 20% in chronological order with the cohort rule visible.",
+                "The incorrect March tile is documented and corrected from 25% to 20% using its own counts.",
+                "March, February-plus-March, April no-records and reset tests have expected and observed results.",
+                "The handover names F1, the check date, the follow-up action and the missing causal and cost evidence."
+              ]
+            }
+          ],
+          practice: {
+            labId: "dashboards",
+            instruction: "Open Build an honest dashboard. Task 1: choose three KPIs for the lab's decision. Task 2: choose the monthly-trend chart. Task 3: recompute each tile's conversion and select the mismatch. Use the lab's leads and customers, not Tara's case figures, and record your workings."
+          },
+          checkpoint: [
+            {
+              question: "Why is Tara's combined conversion 18% rather than the simple mean of its three monthly rates?",
+              answer: "There are 30 + 45 + 60 = 135 customers from 200 + 250 + 300 = 750 leads. Dividing 135 by 750 gives 18%. The monthly cohorts differ in size, so averaging 15%, 18% and 20% gives each cohort equal weight and produces about 17.7%, answering a different question."
+            },
+            {
+              question: "How can you prove that the draft March tile's 25% does not match 300 leads and 60 customers?",
+              answer: "Compute 60 / 300 x 100 = 20%. As a reverse check, 25% of 300 is 75 customers, 15 more than recorded. Correct the ratio, preserve the mismatch in the log and verify that the tile uses the same cohort as its numerator and denominator."
+            },
+            {
+              question: "What can Leela conclude from the rise from 15% to 20%, and what should remain open?",
+              answer: "The recorded cohort conversion rose by 5 percentage points, about 33.3% relative to January's 15%. That observation does not identify a cause or establish profit. Review lead-source mix and follow-up evidence before recommending a process change, keeping the same 30-day conversion rule."
             }
           ]
         }
@@ -672,6 +877,28 @@ export default {
           "State any unresolved issue rather than describing an unfinished report as verified."
         ],
         tip: "Refer to the version you checked, since later source changes require fresh validation."
+      },
+      {
+        question: "A draft shows 25% conversion from 300 leads and 60 customers. How would you explain and resolve the discrepancy?",
+        type: "scenario",
+        answerGuide: [
+          "Recalculate 60 / 300 x 100 = 20%, then reverse-check that 25% would require 75 customers.",
+          "Inspect the numerator, denominator, cohort dates and calculation instead of changing a source value to fit the tile.",
+          "Record the original 25% and corrected 20% with the source reference and tested filter state.",
+          "Explain that the discrepancy is 5 percentage points and retest related views before handover."
+        ],
+        tip: "Describe the discrepancy in plain language while keeping the source counts unchanged."
+      },
+      {
+        question: "Demonstrate how to combine Tara's monthly conversion rates and choose a chart for the trend.",
+        type: "practical",
+        answerGuide: [
+          "Add the cohorts to obtain 750 leads and 135 customers, then calculate 135 / 750 = 18%.",
+          "Explain why averaging 15%, 18% and 20% gives a different result when cohort sizes differ.",
+          "Use a chronological line chart with a labelled percentage axis and the completed 30-day observation rule.",
+          "Test March alone at 20%, February plus March at about 19.1%, and reset to the combined 18%."
+        ],
+        tip: "Show both the totals and the ratio formula so the combined rate is reproducible."
       }
     ]
   },

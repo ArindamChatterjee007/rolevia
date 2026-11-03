@@ -73,7 +73,7 @@ export async function labPage({ id }) {
     if (!data.modules.some(module => module.id === id)) return empty(`Add ${moduleById(id).title} to your plan to open this lab.`, h("a", { class: "button primary", href: "#/portal/addons" }, "Add the module"));
     const status = h("div", { class: "lab-status" });
     const node = lab.render(async (score) => {
-      try { const result = await ctx.api.completeLab(withSession({ labId: id, score })); status.replaceChildren(h("span", { class: "tag good" }, `Saved · best ${result.best}/100 · +${result.pointsAwarded} points`)); if (result.pointsAwarded > 0) confetti(1400); } catch (error) { status.replaceChildren(errorBox(error)); }
+      try { const result = await ctx.api.completeLab(withSession({ labId: id, score })); status.replaceChildren(h("span", { class: "tag good" }, `Saved · best ${result.best}/100 · ${Math.round(result.best / 2)} points from this lab${result.pointsAwarded > 0 ? ` (+${result.pointsAwarded} just now)` : ""}`)); if (result.pointsAwarded > 0) confetti(1400); } catch (error) { status.replaceChildren(errorBox(error)); }
     });
     return h("div", { class: "lab-page" }, h("a", { class: "back-link", href: "#/portal/labs" }, icon("arrow", 14), "All labs"), h("div", { class: "learn-head" }, h("div", {}, h("p", { class: "eyebrow" }, moduleById(id).title), h("h2", {}, lab.title), h("p", { class: "muted" }, lab.summary)), status), h("div", { class: "card lab-card-frame" }, node));
   });

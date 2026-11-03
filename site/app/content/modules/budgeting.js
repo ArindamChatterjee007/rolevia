@@ -64,7 +64,8 @@ export default {
             {
               heading: "Build an input sheet that can be audited",
               body: [
-                "Create Inputs, Unit, Budget, Cash, Actual and Memo tabs beside Costs. On Inputs, put labels in column A, values in B, units in C and fictional source references in D. Link the cost totals rather than typing them again. Use Google Sheets Format, Number to display currency and percentages while keeping numeric cells numeric. In Microsoft Excel, use Home, Number for the equivalent display formats. Keep a note of excluded costs so the model's boundaries remain clear."
+                "Create Inputs, Unit, Budget, Cash, Actual and Memo tabs beside Costs. On Inputs, put labels in column A, values in B, units in C and fictional source references in D. Link the cost totals rather than typing them again. Use Google Sheets Format, Number to display currency and percentages while keeping numeric cells numeric. In Microsoft Excel, use Home, Number for the equivalent display formats. Keep a note of excluded costs so the model's boundaries remain clear.",
+                "The separate Price to break even lab uses one compact sheet in the browser, also openable in Google Sheets. Its input addresses are B1 price, B2 variable cost per pack, B3 fixed costs and B5 planned packs. Do not copy the multi-tab assignment's input addresses into that lab: read the labels and use the exact task cells given in the practice instructions."
               ],
               table: {
                 columns: ["Input cell", "Meaning", "Value or formula"],
@@ -84,9 +85,37 @@ export default {
                 "The model excludes tax, finance charges, one-off equipment purchases and owner pay.",
                 "Source labels identify fictional teaching assumptions, not verified market quotations."
               ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "Start by checking units and timing rather than rushing into formulas. A number can be accurate on its source note and still be wrong in the model if it is entered as the wrong type of cost or period."
+              ],
+              bullets: [
+                "Monthly workspace cost is charged per pack → label fixed costs per month and variable costs per completed pack.",
+                "A price cell contains the text INR 500 → enter numeric 500 and show the currency through formatting and labels.",
+                "Delivered sales are treated as money received → keep collection timing and revenue separate.",
+                "The lab is given the assignment's cell references → read each sheet's labels and use the correct layout."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Ask a reviewer to trace the inputs back to the six fictional source lines. The cost map is ready when its amounts, units, timing and exclusions can all be checked from the workbook."
+              ],
+              bullets: [
+                "The model states one pack-preparation service, November 2026, INR and a zero-to-90-pack activity range.",
+                "Fixed costs reconcile as 6,000 + 4,000 + 2,000 = INR 12,000 per month.",
+                "Variable costs reconcile as 180 + 60 + 30 = INR 270 per completed pack.",
+                "Inputs remain numeric, source-labelled and linked to Costs, with price 500 and base volume 70.",
+                "The 60% November collection assumption, December balance and excluded costs are visible."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "budgeting",
+            instruction: "Open Price to break even. Check its inputs: B1 price 500, B2 variable cost 270, B3 fixed costs 12000 and B5 packs 70. Task 1: enter =B1-B2 in B4 and confirm 230 per pack. Explain why B3 is not subtracted again for every pack."
+          },
           checkpoint: [
             {
               question: "Why enter 500 as a number and show INR through formatting rather than typing INR 500 into the price cell?",
@@ -158,11 +187,36 @@ export default {
                 "Record the expected and observed result for each formula test.",
                 "Do not describe a mathematically positive contribution as evidence of actual customer demand."
               ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "Pricing arithmetic needs both a unit check and a boundary test. Explain what the result means before recommending any next step, especially when contribution is positive but fixed costs remain uncovered."
+              ],
+              bullets: [
+                "52.17 packs are rounded to 52 → use ROUNDUP and verify that the whole-unit threshold covers fixed costs.",
+                "INR 230 contribution is called monthly profit → multiply by volume, then subtract monthly fixed costs once.",
+                "Zero contribution is divided into fixed costs → use a guard and report No finite break-even.",
+                "A correct answer is typed into a result cell → reference the input cells so a changed assumption recalculates."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer should be able to change an input on a copy and observe the correct response. Use the saved expected and observed results to show that you tested the logic, not only the base example."
+              ],
+              bullets: [
+                "Linked price less variable cost returns INR 230 per pack and a clearly labelled 46% contribution margin.",
+                "The whole-pack break-even formula returns 53 from 12,000 / 230, about 52.17 before rounding.",
+                "Boundary checks show 52 packs at INR -40 and 53 packs at INR 190.",
+                "The assignment's zero-contribution test displays a warning rather than a divide-by-zero result.",
+                "Original inputs are restored, and the pricing note states capacity, excluded costs and untested demand."
+              ]
             }
           ],
           practice: {
             labId: "budgeting",
-            instruction: "Open Price to break even. Set price to INR 500, variable cost to INR 270 and units to 70. Compare the displayed contribution, break-even and surplus with your checked sheet, then record the inputs and results."
+            instruction: "Open Price to break even. Task 1: enter =B1-B2 in B4. Task 2: enter =ROUNDUP(B3/B4,0) in B6 and confirm 53 packs. Use the supplied inputs, then test 52 and 53 packs on your workbook copy and retain expected and observed results."
           },
           checkpoint: [
             {
@@ -234,19 +288,44 @@ export default {
             {
               heading: "Label a downside test precisely",
               body: [
-                "The interactive lab asks for a separate demand fall of 20% from the units you selected. From 70 packs, this leaves 56, not the 50 packs in our named lower scenario. With contribution of INR 230 and fixed costs of INR 12,000, the 56-pack result is INR 880. Keep the shock percentage and starting volume beside that calculation. Different downside assumptions can legitimately produce different answers, but an unexplained change of baseline makes the comparison misleading."
+                "The interactive lab asks for a separate demand fall of 20% from the planned packs. From 70 packs, this leaves 56, not the 50 packs in our named lower scenario. With contribution of INR 230 and fixed costs of INR 12,000, the 56-pack result is INR 880. Keep the shock percentage and starting volume beside that calculation. Different downside assumptions can legitimately produce different answers, but an unexplained change of baseline makes the comparison misleading."
               ],
               steps: [
-                "Calculate 70 multiplied by 0.8 to obtain 56 packs for the lab's downside case.",
-                "Calculate 56 multiplied by 230, less 12000, to obtain 880.",
-                "Record this as a separate 20% demand test, not a replacement for the 50-pack lower scenario.",
+                "For lab Task 5, use =B5*80% in B9: 70 multiplied by 0.8 gives 56 packs.",
+                "Use =B9*B4-B3 in B10: 56 multiplied by 230, less 12000, gives 880.",
+                "Record this as a separate 20% demand test, not a substitute for the 50-pack lower scenario.",
                 "Save the three linked scenario rows and their checks as the Week 2 A artefact."
+              ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "Comparable scenarios need shared cost assumptions and clearly labelled changes. Inspect the copied formulas before interpreting the result, then explain which single assumption changed and which ones stayed fixed."
+              ],
+              bullets: [
+                "Copied prices drift down the Inputs tab → lock shared price and cost references with dollar signs.",
+                "A 20% fall keeps only 20% of demand → retain 80% of 70, giving 56 packs.",
+                "The 56-pack lab test is labelled the 50-pack lower case → keep both assumptions and their different results visible.",
+                "A volume scenario also changes price without notice → isolate the volume effect or explicitly label every changed input."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer should be able to reproduce every row from the shared inputs. Compare each operating result with a separate volume-times-contribution check before saving the scenario sheet."
+              ],
+              bullets: [
+                "Base, lower and higher rows link to 70, 50 and 90 packs while sharing price 500, variable cost 270 and fixed costs 12000.",
+                "The rows return revenue of INR 35,000, INR 25,000 and INR 45,000 with variable costs of 18,900, 13,500 and 24,300.",
+                "Operating results reconcile to INR 4,100, INR -500 and INR 8,700 after subtracting fixed costs once.",
+                "The separate lab downside shows 70 x 0.8 = 56 packs and 56 x 230 - 12,000 = INR 880.",
+                "Formula references, capacity limits and the distinction between scenarios and forecasts are documented."
               ]
             }
           ],
           practice: {
             labId: "budgeting",
-            instruction: "Use Price to break even with price 500, cost 270 and units 70. Calculate the 20% demand reduction yourself, enter the resulting surplus and compare it with the lab feedback. Keep this 56-unit test separate from the 50-unit budget scenario."
+            instruction: "Open Price to break even. Task 1: B4 =B1-B2. Task 2: B6 =ROUNDUP(B3/B4,0). Task 3: B7 =B1*B5. Task 4: B8 =B5*B4-B3. Task 5: B9 =B5*80% and B10 =B9*B4-B3. Check 56 packs and INR 880; keep this separate from the 50-pack lower scenario."
           },
           checkpoint: [
             {
@@ -330,9 +409,37 @@ export default {
                 "Show actual profit of INR 2,625 and the checked INR 1,475 adverse variance against plan.",
                 "Submit the cost map, input links, formula tests, scenarios, cash schedule and one-page memo as the final pack."
               ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "The memo should help a reader make a timed decision, not simply repeat a profit figure. Separate cash needs, operating results and variance explanations so that a favourable number cannot hide a different problem."
+              ],
+              bullets: [
+                "Month-end shortfall is treated as the peak funding need → inspect every dated balance and the order of payments and receipts.",
+                "An assumed loan removes the shortfall → leave funding unapproved and request a responsible decision before treating it as available.",
+                "Actuals overwrite the plan → retain both versions and calculate actual minus plan consistently.",
+                "Lower total variable spending is called better cost control → check volume and per-pack cost separately."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer should be able to trace the memo to the profit model, cash schedule and actual inputs. Use the checks below to confirm that the recommendation includes both evidence and a clear limit on what is known."
+              ],
+              bullets: [
+                "Base receipts reconcile to INR 21,000 in November and INR 14,000 due in December, against INR 35,000 revenue.",
+                "Cash balances carry forward correctly and show INR -8,000 at the earliest low point and INR -5,900 at month-end.",
+                "The funding request states the timing assumptions and does not insert an unapproved receipt or loan.",
+                "Actual profit is INR 2,625 and its INR -1,475 variance reconciles to 1,150 volume plus 325 unit-cost effects.",
+                "The memo states excluded costs, capacity, scenario risks and a specific review request without inventing causes."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "budgeting",
+            instruction: "Open Price to break even. Task 1: check B4 contribution. Task 2: check B6 break-even. Task 3: calculate B7 revenue. Task 4: calculate B8 result. Task 5: calculate B9/B10 downside. Use cell references; explain why INR 4,100 and INR 880 are operating results, not cash."
+          },
           checkpoint: [
             {
               question: "Why is the month-end shortfall of INR 5,900 not the full funding requirement in this cash schedule?",
@@ -341,6 +448,101 @@ export default {
             {
               question: "Actual total variable costs are lower than plan, yet variable cost per pack has risen. How can both be true?",
               answer: "Actual volume fell to 65, so fewer packs incurred costs. Total variable costs are INR 17,875 rather than INR 18,900, but each pack costs INR 275 rather than INR 270. Lower total spending does not by itself prove improved unit-cost control."
+            }
+          ]
+        },
+        {
+          id: "budgeting-w2-l3",
+          title: "Case study: Meera Print Services end to end",
+          minutes: 60,
+          objective: "Complete a cell-linked service budget, reconcile base and downside results, test whole-pack break-even and explain the separate cash decision.",
+          sections: [
+            {
+              heading: "Set up the inputs and state the boundaries",
+              body: [
+                "Bring fictional case B1 together using the compact lab layout, not the assignment's Inputs tab addresses. Put price 500 in B1, variable cost per pack 270 in B2, monthly fixed costs 12000 in B3 and planned packs 70 in B5. The variable input comes from 180 + 60 + 30 = INR 270; fixed costs come from 6,000 + 4,000 + 2,000 = INR 12,000. Keep these as numeric inputs with visible INR and pack labels. All services are assumed delivered in November 2026.",
+                "Meera's planning question is whether 70 packs cover the modelled operating costs and what changes if demand is 20% lower. Capacity remains zero to 90 packs, and tax, finance charges, equipment purchases and owner pay remain excluded. The arithmetic tests the assumptions; it does not establish customer demand or authorise spending. Keep the unchanged base inputs visible while calculating the downside in its own cells."
+              ]
+            },
+            {
+              heading: "Build linked formulas and reconcile the base case",
+              body: [
+                "Enter formulas, not the expected answers, in every result cell below. For 70 packs, revenue is 70 x 500 = INR 35,000 and variable costs are 70 x 270 = INR 18,900. Their difference is INR 16,100 contribution, also 70 x 230. Subtract INR 12,000 fixed costs once to obtain INR 4,100 operating profit. If an input changes, all dependent results must recalculate without retyping the answers."
+              ],
+              table: {
+                columns: ["Lab task", "Cell", "Formula", "Expected result"],
+                rows: [
+                  ["Task 1: contribution per pack", "B4", "=B1-B2", "INR 230"],
+                  ["Task 2: whole-pack break-even", "B6", "=ROUNDUP(B3/B4,0)", "53 packs"],
+                  ["Task 3: revenue", "B7", "=B1*B5", "INR 35,000"],
+                  ["Task 4: operating result", "B8", "=B5*B4-B3", "INR 4,100"],
+                  ["Task 5: downside packs", "B9", "=B5*80%", "56 packs"],
+                  ["Task 5: downside result", "B10", "=B9*B4-B3", "INR 880"]
+                ]
+              },
+              callout: {
+                type: "example",
+                title: "Check the threshold on both sides",
+                text: "12,000 / 230 is about 52.17 packs, so ROUNDUP returns 53. At 52 packs: 52 x 230 - 12,000 = INR -40. At 53: 53 x 230 - 12,000 = INR 190. The first whole-pack quantity that covers these costs is 53, not 52."
+              }
+            },
+            {
+              heading: "Compare downside and cash before recommending a plan",
+              body: [
+                "A 20% demand fall keeps 80% of 70: 70 x 0.8 = 56 packs. Revenue becomes 56 x 500 = INR 28,000; variable costs become 56 x 270 = INR 15,120. Contribution is 28,000 - 15,120 = INR 12,880, so the result is 12,880 - 12,000 = INR 880. The profit reduction is 4,100 - 880 = INR 3,220, also 14 fewer packs x INR 230. The separate 50-pack lower scenario still loses INR 500; do not relabel it as this downside.",
+                "Return to the base cash assumptions for the decision note. November receipts are 35,000 x 60% = INR 21,000, with INR 14,000 due in December. Opening cash 4,000 + receipts 21,000 - payments 30,900 leaves INR -5,900 at month-end. The first INR 12,000 payment precedes receipts, so the earlier gap is 12,000 - 4,000 = INR 8,000. Keep that funding request separate from the positive INR 4,100 operating result."
+              ],
+              steps: [
+                "Retain the base and downside formulas with their input labels and independent arithmetic checks.",
+                "On a copy, change one input and verify linked results move; restore the case inputs afterwards.",
+                "Use the assignment's guarded break-even formula if testing zero or negative contribution; do not divide blindly.",
+                "Write a conditional memo asking the reviewer to check demand evidence, collection terms and the INR 8,000 early funding need."
+              ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "This compact sheet is useful only if the relationships remain intact. Inspect formulas and labels before reading out a profit number, then explain which decisions still need evidence beyond the spreadsheet."
+              ],
+              bullets: [
+                "230 or 4100 is typed as a result → use the task's input-cell references so later changes flow through.",
+                "Fixed costs are subtracted per pack and again per month → calculate unit contribution first, then subtract fixed costs once.",
+                "The downside overwrites B5 with 56 → retain planned 70 in B5 and calculate 80% of it in B9.",
+                "A profitable model is called cash-ready → check the dated schedule and flag the INR 8,000 early gap.",
+                "52 packs are accepted as break-even → test 52 and 53 to expose the INR 40 shortfall below the threshold."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Ask a reviewer to tick the sheet and memo together. A complete answer shows the calculations, the checks and the unresolved decision, without confusing a modelled operating result with money available to spend."
+              ],
+              bullets: [
+                "B1, B2, B3 and B5 contain numeric inputs 500, 270, 12000 and 70 with units and fictional sources.",
+                "B4, B6, B7, B8, B9 and B10 contain cell-linked formulas rather than typed results.",
+                "Base revenue 35,000 less variable costs 18,900 gives contribution 16,100 and operating profit 4,100, all INR.",
+                "Break-even is 53 whole packs, supported by the INR -40 and INR 190 boundary checks.",
+                "The 56-pack downside gives contribution INR 12,880 and result INR 880, a decrease of INR 3,220 from base.",
+                "The memo separates base cash timing and the INR 8,000 early gap from operating profit and states excluded costs."
+              ]
+            }
+          ],
+          practice: {
+            labId: "budgeting",
+            instruction: "Open Price to break even. Task 1: B4 =B1-B2. Task 2: B6 =ROUNDUP(B3/B4,0). Task 3: B7 =B1*B5. Task 4: B8 =B5*B4-B3. Task 5: B9 =B5*80% and B10 =B9*B4-B3. Check 230, 53, 35000, 4100, 56 and 880; keep formulas, not typed answers."
+          },
+          checkpoint: [
+            {
+              question: "Which two linked formulas establish contribution and whole-pack break-even in the compact sheet?",
+              answer: "B4 uses =B1-B2, giving INR 230. B6 uses =ROUNDUP(B3/B4,0), giving 53 packs from about 52.17. Test the boundary: 52 x 230 - 12,000 = INR -40, while 53 x 230 - 12,000 = INR 190. These checks confirm upward rounding and the correct input links."
+            },
+            {
+              question: "How do the base and 20% downside operating results reconcile without changing fixed costs?",
+              answer: "At 70 packs, revenue 35,000 - variable costs 18,900 = contribution 16,100; less 12,000 gives INR 4,100. At 56 packs, revenue 28,000 - variable costs 15,120 = contribution 12,880; less 12,000 gives INR 880. The decrease of 3,220 equals 14 fewer packs x 230."
+            },
+            {
+              question: "Why does positive base operating profit not resolve the first payment in this case?",
+              answer: "The first INR 12,000 payment is due before receipts, but opening cash is only INR 4,000, leaving an INR 8,000 gap. Profit records delivered services, not when customers pay. Later receipts reduce the gap but cannot fund an earlier payment without an approved arrangement."
             }
           ]
         }
@@ -409,10 +611,10 @@ export default {
           "Keep price, per-pack cost and fixed costs linked to shared inputs.",
           "Check 50 packs: INR 500 loss; 70 packs: INR 4,100 profit.",
           "Check 90 packs: INR 8,700 profit.",
-          "In the lab, reduce 70 packs by 20% to 56 and check INR 880 surplus.",
-          "Keep the 56-pack lab test separate from the 50-pack lower scenario."
+          "In lab Tasks 1 to 4, calculate contribution, break-even, revenue and result with cell references.",
+          "In Task 5, use =B5*80% in B9 and =B9*B4-B3 in B10: 56 packs and INR 880, separate from the 50-pack lower scenario."
         ],
-        notes: "Allow 7 minutes. Give learners time to check one scenario and enter the lab's downside answer. Ask them to explain why two different downside assumptions need not give the same result."
+        notes: "Allow 7 minutes. Give learners time to check one scenario and enter the lab's linked downside formulas, not typed answers. Ask them to explain why two different downside assumptions need not give the same result."
       },
       {
         kind: "content",
@@ -569,6 +771,29 @@ export default {
           "Say how you confirmed understanding without overstating the outcome."
         ],
         tip: "Use clear units and one worked example rather than a long list of finance terms."
+      },
+      {
+        question: "A proposed price falls to INR 480 while cost stays INR 270, fixed costs INR 12,000 and planned volume 70. What changes would you report?",
+        type: "scenario",
+        answerGuide: [
+          "Use a separately labelled copy: contribution becomes 480 - 270 = INR 210 per pack, not INR 230.",
+          "Round 12,000 / 210 upward to 58 packs for break-even under the unchanged cost assumptions.",
+          "At 70 packs, revenue is INR 33,600 and contribution INR 14,700, leaving INR 2,700 operating profit.",
+          "At 56 packs, 56 x 210 - 12,000 = INR -240; flag that downside loss without assuming a lower price increases demand."
+        ],
+        tip: "Show the changed input and dependent formulas, then state which assumptions still need evidence."
+      },
+      {
+        question: "Demonstrate the five Price to break even tasks without typing any calculated answers into result cells.",
+        type: "practical",
+        answerGuide: [
+          "Task 1 uses =B1-B2 in B4 for INR 230 contribution per pack from the labelled input cells.",
+          "Task 2 uses =ROUNDUP(B3/B4,0) in B6 for 53 packs; verify 52 leaves INR -40 and 53 leaves INR 190.",
+          "Task 3 uses =B1*B5 in B7 for INR 35,000 revenue, not collected cash.",
+          "Task 4 uses =B5*B4-B3 in B8 for INR 4,100 operating profit after fixed costs are subtracted once.",
+          "Task 5 uses =B5*80% in B9 and =B9*B4-B3 in B10 for 56 packs and INR 880, without overwriting the base volume."
+        ],
+        tip: "Change one input on a copy and inspect the formula links, then restore the original case assumptions."
       }
     ]
   },

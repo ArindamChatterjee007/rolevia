@@ -23,6 +23,8 @@ export function sheetLab({ labId, title, brief, cells, tasks, columns = 8, rows 
   let selected = "A1";
   let editing = false;
   let best = 0;
+  let saveTimer = null;
+  const saveBest = (score) => { clearTimeout(saveTimer); saveTimer = setTimeout(() => onComplete(score), 700); };
   const root = h("div", { class: "sheet-lab" });
   const formulaInput = h("input", { class: "input sheet-formula", spellcheck: false, autocomplete: "off", "aria-label": "Formula bar", placeholder: "Type a value or a formula starting with =" });
   const cellLabel = h("span", { class: "sheet-cell-name" }, selected);
@@ -59,7 +61,7 @@ export function sheetLab({ labId, title, brief, cells, tasks, columns = 8, rows 
     const outcome = evaluateTasks(tasks, sheetAccessor(sheet));
     taskList.replaceChildren(...outcome.results.map((result, index) => h("li", { class: `sheet-task ${result.ok ? "done" : ""}` }, h("span", { class: "sheet-task-index" }, result.ok ? icon("check", 12) : index + 1), h("div", { class: "grow" }, h("strong", {}, result.title), h("p", { class: "tiny muted" }, tasks[index].hint), result.detail && !result.ok ? h("p", { class: "tiny detail" }, result.detail) : null), h("button", { class: "mini", type: "button", "aria-label": `Go to ${tasks[index].cells[0]}`, onClick: () => { select(tasks[index].cells[0]); grid.focus(); } }, tasks[index].cells[0]))));
     scoreBox.replaceChildren(h("strong", {}, `${outcome.passed} / ${outcome.total}`), h("span", { class: "tiny muted" }, " tasks complete"), h("div", { class: "bar" }, h("div", { class: "bar-fill", style: { width: `${outcome.score}%` } })));
-    if (outcome.passed > 0 && outcome.score > best) { best = outcome.score; onComplete(outcome.score); }
+    if (outcome.passed > 0 && outcome.score > best) { best = outcome.score; saveBest(outcome.score); }
     return outcome;
   };
 

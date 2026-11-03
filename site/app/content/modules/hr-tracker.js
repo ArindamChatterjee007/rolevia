@@ -52,10 +52,11 @@ export default {
             {
               heading: "Make scoring definitions understandable",
               body: [
-                "Use three equally weighted criteria: tracker accuracy, written communication and process mapping. Define what evidence earns each score before looking at an applicant. On a five-point scale, one means major omissions, three means usable work with specific corrections and five means accurate, complete work with clear checks. Scores of two and four sit between these anchors and need a written reason. Missing evidence remains pending; it is not automatically a poor score or a reason to invent an average."
+                "For the fifteen-applicant assignment, use three equally weighted criteria: tracker accuracy, written communication and process mapping. Define what evidence earns each score before looking at an applicant. On a five-point scale, one means major omissions, three means usable work with specific corrections and five means accurate, complete work with clear checks. Scores of two and four sit between these anchors and need a written reason. Missing evidence remains pending; it is not automatically a poor score or a reason to invent an average.",
+                "Fair scorecard is a separate four-candidate spreadsheet lab, available in the browser and openable in Google Sheets. Its four job-related criteria are Spreadsheet test, Written case, Structured interview and References. Weights occupy the row B2:E2, initially 0.4, 0.3, 0.2 and 0.2. Task 1 corrects References in E2 to 0.1 and checks =SUM(B2:E2) in B3: one whole, displayed as 100 per cent, not the original 110 per cent. Keep this weighted lab separate from the assignment's three-criterion average."
               ],
               steps: [
-                "Write a short task and expected output for each of the three criteria.",
+                "Write a short task and expected output for each of the three assignment criteria.",
                 "Describe the one, three and five anchors using observable work rather than personality.",
                 "Ask a second learner to score the same sample and discuss unclear definitions.",
                 "Record the agreed rubric version before using it across the fictional applicant set."
@@ -72,11 +73,36 @@ export default {
                 "Keep simulated decisions separate from any real recruitment process.",
                 "Record workflow changes before applying them to later applicant records."
               ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A clear process is agreed before anyone is scored. Check that the criteria describe work, that stage labels refer to evidence and that the spreadsheet's weighting policy is understandable to another reviewer."
+              ],
+              bullets: [
+                "A personal impression becomes a criterion → replace it with an observable work task and scoring anchor.",
+                "Offer is treated as Accepted → require a separate recorded acceptance event.",
+                "Weights change to favour a candidate → agree them from role needs and log the lab's input correction against that policy.",
+                "The lab is treated as the three-criterion assignment → keep its four weighted criteria and separate dataset clearly labelled."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Give a reviewer the role brief, workflow and scoring definitions. They should be able to check each item below without relying on informal explanations or knowledge of the fictional applicants."
+              ],
+              bullets: [
+                "The role brief links each of the three assignment criteria to a task, sample and named reviewer.",
+                "The rubric defines observable anchors at one, three and five and records its agreed version.",
+                "All seven stages have entry rules, including distinct Offer and Accepted states.",
+                "Ownership and escalation are documented, and unrelated personal fields are absent.",
+                "The lab's B2:E2 weights total one using SUM in B3; the correction from 110 to 100 per cent is recorded."
+              ]
             }
           ],
           practice: {
             labId: "hr-tracker",
-            instruction: "Open Fair scorecard. Remove the criteria that do not describe job-related work. In your role brief, explain why the three remaining work samples are relevant; inspect the scores without treating the exercise as a real hiring decision."
+            instruction: "Open Fair scorecard. Task 1: change References E2 from 0.2 to 0.1 and enter =SUM(B2:E2) in B3; confirm 1, displayed as 100 per cent. Explain why the original weights totalled 110 per cent. Keep this lab separate from the three-criterion assignment."
           },
           checkpoint: [
             {
@@ -166,9 +192,37 @@ export default {
                 "For an unresolved discrepancy, keep the original value, flag it and assign Rohit a review date.",
                 "Save the validated tracker, history and test evidence as the Week 1 B artefact."
               ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "The tracker must describe events that happened in the simulation, not events somebody expects. Use stable IDs and dated sources so that a filter, sort or clerical correction cannot silently change the story."
+              ],
+              bullets: [
+                "Fifteen nonblank rows are treated as fifteen distinct applicants → check every expected ID and its COUNTIF result.",
+                "A booked interview is entered as completed → put the planned date in next actions until completion evidence exists.",
+                "A pending acceptance becomes a zero date → leave it blank and retain the Offer stage.",
+                "A date is corrected without a trail → retain the old and new values, source, reviewer and correction date."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Use a test copy for invalid entries and give the saved tracker to another learner for review. These checks cover record integrity as well as the practical information needed for follow-up."
+              ],
+              bullets: [
+                "A01 to A15 occur once each under R01, and the header row and filters remain usable.",
+                "Invalid stages are rejected and date fields contain actual dates or justified blanks.",
+                "The seven stage counts reconcile as 3 + 2 + 3 + 1 + 1 + 4 + 1 = 15 at 21 November.",
+                "Active records have owners and dated next actions; A09's response check is due on 23 November.",
+                "The audit preserves source-backed corrections and flags unresolved discrepancies for Rohit."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "hr-tracker",
+            instruction: "Open Fair scorecard. Task 1: correct B2:E2 and check their SUM in B3. Task 2: enter =SUMPRODUCT(B6:E6,$B$2:$E$2)/5*100 in G6 and fill through G9. Check both ranges are 1x4 rows and Priya, Rohit, Meera and Daniel each retain their own scores."
+          },
           checkpoint: [
             {
               question: "An interview is booked for 24 November but has not happened. Where should that date go?",
@@ -199,7 +253,7 @@ export default {
               ],
               steps: [
                 "Use rows 2:7 for A06 to A11: A ID, B rubric version, C accuracy, D communication, E process, F average, G evidence, H reviewer.",
-                "Use the three criteria agreed in the role brief with equal weighting.",
+                "Use the three criteria agreed in the assignment role brief with equal weighting.",
                 "Record when each work sample was assessed and whether any part is missing.",
                 "Ask Rohit to review exceptions before including them in a comparison."
               ]
@@ -222,7 +276,8 @@ export default {
             {
               heading: "Calculate scores without hiding missing evidence",
               body: [
-                "For three available scores of 4, 3 and 5, the total is 12 and the equal-weight average is 4.00. In Google Sheets, if those scores occupy C2:E2, use the formula below to prevent a partial average being presented as complete. Microsoft Excel uses the same formula. A tie is not an invitation to add an unrelated personal preference; follow a pre-agreed, job-related review step and keep the evidence behind that step visible."
+                "For three available scores of 4, 3 and 5, the total is 12 and the equal-weight average is 4.00. In Google Sheets, if those scores occupy C2:E2, use the formula below to prevent a partial average being presented as complete. Microsoft Excel uses the same formula. A tie is not an invitation to add an unrelated personal preference; follow a pre-agreed, job-related review step and keep the evidence behind that step visible.",
+                "In the separate four-criterion lab, use =SUMPRODUCT(B6:E6,$B$2:$E$2)/5*100 in G6 and fill through G9. Both ranges must have the same shape: one row of four cells, or 1x4. Corrected weights total one, so SUMPRODUCT gives a weighted mean on the one-to-five scale; dividing by five and multiplying by 100 gives the lab's total out of 100. Do not compare an unscaled value such as 3.80 with the 60-point threshold. Confirm all four scores are present and valid before interpreting any ranking."
               ],
               steps: [
                 "In F2 use =IF(COUNT(C2:E2)=3,AVERAGE(C2:E2),\"Pending evidence\") for the three-score average, then copy down the applicant rows.",
@@ -249,11 +304,36 @@ export default {
                 "Keep unresolved issues pending for Rohit with a dated next action.",
                 "Submit the consistent evaluation sheet as the Week 2 A artefact."
               ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A formula can be numerically correct while answering the wrong assessment question. Check completeness, scale and rubric consistency before using an average or weighted total in a comparison."
+              ],
+              bullets: [
+                "Two scores are presented as a complete three-criterion average → keep the overall result pending until evidence is complete.",
+                "A one-to-five weighted mean is compared with 60 → convert to the lab's scale out of 100 first.",
+                "Copied formulas shift the weights → lock $B$2:$E$2 and keep both SUMPRODUCT ranges as 1x4 rows.",
+                "A tied score is broken by personal preference → use the pre-agreed job-related review and retain its evidence."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer should be able to move from each score to a sample and an anchor. Test the calculation and the missing-evidence route on a copy, keeping the result of both tests in the review log."
+              ],
+              bullets: [
+                "Each scored applicant uses the same task conditions, rubric version and one-to-five whole-number anchors.",
+                "Every criterion score has an inspectable work-sample reference and a job-related evidence note.",
+                "The assignment returns 4.00 for 4, 3 and 5, and Pending evidence for an incomplete row.",
+                "The lab's G6:G9 formulas use aligned fixed weights and give 76, 50, 82 and 74 on the threshold's scale.",
+                "Corrections, ties and unresolved disagreements retain a reviewer, reason and next-review date."
+              ]
             }
           ],
           practice: {
             labId: "hr-tracker",
-            instruction: "Complete Fair scorecard using only its three job-related criteria. Recalculate each displayed average by hand, identify the strongest supported score and record why the simulation is evidence practice rather than a real selection decision."
+            instruction: "Open Fair scorecard. Task 1: correct B2:E2 and SUM in B3. Task 2: SUMPRODUCT totals in G6:G9. Task 3: MAX in B11. Task 4: INDEX/MATCH or XLOOKUP in B12 using A6:A9 and G6:G9. Task 5: IF below 60 in H6:H9. Check 76, 50, 82 and 74 by hand."
           },
           checkpoint: [
             {
@@ -319,7 +399,8 @@ export default {
             {
               heading: "Assemble the fifteen-applicant audit",
               body: [
-                "Your final pack contains the role brief, workflow, validated tracker, scorecard, summary, onboarding checklist and audit trail. Include the two metric definitions and show exactly which records produce them. Reviewers should be able to follow a correction from the original evidence to the final value. A small, honest summary is preferable to a polished report with hidden gaps. Finish by explaining one data-quality check and one issue that would need a responsible person's review outside this simulation."
+                "Your final pack contains the role brief, workflow, validated tracker, scorecard, summary, onboarding checklist and audit trail. Include the two metric definitions and show exactly which records produce them. Reviewers should be able to follow a correction from the original evidence to the final value. A small, honest summary is preferable to a polished report with hidden gaps. Finish by explaining one data-quality check and one issue that would need a responsible person's review outside this simulation.",
+                "If you include the separate lab results, label the four-candidate dataset and its weighting version. MAX returns a number, not a name or decision. A name lookup must use the same total range and an exact match; a first-match lookup can hide a tie. Use IF's below-60 flag as a prompt to review evidence, not as an automatic rejection. Keep these practice results separate from the seeded offer and acceptance events in the fifteen-applicant tracker."
               ],
               steps: [
                 "Confirm exactly 15 fictional applicants for R01, with unique IDs, owners and appropriate dates.",
@@ -328,9 +409,37 @@ export default {
                 "Include the 2 / 6 conversion, the checked 18-day time-to-fill and the owned onboarding checklist.",
                 "Save the recruitment summary and complete audit pack as the Week 2 B artefact."
               ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A summary must preserve the meaning of its source records. Distinguish current status, completed events, formula rankings and authorised decisions rather than compressing them into one attractive result."
+              ],
+              bullets: [
+                "Only three current Interview records form the denominator → count all six applicants with completed interview events.",
+                "A blank acceptance date produces zero days → report Not yet filled until an acceptance is evidenced.",
+                "A MAX result is treated as a person's name → use an exact-match lookup and inspect ties separately.",
+                "An accepted offer implies onboarding is finished → show each preparation task's owner, due date and actual status."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Ask the reviewer to trace one metric and one onboarding action back to their sources. The report is ready when its numbers, definitions and remaining work can all be checked from the saved pack."
+              ],
+              bullets: [
+                "The summary names R01, the 21 November snapshot and 15 unique applicants across seven reconciled stages.",
+                "The offer conversion shows two offers from six interviewed applicants: 2 / 6, about 33.3%.",
+                "Time-to-fill shows 20 November minus 2 November = 18 elapsed calendar days with source references.",
+                "A10's onboarding checklist names owners, due dates, evidence and pending states without real personal documents.",
+                "Any lab ranking is separately labelled, checked for ties and distinguished from the seeded recruitment decisions."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "hr-tracker",
+            instruction: "Open Fair scorecard. Task 1: verify B2:E2 with SUM in B3. Task 2: check SUMPRODUCT totals in G6:G9. Task 3: MAX in B11. Task 4: exact-match name in B12 from A6:A9 and G6:G9. Task 5: IF below 60 in H6:H9. Report Meera's 82, Rohit's flag and review limits."
+          },
           checkpoint: [
             {
               question: "Only three applicants currently sit in Interview. Why does the conversion calculation use six interviewed applicants?",
@@ -339,6 +448,101 @@ export default {
             {
               question: "A second practice role has no accepted offer at the snapshot. How should its time-to-fill be reported?",
               answer: "Report Not yet filled because the acceptance event has not occurred. You may show elapsed age from approval to the snapshot as a separate measure, but it is not a completed time-to-fill and should not be mixed into an average of filled roles."
+            }
+          ]
+        },
+        {
+          id: "hr-tracker-w2-l3",
+          title: "Case study: Nila Office Supplies end to end",
+          minutes: 60,
+          objective: "Build and check a four-candidate weighted scorecard, find the highest total and its name, and hand over threshold flags with evidence and limitations.",
+          sections: [
+            {
+              heading: "Agree the role, evidence and weights",
+              body: [
+                "Nila Office Supplies is fictional. Its practice coordinator Kavya reviews Priya, Rohit, Meera and Daniel using the same sample tasks and one-to-five anchors. These candidates are separate from the fifteen-applicant assignment. Use the lab's four criteria: Spreadsheet test, Written case, Structured interview and References. References means supplied fictional job-related evidence notes, not an invitation to collect contact details or approach real people. Retain the same assessment conditions and rubric for everyone.",
+                "The starting weights in B2:E2 are 0.4, 0.3, 0.2 and 0.2. Enter =SUM(B2:E2) in B3: 0.4 + 0.3 + 0.2 + 0.2 = 1.1, or 110 per cent. The case's agreed policy is 40%, 30%, 20% and 10%, so correct References E2 to 0.1 and log the old value, new value and reason. Now B3 returns 0.4 + 0.3 + 0.2 + 0.1 = 1, displayed as 100 per cent. This repairs a policy-input error; it is not a change made to favour the highest scorer.",
+                "Keep names in A6:A9 and their four scores in B6:E9 in criterion order. G6:G9 hold weighted totals; H6:H9 hold threshold flags. B11 is the top score and B12 the top name. Record fictional evidence IDs S01 to S04 beside the four names in a separate review note so the lab's supplied score cells remain unchanged. The table in the next section reproduces the supplied scores and the corrected results."
+              ]
+            },
+            {
+              heading: "Calculate four totals without hiding the scale",
+              body: [
+                "Enter =SUMPRODUCT(B6:E6,$B$2:$E$2)/5*100 in G6 and fill through G9. B6:E6 and $B$2:$E$2 are both 1x4 rows; equal length alone is insufficient if one range is a column. Each score is multiplied by its matching criterion weight. Dollar signs keep the weight row fixed while the score row changes. With weights totalling one, divide the weighted mean by five and multiply by 100 to compare it with the 60-point threshold. Check all four scores are present and valid first.",
+                "Check the arithmetic independently. Rohit: (0.8 + 0.9 + 0.4 + 0.4) / 5 x 100 = 50. Meera: (2.0 + 1.2 + 0.6 + 0.3) / 5 x 100 = 82. Daniel: (1.2 + 1.5 + 0.8 + 0.2) / 5 x 100 = 74. Keep unrounded totals for comparisons and use display formatting only for readability. Do not alter the supplied scores to reach an expected ranking."
+              ],
+              table: {
+                columns: ["Candidate / row", "Scores in B:E", "Weighted mean", "Total in G", "Below 60?"],
+                rows: [
+                  ["Priya / 6", "4, 3, 4, 5", "3.80", "76", "No"],
+                  ["Rohit / 7", "2, 3, 2, 4", "2.50", "50", "Yes"],
+                  ["Meera / 8", "5, 4, 3, 3", "4.10", "82", "No"],
+                  ["Daniel / 9", "3, 5, 4, 2", "3.70", "74", "No"]
+                ]
+              },
+              callout: {
+                type: "example",
+                title: "Priya's total, one term at a time",
+                text: "(4 x 0.4 + 3 x 0.3 + 4 x 0.2 + 5 x 0.1) / 5 x 100 = (1.6 + 0.9 + 0.8 + 0.5) / 5 x 100 = 3.8 / 5 x 100 = 76. A plain average would apply different weights and answer a different question."
+              }
+            },
+            {
+              heading: "Find the top result and hand it over responsibly",
+              body: [
+                "The highest corrected total is 82 for Meera. Rohit's 50 is the only result below 60; three are at or above the threshold, so 1 + 3 = 4 candidates reconcile. This flag routes work for review rather than making a selection decision. Kavya's 22 November 2026 handover records the rubric version, weight correction, four evidence IDs and arithmetic checks. She must review Rohit's spreadsheet-test and structured-interview evidence by 23 November; any unresolved sample remains pending."
+              ],
+              steps: [
+                "For Task 3, enter =MAX(G6:G9) in B11 and confirm 82 from the same four complete totals.",
+                "For Task 4, enter =INDEX(A6:A9,MATCH(B11,G6:G9,0)) in B12 to return Meera using an exact match.",
+                "Alternatively, =XLOOKUP(B11,G6:G9,A6:A9,\"Check totals\",0) returns the same name with an exact match.",
+                "For Task 5, enter =IF(G6<60,\"Review below threshold\",\"At or above threshold\") in H6 and fill through H9.",
+                "Check =COUNTIF(G6:G9,B11) in a review note: the result is 1. If greater than 1, list all tied names and use the agreed review rule.",
+                "Hand over the evidence and flags to Kavya; do not turn the top name or threshold into an automatic offer or rejection."
+              ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "Before interpreting a ranking, verify the inputs, the formula layout and the meaning of a flag. The same arithmetic error repeated across four rows can look consistent without being correct."
+              ],
+              bullets: [
+                "The initial 110 per cent is accepted → correct References E2 to 0.1 and verify SUM(B2:E2) returns one in B3.",
+                "SUMPRODUCT mixes a row and a column → use B6:E6 with $B$2:$E$2 so both ranges are 1x4 rows.",
+                "A first-match lookup hides a tie → count occurrences of the maximum and review all tied candidates.",
+                "Below 60 is treated as automatic rejection → retain the evidence, review owner and next action instead."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer should be able to reproduce the weighted scorecard without changing the agreed criteria or choosing a preferred candidate. Use the saved formulas and evidence IDs to support every check below."
+              ],
+              bullets: [
+                "B2:E2 contains 0.4, 0.3, 0.2 and 0.1; B3 uses SUM and returns one with the E2 correction logged.",
+                "Each candidate has four valid scores; G6:G9 contain SUMPRODUCT formulas with matching 1x4 ranges and fixed weights.",
+                "Corrected totals reconcile to Priya 76, Rohit 50, Meera 82 and Daniel 74 using the supplied scores.",
+                "B11 uses MAX to return 82; B12 uses an exact-match lookup to return Meera, and the maximum occurs once.",
+                "IF in H6:H9 flags only Rohit below 60; a score of exactly 60 would be at or above the threshold.",
+                "Kavya's handover includes the rubric, evidence, weight correction, flags, review date and interpretation limits."
+              ]
+            }
+          ],
+          practice: {
+            labId: "hr-tracker",
+            instruction: "Open Fair scorecard. Task 1: correct E2 and SUM(B2:E2) in B3. Task 2: SUMPRODUCT in G6:G9. Task 3: MAX in B11. Task 4: exact-match name in B12 from A6:A9 and G6:G9. Task 5: IF flags in H6:H9. Check Meera at 82 and Rohit below 60; retain the formulas."
+          },
+          checkpoint: [
+            {
+              question: "How does Priya's corrected weighted mean of 3.80 become a comparable total of 76?",
+              answer: "Corrected weights total one, so SUMPRODUCT gives 4 x 0.4 + 3 x 0.3 + 4 x 0.2 + 5 x 0.1 = 3.80 on the one-to-five scale. Divide by five and multiply by 100: 3.80 / 5 x 100 = 76. Compare 76, not 3.80, with the 60-point threshold."
+            },
+            {
+              question: "What should the top-result and threshold checks return after correcting References to 0.1?",
+              answer: "G6:G9 returns 76, 50, 82 and 74. MAX in B11 gives 82; an exact-match lookup in B12 returns Meera and a tie check finds one occurrence. IF in H6:H9 flags only Rohit's 50 below 60. These are review aids, not offer or rejection decisions."
+            },
+            {
+              question: "Why must the two ranges in the G6 SUMPRODUCT formula both be 1x4 rows?",
+              answer: "SUMPRODUCT pairs corresponding entries. B6:E6 and $B$2:$E$2 each contain one row of four cells in the same criterion order. A four-cell column has a different shape and cannot be substituted directly. Lock the weight row before filling down so only each candidate's score row changes."
             }
           ]
         }
@@ -370,12 +574,12 @@ export default {
         kind: "content",
         title: "A criterion needs a task and an anchor",
         bullets: [
-          "Tracker accuracy, written communication and process mapping are the three criteria.",
+          "The assignment uses tracker accuracy, written communication and process mapping.",
           "Use the same task conditions and rubric version across the practice set.",
           "Describe scores through observable work, not personal impressions.",
           "Calibrate disagreements before scoring the full set."
         ],
-        notes: "Allow 6 minutes. Read one sample note and ask pairs to place it against an anchor. Discuss wording that different reviewers could interpret differently and improve it together."
+        notes: "Allow 6 minutes. Read one sample note and ask pairs to place it against an anchor. Discuss wording that different reviewers could interpret differently and improve it together. Keep the assignment's three criteria distinct from the lab's four weighted criteria."
       },
       {
         kind: "steps",
@@ -403,12 +607,13 @@ export default {
         kind: "steps",
         title: "Run the fair-scorecard exercise",
         steps: [
-          "Keep only the three job-related work samples in the lab.",
-          "Calculate the equal-weight averages independently.",
-          "Match the displayed result to the evidence, not personal similarity.",
-          "Write one limitation of using a small simulated scorecard."
+          "Task 1: correct References E2 to 0.1; =SUM(B2:E2) in B3 must return one, displayed as 100 per cent.",
+          "Task 2: use =SUMPRODUCT(B6:E6,$B$2:$E$2)/5*100 in G6 and fill to G9; both ranges are 1x4 rows.",
+          "Task 3: use =MAX(G6:G9) in B11; Task 4: use an exact-match lookup over A6:A9 and G6:G9 in B12.",
+          "Task 5: use IF below 60 in H6:H9; Meera leads at 82 and Rohit is flagged at 50.",
+          "Explain one limitation of using a small simulated scorecard rather than making a decision from the ranking."
         ],
-        notes: "Allow 7 minutes. Give learners time to finish the lab and explain their calculation to a neighbour. Remind them that the lab's suggested advancement is a simulation, not permission to assess real people."
+        notes: "Allow 7 minutes. Demonstrate the four-criterion spreadsheet in the browser or Google Sheets, then let learners check one row independently. Distinguish its weighted total from the assignment's equal-weight average. Neither a top name nor a threshold flag authorises a real selection decision."
       },
       {
         kind: "content",
@@ -564,6 +769,29 @@ export default {
           "Be honest if the practice exercise ended before the issue was resolved."
         ],
         tip: "A well-documented unresolved issue can be a stronger example than an invented successful ending."
+      },
+      {
+        question: "A weighted scorecard produces a top name, but the starting weights total 110 per cent. What would you do before sharing the ranking?",
+        type: "scenario",
+        answerGuide: [
+          "Pause interpretation and check B2:E2 with SUM in B3 against the agreed role-based weighting policy.",
+          "Correct References E2 from 0.2 to 0.1 as the case policy requires, rather than choosing weights to preserve a preferred ranking.",
+          "Recalculate G6:G9 with same-shaped SUMPRODUCT ranges and the scale conversion, then rerun MAX, the exact-match lookup and IF flags.",
+          "Record the correction and ask the responsible reviewer to check the evidence and any changed comparison."
+        ],
+        tip: "Even if the top name stays the same, incorrect weights distort the totals and must be corrected before interpretation."
+      },
+      {
+        question: "Demonstrate how the four-candidate lab finds a top total, its name and candidates needing threshold review.",
+        type: "practical",
+        answerGuide: [
+          "Task 1: correct E2 to 0.1 and check =SUM(B2:E2) in B3 returns one; retain all supplied scores.",
+          "Task 2: use =SUMPRODUCT(B6:E6,$B$2:$E$2)/5*100 in G6 and fill to G9 for totals 76, 50, 82 and 74.",
+          "Task 3: =MAX(G6:G9) in B11 gives 82; Task 4: an exact-match INDEX/MATCH or XLOOKUP over A6:A9 and G6:G9 in B12 returns Meera.",
+          "Task 5: use IF(G6<60,...) in H6 and fill to H9; only Rohit is flagged, while exactly 60 would not be below the threshold.",
+          "Check for tied maxima and hand over the rubric and evidence without treating the spreadsheet as a selection decision."
+        ],
+        tip: "Explain the matching 1x4 ranges and why the weighted mean is divided by five and multiplied by 100 before comparison with 60."
       }
     ]
   },

@@ -15,7 +15,8 @@ export default {
             {
               heading: "Give the task a clear boundary",
               body: [
-                "Work with an AI assistant such as ChatGPT or a comparable tool, or use supplied example outputs if account access is unavailable. The assistant can produce useful drafts and can also be wrong. Our fictional brief R1 asks Meera Foods to compare two dispatch-scheduling services for 80 bookings a month and two staff users. The comparison budget is INR 5,000 before tax and carrier charges. Exporting booking records is required; a lower price cannot replace that requirement."
+                "Work with an AI assistant such as ChatGPT or a comparable tool, or use supplied example outputs if account access is unavailable. The assistant can produce useful drafts and can also be wrong. Our fictional brief R1 asks Meera Foods to compare two dispatch-scheduling services for 80 bookings a month and two staff users. The comparison budget is INR 5,000 before tax and carrier charges. Exporting booking records is required; a lower price cannot replace that requirement.",
+                "Use six labelled brief fields: role, goal, context, constraints, output format and acceptance criteria. For R1, the role is a business-support analyst and the goal is a checked shortlist. Context contains the 80-booking assumption and two users. Constraints restrict evidence to R1, A1 and B1 and prohibit invented features. The output format is a comparison table plus a short conditional note. Acceptance criteria require traceable claims, recalculated costs and a visible export check."
               ],
               table: {
                 columns: ["Brief R1 field", "Requirement"],
@@ -53,9 +54,11 @@ export default {
               ]
             },
             {
-              heading: "Prompt two: analysis with visible workings",
+              heading: "Prompts two and three: analysis, then communication",
               body: [
-                "Ask for the calculation steps, not just a recommendation. Visible workings help you locate an error, but they are not independent proof that the answer is right. You will recalculate the amounts in Google Sheets during week two. Keep the assumed volume separate from the source fees so it can be changed without rewriting the evidence. Ask the assistant to distinguish a modelled cost difference from a measured saving that a business has actually achieved."
+                "Ask for the calculation steps, not just a recommendation. Visible workings help you locate an error, but they are not independent proof that the answer is right. You will recalculate the amounts in Google Sheets during week two. Keep the assumed volume separate from the source fees so it can be changed without rewriting the evidence. Ask the assistant to distinguish a modelled cost difference from a measured saving that a business has actually achieved.",
+                "Communication is a separate task from analysis. Only pass the checked comparison and corrected figures into the final drafting step. Tell the assistant who will read the message, what decision is needed and what remains uncertain. A concise message should not remove a limitation that could change the decision. Reuse this pattern for a memo, email or slide outline, while keeping the same approved facts and clearly naming the human review that still takes place.",
+                "Communication prompt: Using only the checked fictional matrix and cost sheet, draft a memo of at most 120 words for Priya. State the conditional shortlist, figures, missing export evidence and next action. Do not invent approval, owners or results. Disclose AI drafting assistance and retain uncertainty. I will review before use."
               ],
               callout: {
                 type: "example",
@@ -65,20 +68,7 @@ export default {
               bullets: [
                 "Acceptance: fee, volume, units and exclusions remain visible.",
                 "Acceptance: each numeric claim has workings and a planned independent check.",
-                "Acceptance: an estimate is labelled as an estimate, not an observed business outcome."
-              ]
-            },
-            {
-              heading: "Prompt three: communication from checked evidence",
-              body: [
-                "Communication is a separate task from analysis. Only pass the checked comparison and corrected figures into the final drafting step. Tell the assistant who will read the message, what decision is needed and what remains uncertain. A concise message should not remove a limitation that could change the decision. Reuse this pattern for a memo, email or slide outline, while keeping the same approved facts and clearly naming the human review that still takes place."
-              ],
-              callout: {
-                type: "example",
-                title: "Communication prompt",
-                text: "Using only the checked fictional matrix and cost sheet, draft a memo of at most 120 words for Priya. State the conditional shortlist, figures, missing export evidence and next action. Do not invent approval, owners or results. Disclose AI drafting assistance and retain uncertainty. I will review before use."
-              },
-              bullets: [
+                "Acceptance: an estimate is labelled as an estimate, not an observed business outcome.",
                 "Acceptance: every amount and status agrees with the checked evidence pack.",
                 "Acceptance: the request is specific and the decision remains conditional where required.",
                 "Acceptance: the draft discloses AI assistance without claiming unmeasured time or revenue gains."
@@ -87,7 +77,8 @@ export default {
             {
               heading: "Keep confidential information out of the workflow",
               body: [
-                "Use only the fictional records in this module. Never paste confidential data, real customer histories, resumes, credentials, employer documents or private messages into an assistant. Removing names alone may leave dates, locations or other details that identify a person or business. Do not rely on a friendly response or a suggested privacy setting as permission to upload sensitive material. If a practice task needs context, create a fully invented example rather than adapting a confidential record."
+                "Use only the fictional records in this module. Never paste confidential data, real customer histories, resumes, credentials, employer documents or private messages into an assistant. Removing names alone may leave dates, locations or other details that identify a person or business. Do not rely on a friendly response or a suggested privacy setting as permission to upload sensitive material. If a practice task needs context, create a fully invented example rather than adapting a confidential record.",
+                "The lab's Task 2 uses your own assistant through a dedicated API-key connection or a pasted reply from an AI assistant such as ChatGPT or a comparable tool. Enter a key only in the connection control, never in the prompt, reply, notes or screenshots. Do not share keys with a classmate or reviewer. Keep the fictional brief and returned text as evidence, without retaining credentials in your submission."
               ],
               steps: [
                 "Inspect every planned input before sending it, including copied tables, attachments and hidden notes.",
@@ -98,13 +89,38 @@ export default {
               callout: {
                 type: "warning",
                 title: "No account is needed to practise review",
-                text: "If you cannot access an assistant, apply the same criteria to the example drafts in the lessons and lab. You can practise briefing, verification and correction without uploading anything."
+                text: "If you cannot access an assistant, practise review with the example drafts in these lessons. Record Task 2 as not run rather than claiming that you generated a supplied draft. Briefing and verification can still be practised without uploading anything."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A useful brief gives you a way to reject a poor answer. Set that standard before the assistant responds and keep the same information boundary throughout."
+              ],
+              bullets: [
+                "Asking only for a professional answer → specify role, goal, context, constraints, output format and acceptance criteria.",
+                "Letting low cost replace an essential feature → keep record export as a separate pass-or-unverified check.",
+                "Trusting visible workings as proof → recalculate independently from the labelled source inputs.",
+                "Including a key or confidential record in the prompt → use only fictional content and the dedicated key control if needed."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer should be able to inspect the prompt before seeing any answer and understand both the requested output and how it will be checked."
+              ],
+              bullets: [
+                "Each reusable prompt identifies its role, goal, context, constraints, output format and acceptance criteria.",
+                "R1's 80 bookings, two users, INR 5,000 comparison ceiling and required export remain explicit.",
+                "The output format makes source references, assumptions and unresolved facts easy to locate.",
+                "Acceptance checks require independent arithmetic and do not treat a shortlist as approval.",
+                "All prompt inputs are fictional, credentials are excluded and the actual run or offline-review route is recorded."
+              ]
             }
           ],
           practice: {
             labId: "business-ai",
-            instruction: "Open Brief and verify. Select the brief elements that make its task bounded and checkable, leaving out requests to guess or impress. Explain each choice using task, audience, constraints and acceptance checks."
+            instruction: "Open Brief, run and verify. Task 1: write the R1 brief with role, goal, context, constraints, output format and acceptance criteria. Task 2: run it with your own assistant through the key route or paste its reply. Keep the brief and reply for Task 3; never put a key in the prompt."
           },
           checkpoint: [
             {
@@ -117,7 +133,7 @@ export default {
             },
             {
               question: "How can a learner without assistant access still complete useful practice in this module?",
-              answer: "Write the prompts and acceptance checks, then review the supplied example outputs and lab responses against them. Build the comparison, source log, calculations and corrections yourself. The checking work does not depend on generating a new answer."
+              answer: "Write the prompts and acceptance checks, then review the supplied lesson drafts against them. Build the comparison, source log, calculations and corrections yourself. Record lab Task 2 as not run if you cannot obtain an assistant reply; do not label a supplied example as your own generated output."
             }
           ]
         },
@@ -207,9 +223,37 @@ export default {
                 title: "Repeated wording is not independent evidence",
                 text: "Two similar AI answers do not provide two sources. They may repeat the same unsupported statement. Trace the claim to the underlying document instead."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "Verification is a claim-level activity. A correct fee does not validate the rest of a paragraph, and a source label is useful only when its text actually supports the claim."
+              ],
+              bullets: [
+                "Accepting a citation without reading it → check the original field, scope, date and exclusions yourself.",
+                "Treating B1's silence as proof of no export → mark export unverified and request the missing evidence.",
+                "Using one option's evidence for both → split comparison sentences into separate option-level claims.",
+                "Obeying instructions embedded in source text → treat the text as evidence, not authority to change the task or disclose data."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer can trace every factual entry to its evidence or see a precise unresolved action. Use these checks on the matrix and evidence log together."
+              ],
+              bullets: [
+                "Each claim has a document ID, relevant field and recorded source date.",
+                "Both options are compared against the same criteria, units and cost boundaries.",
+                "Supported, contradicted, unverified and assumed information are visibly distinguished.",
+                "The original draft wording remains beside corrections and requests for missing evidence.",
+                "Sundar export and both support response times remain unverified rather than being invented."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "business-ai",
+            instruction: "Open Brief, run and verify. Complete Tasks 1 and 2 with your own fictional-source brief and assistant reply. Task 3: verify the reply line by line, flag unsupported claims and record the source field or new evidence needed. Use R1, A1 and B1 if you choose the Meera Foods case."
+          },
           checkpoint: [
             {
               question: "Why should the claim 'both services include export' be split into separate option-level claims?",
@@ -311,13 +355,38 @@ export default {
               callout: {
                 type: "example",
                 title: "Keep the lab and case separate",
-                text: "The lab compares a different set of fictional plans. Recalculate its percentage using its own baseline and inspect its source claims; do not substitute the Meera Foods figures."
+                text: "The lab uses the brief you write and the reply you supply. Record that task's inputs, percentage baseline and source checks. Use Meera Foods figures only if you chose this case as your lab brief; the workbench does not supply evidence for an invented claim."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "Checking an AI analysis means checking the model and the claims around it. Keep corrected arithmetic separate from requirements that remain unresolved."
+              ],
+              bullets: [
+                "Dividing a difference by an unnamed amount → state the baseline and check INR 200 against Kiran's INR 4,400.",
+                "Treating 80 bookings as certain demand → label it an assumption and test a different volume.",
+                "Calling a modelled difference an achieved saving → describe an estimate until comparable actual evidence exists.",
+                "Closing the whole review after fixing one sum → keep export evidence and excluded charges open as separate checks."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer can reproduce the cost model from its source inputs and see exactly which parts of the recommendation could still change."
+              ],
+              bullets: [
+                "The sheet separates monthly fees, per-booking fees and assumed volume, with A1/B1 source labels.",
+                "At 80 bookings, costs are INR 4,400 and INR 4,200; the INR 200 difference is about 4.5% of Kiran's cost.",
+                "The volume tests include 50 bookings and the equal-cost point of 60 bookings.",
+                "The correction log retains original claims, workings, resolved errors and unresolved export evidence.",
+                "The decision note is conditional and states exclusions without claiming measured time or revenue gains."
+              ]
             }
           ],
           practice: {
             labId: "business-ai",
-            instruction: "Return to Brief and verify and review the sample answer. Flag the incorrect percentage and the unsupported source claim. Recalculate the lab's percentage independently and record the corrected baseline and rounding."
+            instruction: "Return to Brief, run and verify with the brief and reply from Tasks 1 and 2. Task 3: verify every numeric and factual line, recalculate costs and percentage baselines, flag unsupported claims and record the evidence needed. Keep corrected arithmetic separate from open feature checks."
           },
           checkpoint: [
             {
@@ -341,23 +410,18 @@ export default {
           objective: "Submit a reviewed decision pack with a consistent memo, stakeholder email, meeting summary and slide outline that disclose AI assistance and uncertainty.",
           sections: [
             {
-              heading: "Draft the memo from the checked pack",
+              heading: "Draft the memo and email from the checked pack",
               body: [
                 "Use the comparison matrix, cost sheet and correction log as the source for communication, not the original unreviewed output. A short memo should state the decision needed, the checked comparison and the open condition. Read every number against the sheet and every feature against its source card. The example below remains conditional because the missing export evidence could change the choice. It also labels the amounts as estimates and discloses the assistance used in drafting.",
-                "For Meera Foods, shortlist Sundar Dispatch conditionally at 80 bookings per month: estimated service cost is INR 4,200 versus Kiran Dispatch's INR 4,400. Both exclude tax and carrier charges. Sundar's record export remains unverified, so Priya should request written confirmation before a purchase decision. Retain Kiran for review if Sundar cannot meet that requirement. These are fictional model estimates, not measured savings. AI assisted drafting; the figures and source claims were reviewed by a person."
+                "For Meera Foods, shortlist Sundar Dispatch conditionally at 80 bookings per month: estimated service cost is INR 4,200 versus Kiran Dispatch's INR 4,400. Both exclude tax and carrier charges. Sundar's record export remains unverified, so Priya should request written confirmation before a purchase decision. Retain Kiran for review if Sundar cannot meet that requirement. These are fictional model estimates, not measured savings. AI assisted drafting; the figures and source claims were reviewed by a person.",
+                "The email should help a reader act, not reproduce the whole analysis. Use a subject that names the decision or evidence request. Keep the amounts, assumptions and conditional status identical to the memo. In this fictional communication exercise, Priya will seek export confirmation by 8 November 2026 and Rohit will check excluded charges by the same date. These are invented practice actions, not messages to send to real people or evidence that any service has been purchased.",
+                "Subject: Dispatch comparison, evidence needed before a decision. Priya, the checked 80-booking model estimates INR 4,200 for Sundar Dispatch and INR 4,400 for Kiran Dispatch, excluding tax and carrier charges. Please confirm Sundar's record-export capability by 8 November; Rohit will review excluded charges. The shortlist remains conditional and no purchase is approved. The fictional matrix and cost sheet support these figures. AI assisted the draft, which has been reviewed for evidence and consistency."
               ],
               callout: {
                 type: "tip",
                 title: "Say what is pending",
                 text: "A recommendation can be useful while a decision remains pending. Name the blocking check and the responsible person rather than removing the caveat to make the memo sound decisive."
-              }
-            },
-            {
-              heading: "Write the stakeholder email as a request",
-              body: [
-                "The email should help a reader act, not reproduce the whole analysis. Use a subject that names the decision or evidence request. Keep the amounts, assumptions and conditional status identical to the memo. In this fictional communication exercise, Priya will seek export confirmation by 8 November 2026 and Rohit will check excluded charges by the same date. These are invented practice actions, not messages to send to real people or evidence that any service has been purchased.",
-                "Subject: Dispatch comparison, evidence needed before a decision. Priya, the checked 80-booking model estimates INR 4,200 for Sundar Dispatch and INR 4,400 for Kiran Dispatch, excluding tax and carrier charges. Please confirm Sundar's record-export capability by 8 November; Rohit will review excluded charges. The shortlist remains conditional and no purchase is approved. The fictional matrix and cost sheet support these figures. AI assisted the draft, which has been reviewed for evidence and consistency."
-              ],
+              },
               steps: [
                 "Use a subject naming the evidence request, not a claim that the decision is already complete.",
                 "Include the checked figures, the open requirement, the owner and the fictional due date.",
@@ -420,9 +484,37 @@ export default {
                 title: "Human accountability",
                 text: "You remain responsible for deciding whether the evidence is sufficient, correcting the output and explaining the final recommendation. Using an assistant does not transfer those responsibilities to the tool."
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A communication draft can change the decision without changing any number. Check its verbs, conditions and action status as carefully as its amounts."
+              ],
+              bullets: [
+                "Turning 'request confirmation' into 'activate today' → preserve the conditional shortlist and pending purchase decision.",
+                "Inventing a meeting agreement or deadline → use only the recorded fictional actions, owners and dates.",
+                "Updating the memo but not the email → run one consistency pass across all four communication formats.",
+                "Removing the error log after polishing → retain original claims, corrections, unresolved issues and an honest AI disclosure."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "The pack is reviewable when all its formats tell the same checked story and preserve the conditions that still prevent an unconditional decision."
+              ],
+              bullets: [
+                "The memo, email, meeting summary and slide outline agree on options, volume, costs and exclusions.",
+                "Sundar export is still marked unverified and purchase approval remains pending.",
+                "Priya's export check and Rohit's charge review match the fictional 8 November due date.",
+                "The pack includes prompts, labelled sources, comparison, calculations and a retained correction log.",
+                "AI assistance and the human checks are disclosed, with no confidential inputs or invented operational results."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "business-ai",
+            instruction: "Open Brief, run and verify. Task 1: brief a memo using only your checked fictional evidence. Task 2: run it with your own assistant or paste its reply. Task 3: verify every line against the pack, flag unsupported approval or outcome claims and record what evidence remains missing."
+          },
           checkpoint: [
             {
               question: "Which facts should stay identical across the memo, email and slide outline for this case?",
@@ -435,6 +527,116 @@ export default {
             {
               question: "What should your correction log retain after the final memo no longer contains the original arithmetic error?",
               answer: "Keep the original claim, the independent calculation, the corrected value and its resolved status. Also retain separate open issues, such as missing export evidence. The clean final memo communicates the result; the log explains how the result was checked and repaired."
+            }
+          ]
+        },
+        {
+          id: "business-ai-w2-l3",
+          title: "Case study: Amra Pantry end to end",
+          minutes: 60,
+          objective: "Write and run a complete fictional procurement brief, check the reply claim by claim and produce a conditional recommendation with corrected arithmetic.",
+          sections: [
+            {
+              heading: "Write the complete brief from labelled sources",
+              body: [
+                "Fictional Amra Pantry's brief R2 asks Leela to compare the Cedar and Lotus packaging plans for one order of 120 boxes. The comparison ceiling is INR 4,000 before tax and delivery, and a food-contact declaration is an essential requirement. C1 and L1 below are invented quotation cards dated 6 November 2026, not real supplier evidence. Their stated fees apply to this exercise's tested quantities. A cost shortlist is not permission to buy or use the boxes."
+              ],
+              table: {
+                columns: ["Quote field", "C1: Cedar plan", "L1: Lotus plan"],
+                rows: [
+                  ["One-off setup fee", "INR 300", "INR 600"],
+                  ["Price per box", "INR 30", "INR 26"],
+                  ["Quantity assumed in R2", "120 boxes", "120 boxes"],
+                  ["Food-contact declaration", "Included in fictional C1", "Not stated in L1"],
+                  ["Excluded charges", "Tax and delivery", "Tax and delivery"]
+                ]
+              },
+              bullets: [
+                "Role: act as a business-support analyst preparing a comparison for Leela.",
+                "Goal: shortlist a plan for review, not approve a purchase.",
+                "Context: R2 requires 120 boxes, a food-contact declaration and a scoped ceiling of INR 4,000.",
+                "Constraints: use only fictional R2, C1 and L1; invent no features, approvals or missing charges.",
+                "Output format: a comparison table, visible workings and a short conditional note.",
+                "Acceptance criteria: cite each factual claim, check every calculation and label missing evidence unverified."
+              ]
+            },
+            {
+              heading: "Run the brief and verify each line",
+              body: [
+                "Send the brief and source cards to your own assistant using the lab's key route, or paste its reply after running it with an AI assistant such as ChatGPT or a comparable tool. Keep the original reply unchanged for review. The deliberately flawed sample below is a teaching draft, not evidence that your own assistant returned these claims. Check whatever your actual reply says, including apparently sensible statements.",
+                "Independent arithmetic gives Cedar: 300 + 30 x 120 = INR 3,900. Lotus: 600 + 26 x 120 = INR 3,720. The difference is 3900 - 3720 = INR 180. Relative to Cedar, 180 / 3900 x 100 is about 4.6%, rounded to one decimal place. Both figures are below the scoped INR 4,000 ceiling, but neither includes tax or delivery."
+              ],
+              table: {
+                columns: ["Sample draft line", "Independent check", "Status", "Correction or evidence needed"],
+                rows: [
+                  ["Lotus costs INR 3600", "600 + 26 x 120 = 3720", "Arithmetic error", "Use INR 3720, citing L1 and R2"],
+                  ["Lotus is 10% cheaper", "180 / 3900 x 100 is about 4.6%", "Incorrect percentage", "State Cedar baseline and rounding"],
+                  ["Lotus includes a food-contact declaration", "L1 does not state this", "Unverified", "Request the relevant declaration before a decision"]
+                ]
+              },
+              callout: {
+                type: "example",
+                title: "A checked replacement for the sample draft",
+                text: "At 120 boxes, Lotus is estimated at INR 3,720 versus Cedar's INR 3,900, before tax and delivery. The INR 180 difference is about 4.6% of Cedar's cost. Lotus's required declaration remains unverified, so the shortlist is conditional and no purchase is approved."
+              }
+            },
+            {
+              heading: "Test the assumption and deliver the decision note",
+              body: [
+                "Test 60 boxes in a separate calculation: Cedar is 300 + 30 x 60 = INR 2,100; Lotus is 600 + 26 x 60 = INR 2,160. Cedar is then lower by INR 60. At 75 boxes both cost INR 2,550: 300 + 2250 equals 600 + 1950. These are sensitivity tests, not revised orders. They show why the 120-box quantity must remain visible as an assumption.",
+                "Decision note for Leela: at the R2 quantity, keep Lotus on a conditional shortlist for its INR 3,720 scoped estimate, while retaining Cedar at INR 3,900 for comparison. Request the missing Lotus declaration and the excluded tax and delivery amounts before any purchase decision. The modelled INR 180 difference is not a realised saving. AI assisted drafting only if an assistant was actually used; name the source and calculation checks you personally completed."
+              ],
+              steps: [
+                "Save the six-field brief, fictional source cards and original assistant reply, or label the supplied teaching draft if working offline.",
+                "Keep one verification entry per claim with its source, arithmetic, status and required evidence.",
+                "Retain the 120-box calculation and separate 60-box and 75-box sensitivity checks.",
+                "Review the final note against the corrected figures and essential requirement; leave approval pending.",
+                "Submit the checked pack without API keys, private records or any claim that a real purchase occurred."
+              ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "The case is complete only when you can distinguish what the assistant drafted, what the evidence supports and what the decision owner still needs."
+              ],
+              bullets: [
+                "Typing the sample errors into your log as if generated → retain and review your actual reply, or clearly label offline sample review.",
+                "Trusting the draft's 10% claim → calculate INR 180 divided by Cedar's INR 3,900 and state the 4.6% rounded result.",
+                "Treating a missing declaration as available or absent → mark it unverified and specify the document needed.",
+                "Assuming the cheaper option never changes → test quantity because fixed and per-box charges interact.",
+                "Interpreting the scoped ceiling as permission to spend → keep excluded charges and human approval as separate checks."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Use the actual saved brief, reply, workings and note to tick these checks. Fluency alone is not evidence that the comparison has been verified."
+              ],
+              bullets: [
+                "The brief contains all six fields, the R2 quantity and ceiling, and the C1/L1 source boundaries.",
+                "The run route and original reply are recorded honestly, with no credentials in the evidence pack.",
+                "The 120-box costs reconcile to INR 3,900 and INR 3,720, with a checked INR 180 or about 4.6% difference.",
+                "Every reply claim has a source or unresolved-evidence entry, including Lotus's missing declaration.",
+                "The quantity tests and final note retain exclusions, conditional status and the human checks performed."
+              ]
+            }
+          ],
+          practice: {
+            labId: "business-ai",
+            instruction: "Open Brief, run and verify. Task 1: enter Amra Pantry's six-field brief and fictional sources. Task 2: run it with your own assistant via the key route or paste its reply. Task 3: verify each line against R2, C1 and L1, flag unsupported claims and record the evidence needed."
+          },
+          checkpoint: [
+            {
+              question: "What cost and percentage should replace the sample claim that Lotus is INR 3,600 and 10% cheaper?",
+              answer: "Lotus is 600 + 26 x 120 = INR 3,720. Cedar is 300 + 30 x 120 = INR 3,900. The difference is INR 180, and 180 / 3900 x 100 is about 4.6% relative to Cedar. Retain the baseline, rounding and excluded tax and delivery beside the corrected values."
+            },
+            {
+              question: "Why does L1's silence about a declaration prevent an unconditional recommendation even after the arithmetic is corrected?",
+              answer: "R2 makes the declaration essential, and L1 provides no evidence for it. Silence establishes neither availability nor absence. Mark the claim unverified and request the relevant declaration before a purchase decision. Correct numbers cannot resolve a different missing requirement."
+            },
+            {
+              question: "How does the 60-box test change the cost-only preference without changing the source fees?",
+              answer: "Cedar becomes INR 2,100 and Lotus INR 2,160, making Cedar lower by INR 60. Its lower setup fee matters more at the smaller quantity. Both reach INR 2,550 at 75 boxes. Keep these tests separate from R2's 120-box assumption and the unresolved declaration check."
             }
           ]
         }
@@ -700,6 +902,28 @@ export default {
           "Describe the disclosure and human review you actually performed."
         ],
         tip: "Point to one consistency check instead of claiming that AI made every output correct."
+      },
+      {
+        question: "Two assistant replies say Lotus includes a food-contact declaration, but L1 is silent. Would you accept the claim?",
+        type: "scenario",
+        answerGuide: [
+          "Treat repeated assistant wording as repeated claims, not two independent sources.",
+          "Check L1 for the exact supporting field and retain the unverified status when it is absent.",
+          "Request the relevant declaration and confirm it applies to the quoted boxes before a decision.",
+          "Keep the shortlist conditional and record the missing evidence even if both replies sound confident."
+        ],
+        tip: "Explain what evidence could resolve the claim instead of asking for a more confident answer."
+      },
+      {
+        question: "Demonstrate how you would take the Amra Pantry brief through the AI workbench and verify the result.",
+        type: "practical",
+        answerGuide: [
+          "Write role, goal, context, constraints, output format and acceptance criteria using only fictional R2, C1 and L1.",
+          "Run the brief with your own assistant via the dedicated key route or paste its reply, keeping credentials out of the prompt and submission.",
+          "Verify each line, showing costs of 3900 and 3720, the 180 difference and the approximately 4.6% Cedar baseline.",
+          "Flag the declaration as unverified, record the evidence needed and retain the original reply beside the corrected conditional note."
+        ],
+        tip: "Describe your actual run or offline review honestly; do not claim the sample draft was generated by you."
       }
     ]
   },

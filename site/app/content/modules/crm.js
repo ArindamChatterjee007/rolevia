@@ -15,7 +15,7 @@ export default {
             {
               heading: "Begin with the work, not the software",
               body: [
-                "A customer relationship management system helps a team remember what happened and what should happen next. In this course, every record is fictional. Use HubSpot CRM (free tier) if you have suitable access, or build the same records in the supplied practice workbook. Neither route requires messages, connected email or automation. Your first output is a clean contact register that another learner can understand without asking you to explain every row."
+                "A customer relationship management system helps a team remember what happened and what should happen next. In this course, every record is fictional. Use HubSpot CRM free tier if you have suitable access, or build the same records in the supplied practice workbook. Neither route requires messages, connected email or automation. Your first output is a clean contact register that another learner can understand without asking you to explain every row."
               ],
               steps: [
                 "Create separate workbook tabs or record groups for Companies, Contacts, Deals and Activities.",
@@ -75,9 +75,37 @@ export default {
                 "Record any changed value, the reason, the practice source, the date and your name.",
                 "Save the register and dictionary as the Week 1 A artefact."
               ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "Most record errors begin when a learner confuses a person with a purchase discussion. Test the links before adding more rows, and correct the source of an error rather than only making the visible name look tidy."
+              ],
+              bullets: [
+                "A second enquiry creates a duplicate contact → retain the contact ID and create a separate linked deal.",
+                "Sorting changes row-number IDs → use stable IDs that stay attached to the record.",
+                "An unknown email is filled with a plausible address → leave it blank; the exercise needs no contact details.",
+                "A company rename breaks links → keep the ID and log the display-name correction."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Give the register and dictionary to a reviewer without explaining the rows aloud. The reviewer should be able to tick each item below using the workbook itself, including the source and correction evidence."
+              ],
+              bullets: [
+                "Four unique company IDs and four unique contact IDs match the supplied register.",
+                "Every contact points to an existing company; C03 traces to T03 without guessing.",
+                "The dictionary states each field's purpose, format and required status.",
+                "The fictional source label is visible and phone and email fields remain unused.",
+                "The test correction records the old value, new value, source, reason and date."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "crm",
+            instruction: "Open Clean the pipeline. Task 1: read the five deal notes and move each deal to its evidence-supported stage. Identify which details describe a deal rather than a contact. Keep these lab records separate from your four-contact register."
+          },
           checkpoint: [
             {
               question: "Asha discusses a second, separate training request. Which existing link should the new deal retain?",
@@ -164,11 +192,36 @@ export default {
                 "Record a reason for each Lost decision and an accepted-order reference for each Won decision.",
                 "Save the pipeline, stage definitions and history as the Week 1 B artefact."
               ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A pipeline can have correct-looking totals while its stages are unsupported. Review individual evidence as well as the totals, and leave the route into each stage visible for the next person."
+              ],
+              bullets: [
+                "A hopeful conversation is marked Won → require the accepted practice order before closing it as Won.",
+                "A requested proposal is described as delivered → record draft status under the agreed broad Proposal rule.",
+                "A stage change erases earlier events → append a dated transition instead of replacing the history.",
+                "A helper silently becomes the owner → retain the accountable owner and name the requested contribution separately."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Review the saved snapshot alongside the stage rules and history. These checks cover both the twenty-record assignment and the information a colleague would need to continue its open work."
+              ],
+              bullets: [
+                "D01 to D20 each occur once, with valid contact links and numeric amounts of INR 6,000.",
+                "Lead, Qualified, Proposal, Won and Lost counts are 5, 5, 4, 4 and 2, totalling 20.",
+                "All 14 open deals have an accountable owner, a specific next action and a due date.",
+                "Every transition has a date, old stage, new stage and fictional evidence reference.",
+                "Four Won orders and two Lost reasons remain inspectable rather than being deleted."
+              ]
             }
           ],
           practice: {
             labId: "crm",
-            instruction: "Open Clean the pipeline. Read all five notes, move each deal to the stage supported by its evidence and record your reasons in the workbook. Check that the total stays five; do not add these lab deals to case C1."
+            instruction: "Open Clean the pipeline. Task 1: read all five notes and move each deal to the supported stage. Record a reason for every move and check the total stays five. Task 2: read the resulting win rate. Do not add these lab deals to case C1."
           },
           checkpoint: [
             {
@@ -249,9 +302,37 @@ export default {
                 "Retain only fictional information needed for delivery and use controlled sharing for the workbook.",
                 "Save the activity notes, follow-up draft and D15 handover as the Week 2 A artefact."
               ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A good handover separates what happened, what was agreed and what still needs an answer. Make uncertainty actionable instead of hiding it behind a confident summary or an empty acknowledgement field."
+              ],
+              bullets: [
+                "A judgement is recorded as a customer statement → label the interpretation and retain the actual practice fact.",
+                "A rescheduled action loses its original date → preserve the first deadline and record the reason for the change.",
+                "The handover adds an extra service → compare every promised output with the accepted order.",
+                "Naming Kavya is treated as acknowledgement → keep receipt pending until the simulated review confirms it."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Ask a reviewer to act as the receiving owner and locate the next action without extra explanation. Tick these checks only when the note or handover contains the information, not because the author remembers it."
+              ],
+              bullets: [
+                "Each activity has its own ID, date, deal link, contact link and clearly labelled fictional channel.",
+                "Facts, interpretations and unanswered questions are distinguishable in the note.",
+                "Changed actions retain their original date, updated status, accountable owner and reason.",
+                "D15 lists the INR 6,000 scope, 18 November meeting and 20 November sheet deadline without extra promises.",
+                "Kavya's format check is due on 12 November and acknowledgement has an evidenced or pending state."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "crm",
+            instruction: "Open Clean the pipeline. Task 1: move all five deals using their notes, then draft one dated next action for an open deal in your workbook. Task 2: read the resulting win rate and explain why it says nothing about whether a service handover was acknowledged."
+          },
           checkpoint: [
             {
               question: "A contact replies before the scheduled follow-up date. What should happen to the original action record?",
@@ -325,11 +406,36 @@ export default {
                 "Check D15 scope, dates, receiving owner, unresolved question and next action against its order.",
                 "Rehearse a short explanation of what you checked, what you changed and what the figures cannot prove."
               ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A percentage is useful only when its records and time window are clear. Keep the numerator and denominator beside every rate, and repeat the same check after a correction so that the comparison remains meaningful."
+              ],
+              bullets: [
+                "Four current proposals become the conversion numerator → use all nine cohort deals that ever reached Proposal.",
+                "Closed-deal and all-deal rates share one label → state both the denominator and observation date.",
+                "Listed opportunity value is called available cash → request collection records before making a cash statement.",
+                "Fixing three dates is claimed to improve sales → report the observed completeness result and its limitation."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer should be able to rebuild the short report from the saved records. Use the checklist to test traceability, not just whether the final percentages look plausible."
+              ],
+              bullets: [
+                "The snapshot names 10 November 2026 and all 20 unique deal IDs reconcile across the five stages.",
+                "The conversion shows D06 to D20 as denominator and D11 to D19 as numerator: 9 / 15 = 60%.",
+                "INR 84,000 open + INR 24,000 Won + INR 12,000 Lost reconciles to INR 120,000 listed value.",
+                "The audit identifies D08, D10 and D12 and shows the same missing-date count falling from three to zero.",
+                "The recommendation names a check owner, and the report distinguishes record completeness from sales or cash."
+              ]
             }
           ],
           practice: {
             labId: "crm",
-            instruction: "Repeat Clean the pipeline and read its Won-of-five display. Write the numerator and denominator beside your result, then explain why that snapshot rate differs from case C1's Qualified-to-Proposal history calculation."
+            instruction: "Repeat Clean the pipeline. Task 1: place all five deals using their notes. Task 2: read the resulting Won-of-five win rate and write its numerator and denominator. Explain why this snapshot differs from case C1's Qualified-to-Proposal history calculation."
           },
           checkpoint: [
             {
@@ -339,6 +445,98 @@ export default {
             {
               question: "After restoring three missing dates, what evidence supports saying the record-completeness issue was addressed?",
               answer: "Keep the three affected IDs, the dated correction log and the result of the same missing-date filter before and after repair. A zero remaining count supports completeness for that snapshot, not a claim about higher sales or future behaviour."
+            }
+          ]
+        },
+        {
+          id: "crm-w2-l3",
+          title: "Case study: Nila Process Studio end to end",
+          minutes: 60,
+          objective: "Trace five fictional deals from linked records to a checked snapshot, clearly labelled rates and an owned service handover.",
+          sections: [
+            {
+              heading: "Start with a traceable five-deal register",
+              body: [
+                "Nila Process Studio is a fictional training business. Keep its case C2 separate from case C1 and from the lab. Priya owns all five deals below. Each has one fictional company and contact link; no phone or email is needed. All entered Lead on 11 November 2026. Read the recorded evidence at the 16 November snapshot, then apply the stage rules rather than moving deals to make the report look stronger. Amounts are listed order values in INR, not collected payments."
+              ],
+              table: {
+                columns: ["Deal: company / contact", "Recorded evidence", "Stage", "Amount, INR", "Action or closure"],
+                rows: [
+                  ["N01: T21 / C21", "Enquiry received; budget not confirmed", "Lead", "4,000", "Priya: draft qualification questions by 17 November"],
+                  ["N02: T22 / C22", "Need, budget and timing recorded", "Qualified", "6,000", "Priya: confirm requested scope by 17 November"],
+                  ["N03: T23 / C23", "Written terms requested; draft not yet sent", "Proposal", "8,000", "Priya: prepare terms for review by 18 November"],
+                  ["N04: T24 / C24", "Practice order accepted on 15 November", "Won", "10,000", "Accepted order C2-O04; service handover required"],
+                  ["N05: T25 / C25", "Request cancelled on 15 November", "Lost", "12,000", "Decision C2-L05: project cancelled, not deferred"]
+                ]
+              }
+            },
+            {
+              heading: "Reconcile the snapshot and the history",
+              body: [
+                "The stage counts are 1 + 1 + 1 + 1 + 1 = 5. Open value is 4,000 + 6,000 + 8,000 = INR 18,000. Add INR 10,000 Won and INR 12,000 Lost to reconcile all listed values to INR 40,000. There are three open and two closed deals. Do not delete N05: its value and outcome explain where a discussion ended, even though it no longer belongs in open work.",
+                "The history records N02 through N05 entering Qualified on 12 November and N03 through N05 entering Proposal on 14 November. By 16 November, three of the four qualified deals had reached Proposal, so conversion is 3 / 4 = 75%. N04 and N05 still count in that numerator after closure. Only N03 currently sits in Proposal; that snapshot of one cannot replace the three recorded stage entries."
+              ],
+              callout: {
+                type: "example",
+                title: "Two correct rates, two different questions",
+                text: "Won out of all deals is 1 / 5 = 20%. Won out of closed deals is 1 / (1 + 1) = 50%. Label the population and 16 November snapshot beside each result. Neither rate establishes how the three open deals will end."
+              }
+            },
+            {
+              heading: "Close the loop with actions and a service handover",
+              body: [
+                "Order C2-O04 includes two inventory-note sessions at INR 5,000 each: 2 x 5,000 = INR 10,000. They are due on 24 and 26 November; a checked workbook is included with no extra charge on 26 November. Kavya receives the work and contact C24 supplies the source file. Its format is unconfirmed. Kavya must obtain the practice format decision by 17 November, ahead of the first session; receiving acknowledgement remains pending until explicitly recorded."
+              ],
+              steps: [
+                "Save the five linked deals, the 11, 12, 14 and 15 November transitions and their fictional evidence references.",
+                "Keep Priya's three open-deal actions dated; leave the cancellation reason on N05 instead of creating another follow-up.",
+                "Compare N04's two sessions and included workbook with C2-O04 before sending the simulated handover to Kavya.",
+                "Publish the five-deal reconciliation, both win-rate labels and the 3 / 4 conversion with the observation dates.",
+                "Ask the reviewer to check the source-format action and acknowledgement state; do not describe the order value as cash."
+              ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "This small case makes errors visible before they spread to a larger pipeline. Reconcile IDs, amounts and dates independently, then check whether the handover lets the next owner act without adding assumptions."
+              ],
+              bullets: [
+                "N05 disappears after cancellation → keep the Lost record and its reason in the five-deal reconciliation.",
+                "N03's draft request is labelled sent → preserve the broad Proposal stage and state that delivery is pending.",
+                "One current proposal is used for conversion → use N03, N04 and N05 from the same qualified cohort.",
+                "The INR 10,000 order is treated as received cash → keep collection evidence separate from acceptance."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Treat the completed case as a reviewer exercise. Each tick should point to a specific record, arithmetic check or dated action, rather than a general statement that the pipeline is clean."
+              ],
+              bullets: [
+                "N01 to N05 are unique, correctly linked and owned by Priya, with the three open actions dated.",
+                "Three open deals total INR 18,000; all five listed amounts total INR 40,000.",
+                "The report labels 1 / 5 = 20% all-deal wins and 1 / 2 = 50% closed-deal wins separately.",
+                "The 12 to 16 November cohort calculation retains closed records and shows 3 / 4 = 75%.",
+                "N04's handover states scope, INR 10,000, delivery dates, Kavya's 17 November action and pending acknowledgement."
+              ]
+            }
+          ],
+          practice: {
+            labId: "crm",
+            instruction: "Open Clean the pipeline. Task 1: move its five deals using the lab notes, not the case C2 stages. Task 2: read the resulting win rate and write the Won count over all five deals. Compare the method with C2's 1 / 5 without assuming the datasets give the same result."
+          },
+          checkpoint: [
+            {
+              question: "What open value should C2 report, and why is it not an available-cash figure?",
+              answer: "N01, N02 and N03 total 4,000 + 6,000 + 8,000 = INR 18,000. Adding Won 10,000 and Lost 12,000 reconciles to INR 40,000. These are discussion or order values; no payment evidence was supplied, so cash cannot be inferred."
+            },
+            {
+              question: "A reviewer reports a 50% win rate while your sheet shows 20%. How can both be correct?",
+              answer: "One Won deal divided by two closed deals gives 50%; one Won divided by all five gives 20%. State each denominator and the 16 November snapshot. The difference is the population, not an arithmetic error or evidence that performance changed."
+            },
+            {
+              question: "Why does C2's Qualified-to-Proposal conversion remain 75% after N04 and N05 close?",
+              answer: "N02 to N05 form the four-deal qualified cohort. N03, N04 and N05 reached Proposal before the observation ended, so 3 / 4 = 75%. Closure changes current status but does not erase their earlier progression. Preserve the dated transitions to reproduce the rate."
             }
           ]
         }
@@ -564,6 +762,28 @@ export default {
           "State the limits of the simulation and what remained pending."
         ],
         tip: "Give credit to the reviewer while being specific about your own revision."
+      },
+      {
+        question: "Two deal records appear to describe the same order just before a review. How would you check and correct the report?",
+        type: "scenario",
+        answerGuide: [
+          "Compare the source order, contact links, amount and decision dates before deciding whether the records are duplicates.",
+          "If confirmed, agree the retained ID with the reviewer and preserve activity links and the correction trail.",
+          "Reconcile counts, listed values and any affected rate using the corrected population and the same snapshot date.",
+          "Keep genuinely separate purchase discussions distinct even when they share a contact or amount."
+        ],
+        tip: "A similar name is a reason to investigate, not enough evidence to delete a record."
+      },
+      {
+        question: "Using Nila Process Studio's five deals, show how you would brief a reviewer on value, win rates and the handover.",
+        type: "practical",
+        answerGuide: [
+          "Reconcile open INR 18,000 + Won INR 10,000 + Lost INR 12,000 = INR 40,000 across five unique deals.",
+          "Explain 1 / 5 = 20% Won out of all deals and 1 / 2 = 50% Won out of closed deals, both at 16 November.",
+          "Show N04's two sessions, included workbook, delivery dates and Kavya's source-format action due on 17 November.",
+          "State that acknowledgement is pending and that no collected-cash conclusion follows from listed order values."
+        ],
+        tip: "Lead with the snapshot and source records so a reviewer can reproduce every figure."
       }
     ]
   },

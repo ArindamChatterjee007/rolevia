@@ -310,7 +310,7 @@ test("a student completes an interactive lab, a daily quiz, sees the leaderboard
   await expect(page.locator('.sheet-cell[data-ref="K1"]')).toHaveText("11100");
   await expect(page.locator('.sheet-cell[data-ref="K2"]')).toHaveText("6600");
   await expect(page.locator(".sheet-score strong")).toHaveText("6 / 6");
-  await expect(page.locator(".lab-status")).toContainText("best 100/100 · +50 points");
+  await expect(page.locator(".lab-status")).toContainText("best 100/100 · 50 points from this lab");
   await expect(page.locator(".sheet-google")).toContainText("Prefer real Google Sheets");
   await shot(page, "07-lab-spreadsheets");
 
@@ -335,7 +335,7 @@ test("a student completes an interactive lab, a daily quiz, sees the leaderboard
   await page.locator(".verify-lines li").nth(2).getByRole("button", { name: "Needs evidence" }).click();
   await page.fill('textarea[placeholder^="How you checked"]', "Recalculated both regional totals with SUM against the eight rows; South is 4,500 not 4,900, so line 2 is unsupported.");
   await expect(page.locator(".ai-total strong")).toHaveText("100 / 100");
-  await expect(page.locator(".lab-status")).toContainText("best 100/100");
+  await expect(page.locator(".lab-status")).toContainText("best 100/100 · 50 points from this lab");
   await shot(page, "07a-lab-ai-workbench");
 
   await open(page, "/portal/quiz?module=canva");

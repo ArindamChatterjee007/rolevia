@@ -15,7 +15,7 @@ export default {
             {
               heading: "Define the output and its boundaries",
               body: [
-                "Plan a fictional stock-records workshop for Kiran Stationery, with a proposed event date of 30 November 2026. Your project produces a review-ready launch pack, not a real event. It excludes actual bookings, payments, invitations and attendee data collection. Write the outcome, intended audience, exclusions and reviewer in a short brief. Use Trello (free plan) or the supplied task-board template; the coordination method matters more than decorative covers or a particular screen layout."
+                "Plan a fictional stock-records workshop for Kiran Stationery, with a proposed event date of 30 November 2026. Your project produces a review-ready launch pack, not a real event. It excludes actual bookings, payments, invitations and attendee data collection. Write the outcome, intended audience, exclusions and reviewer in a short brief. Use Trello free plan or the supplied task-board template; the coordination method matters more than decorative covers or a particular screen layout."
               ],
               bullets: [
                 "Project output: a checked launch pack with a clear handover and any unfinished work named.",
@@ -71,9 +71,37 @@ export default {
                   ["T15", "Final launch-pack index", "Meera", "25 November", "Required outputs are accepted and follow-ups are owned."]
                 ]
               }
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "Break down work so that an unfamiliar reviewer can identify the output and test it. A long list of activities is not yet a useful backlog if ownership, boundaries or acceptance remain unclear."
+              ],
+              bullets: [
+                "A card says Organise the workshop → replace it with one inspectable deliverable and a completion test.",
+                "Risk notes inflate the task count → keep the risk register separate and link it to affected task IDs.",
+                "Review is left outside the plan → include checking and handover work in the fifteen-task backlog.",
+                "A practice invitation looks ready to send → label it fictional and draft; do not contact real attendees."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Review the brief and complete backlog before decorating or populating a board. Each check below should be visible in the written plan and understandable without a separate planning meeting."
+              ],
+              bullets: [
+                "The brief states the launch-pack output, audience, proposed date, exclusions and scope reviewer.",
+                "T01 to T15 appear once each and describe distinct deliverables rather than general activity.",
+                "Every task has one accountable owner, an acceptance date and an observable completion test.",
+                "Review, rehearsal and the final handover index are included as real planning work.",
+                "Fictional-only boundaries are visible and risks and decisions remain outside the fifteen-card count."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "trello",
+            instruction: "Open Respect the WIP limit. Task 1: run the board without exceeding its Doing limit. Before moving a card, name its deliverable and completion test in your notes. Compare these small lab tasks with your separate fifteen-task backlog."
+          },
           checkpoint: [
             {
               question: "Why keep T08 in the card title or description after renaming Attendee instructions?",
@@ -155,11 +183,36 @@ export default {
                 "Move a blocked card only when there is a real simulated obstacle and a written reason.",
                 "Save the board rules and 15 completed card descriptions as the Week 1 B artefact."
               ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A board should communicate how work moves, not merely where cards have been placed. Check the rules and one complete card before copying the structure to all fifteen tasks."
+              ],
+              bullets: [
+                "Two contributors share vague responsibility → name one accountable owner and identify the other person's role.",
+                "A due date stands in for a dependency → record the predecessor ID and required output explicitly.",
+                "A free-plan board is assumed to enforce WIP → write the three-card rule and check it manually.",
+                "A card is moved to Blocked to free a slot → require a real obstacle, resolution owner and next-check date."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Inspect the board without moving anything. The structure is ready for use when a new coordinator can identify each task's owner, the evidence needed next and the policy limiting active work."
+              ],
+              bullets: [
+                "Backlog, Doing, Review, Blocked and Done have written, distinct meanings.",
+                "All fifteen task IDs appear once, with owner, date, reviewer, checklist and acceptance test.",
+                "Dependencies use stable predecessor IDs and state what output is needed before work proceeds.",
+                "T08's four-hour and T09's five-hour estimates identify their unstarted optional work.",
+                "The manual Doing limit is three, and blocked or waiting-review work remains visible in reviews."
+              ]
             }
           ],
           practice: {
             labId: "trello",
-            instruction: "Open Respect the WIP limit. Move three cards to Doing, then try a fourth to observe the rejection. Record what the lab enforces and which equivalent check your own free-plan board must perform manually."
+            instruction: "Open Respect the WIP limit. Task 1: move three cards to Doing, then try a fourth and observe its rejection. Keep the active count within the limit. Record what the lab enforces and which equivalent check your own free-plan board must perform manually."
           },
           checkpoint: [
             {
@@ -252,11 +305,36 @@ export default {
                 "Inspect Blocked cards for a reason, dependency owner and next check.",
                 "Recount all lists and save the dated status update as the Week 2 A artefact."
               ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A useful status report exposes the next decision rather than hiding it inside a completion percentage. Check both the card counts and the evidence behind every accepted output."
+              ],
+              bullets: [
+                "Seven accepted cards are called nearly half the effort → report seven outputs and estimate remaining effort separately.",
+                "A possible future problem is marked Blocked → distinguish a risk from an obstacle already stopping work.",
+                "A blocker says Waiting with no next step → name the missing input, its owner and the next-check date.",
+                "A late card is moved to Done to tidy the board → retain its true state until acceptance evidence is available."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer should be able to reconcile the dated board and understand the help needed from the status update alone. Use these checks before publishing a snapshot or asking another person to act."
+              ],
+              bullets: [
+                "The 16 November lists reconcile as 7 Done + 3 Doing + 1 Review + 2 Blocked + 2 Backlog = 15.",
+                "Accepted cards link to evidence; the report explicitly states that eight tasks remain unfinished.",
+                "T12 and T13 identify the missing T09 output, responsible people and their 17 November checks.",
+                "At least three risks have owners, responses and review dates outside the deliverable-card count.",
+                "The status request names the needed input or decision without claiming that card counts measure effort."
+              ]
             }
           ],
           practice: {
             labId: "trello",
-            instruction: "Repeat Respect the WIP limit. Record one plausible simulated blocker with a written reason and finish at least two cards. In your workbook, state the acceptance evidence you assumed and add an owner and next-check date for the blocker."
+            instruction: "Open Respect the WIP limit. Task 1: stay within the Doing limit. Task 2: clear the blocker and note what resolved it. Task 3: finish the work. In your workbook, record the blocker reason, owner, next-check date and the acceptance evidence assumed for each finish."
           },
           checkpoint: [
             {
@@ -332,9 +410,37 @@ export default {
                 "Show the late request's time and scope effects, simulated decision and changed card details.",
                 "Name accepted outputs and pending work separately in the Week 2 B handover."
               ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "A change is not complete when somebody agrees to it. Update the work, capacity check and acceptance evidence together, keeping the earlier decision trail so another coordinator can understand what changed."
+              ],
+              bullets: [
+                "Already finished optional work is counted as saved time → estimate only avoidable future work when funding a change.",
+                "Approval moves the revised card straight to Done → reopen the work and check the new acceptance criteria.",
+                "T08 is pulled into a full Doing list → finish T10's draft and move it legitimately to Review first.",
+                "An unchanged list count is treated as unchanged work → name the moved cards and their revised review needs."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "Review the change record beside the revised cards, not in isolation. The submission should explain both the arithmetic of the trade-off and the evidence still needed before the fictional project can close."
+              ],
+              bullets: [
+                "The record names the request, affected IDs, estimated effort, removed unstarted scope, approver and date.",
+                "The change reconciles as +3 - 2 - 1 = 0 hours, with T08 at five and T09 at four hours.",
+                "T08's new language review and T09's retained factual checks appear in their acceptance criteria.",
+                "T10's evidenced move precedes T08's return to Doing, keeping the active count at three or fewer.",
+                "The handover distinguishes accepted and pending outputs, and T15 remains unaccepted until its prerequisites pass."
+              ]
             }
           ],
-          practice: null,
+          practice: {
+            labId: "trello",
+            instruction: "Repeat Respect the WIP limit. Task 1: stay within the limit. Task 2: clear the blocker before calling its task complete. Task 3: finish the work. Write a short handover distinguishing the lab's completed cards from pending work on your separate assignment board."
+          },
           checkpoint: [
             {
               question: "T08 moves from Review to Doing while T10 moves from Doing to Review. Why is a counts-only update insufficient?",
@@ -343,6 +449,100 @@ export default {
             {
               question: "If the optional work had already been completed, could its original three-hour estimate fund the new request?",
               answer: "No. Time already spent is not available future capacity. Re-estimate the remaining work and seek another approved scope, date or capacity decision rather than counting finished optional work as time that can still be saved."
+            }
+          ]
+        },
+        {
+          id: "trello-w2-l3",
+          title: "Case study: Nila Learning Studio end to end",
+          minutes: 60,
+          objective: "Follow a five-card fictional briefing pack from scope to acceptance, reconcile effort and status, and clear a blocker without breaking the WIP rule.",
+          sections: [
+            {
+              heading: "Scope a small pack and make acceptance testable",
+              body: [
+                "Nila Learning Studio is fictional. Case T2 produces a review-ready briefing pack by 20 November 2026, not a delivered event. It excludes bookings, invitations and real attendee data. Keep its five cards separate from the fifteen-card assignment and the lab. Priya coordinates; Meera reviews N01, Rohit reviews N03 and N05, and Priya reviews N02 while Rohit reviews N04. Each owner uses a draft, check, review and evidence checklist. The Doing limit is three.",
+                "The effort budget includes preparation and review: 2 + 3 + 3 + 2 + 2 = 12 person-hours. The table shows the agreed outputs and their eventual simulated acceptance dates, which are also their due dates. Dependants may start only after the named predecessor is accepted. A team member may contribute to several cards, but each card retains one accountable owner."
+              ],
+              table: {
+                columns: ["Card and owner", "Predecessor", "Hours", "Acceptance test", "Accepted in November"],
+                rows: [
+                  ["N01 Brief / Priya", "None", "2", "Outcome, exclusions and reviewer stated", "17; evidence T2-E01"],
+                  ["N02 Agenda / Rohit", "N01", "3", "30 + 20 + 10 = 60 minutes; each activity named", "18; evidence T2-E02"],
+                  ["N03 Instructions / Meera", "N01", "3", "Room, date and arrival steps checked", "19; evidence T2-E03"],
+                  ["N04 Rehearsal / Priya", "N02 and N03", "2", "Simulated run-through completed; issues resolved", "19; evidence T2-E04"],
+                  ["N05 Handover index / Meera", "N04", "2", "All four prior outputs indexed and receipt confirmed", "20; evidence T2-E05"]
+                ]
+              }
+            },
+            {
+              heading: "Reconcile the blocked snapshot before starting more work",
+              body: [
+                "On 17 November, N01 is reviewed and accepted. N02 and N03 then enter Doing together, so the active count is two, below the limit of three. On 18 November, N02 passes review after three hours. N03 has used one of its three hours but cannot finish because the fictional room number is unconfirmed. Meera records the blocker rather than guessing. N04 and N05 remain in Backlog because their accepted predecessors are not yet available.",
+                "At the end of 18 November, Done 2 + Doing 0 + Review 0 + Blocked 1 + Backlog 2 = 5 cards. There are 2 / 5 = 40% accepted cards, not 40% of effort completed. Logged effort is 2 + 3 + 1 = 6 hours, including the unfinished N03 draft. Remaining effort is N03's 2 + N04's 2 + N05's 2 = 6 hours. Logged plus remaining effort reconciles to the unchanged 12-hour budget."
+              ],
+              callout: {
+                type: "example",
+                title: "A blocker request someone can answer",
+                text: "18 November: N03 is blocked after one hour of drafting. Priya must confirm the fictional room number by 10:00 on 19 November. Meera will then finish and request Rohit's review. N04 cannot start before the checked instructions are accepted."
+              }
+            },
+            {
+              heading: "Clear the obstacle, finish and hand over",
+              body: [
+                "At 10:00 on 19 November, Priya supplies the simulated room confirmation T2-R01. Record it before clearing N03's blocker. Meera uses the remaining two hours, checks the instructions and obtains Rohit's acceptance. Priya then spends two hours on N04's rehearsal, which Rohit reviews. On 20 November, Meera spends two hours completing N05 and Rohit acknowledges the indexed pack. These are case events, not claims that a real workshop took place."
+              ],
+              steps: [
+                "Move N03 from Blocked to Doing only after recording T2-R01; active count becomes one.",
+                "Move N03 through Review to Done against its room, date and arrival checks, then start N04: active count returns to one.",
+                "Accept N04 with T2-E04 before starting N05, then accept the handover with T2-E05 and the receiving acknowledgement.",
+                "Reconcile the final board: Done 5, all other lists 0. No card is duplicated or removed to achieve this count.",
+                "Check final effort: 2 + 3 + (1 + 2) + 2 + 2 = 12 hours. The peak Doing count was two, never above three.",
+                "Retain the blocker and resolution history in the pack. Close only the briefing-pack scope, not the fictional future event."
+              ]
+            },
+            {
+              heading: "Common mistakes and how to avoid them",
+              body: [
+                "The case closes through accepted outputs, not by making the board empty. Use the movement history and effort log to explain why an apparently quiet board can still contain important unfinished work."
+              ],
+              bullets: [
+                "Empty Doing means the team has no constraints → check N03's blocker and N04's unmet dependency before pulling work.",
+                "N03's logged hour is treated as an accepted output → count the card only after its full acceptance test passes.",
+                "Clearing the blocker marks N03 Done → resume its remaining two hours and obtain review first.",
+                "Five Done cards are described as an event delivered → state that only the fictional briefing pack was completed."
+              ]
+            },
+            {
+              heading: "What good looks like",
+              body: [
+                "A reviewer should be able to reconstruct the starting plan, the blocked snapshot and the final handover. Check the evidence and arithmetic independently rather than accepting a neat final board as the whole story."
+              ],
+              bullets: [
+                "N01 to N05 are unique, owned and dated, with a 12-person-hour budget and clear predecessor rules.",
+                "The 18 November snapshot reconciles to five cards and separates two accepted outputs from six logged hours.",
+                "N03's blocker names Priya, the room confirmation and the 19 November check; T2-R01 records its resolution.",
+                "Every card passes its stated review before Done, and the movement history never exceeds three Doing cards.",
+                "Final effort totals 12 hours; five accepted outputs and Rohit's handover acknowledgement support pack closure."
+              ]
+            }
+          ],
+          practice: {
+            labId: "trello",
+            instruction: "Open Respect the WIP limit. Task 1: run the board within its limit. Task 2: clear the blocker and record the resolution. Task 3: finish the work. Compare your move sequence with case T2, noting that an unblocked card still needs completion and acceptance checks."
+          },
+          checkpoint: [
+            {
+              question: "At the blocked snapshot, how can two accepted cards coexist with six hours already logged?",
+              answer: "N01 and N02 used 2 + 3 = 5 hours and are accepted. N03 used one more hour but is still blocked, so logged effort is six while accepted outputs remain two. The 2 / 5 card share is 40%; it does not measure effort completed."
+            },
+            {
+              question: "Why can N04 not start when Doing is empty at the end of 18 November?",
+              answer: "A free WIP slot is not the same as ready work. N04 requires accepted N02 and N03 outputs; N03 is blocked on the room confirmation. Resolve that input, finish N03's two remaining hours and obtain acceptance before pulling N04."
+            },
+            {
+              question: "What evidence supports closing this case, and what must the handover avoid claiming?",
+              answer: "Five accepted cards, T2-E01 to T2-E05, the cleared blocker and Rohit's receiving acknowledgement support closure of the briefing pack. Final effort is 2 + 3 + 3 + 2 + 2 = 12 hours. The pack is fictional planning work, not evidence that an event was delivered."
             }
           ]
         }
@@ -407,12 +607,12 @@ export default {
         kind: "steps",
         title: "Test the lab's WIP rule",
         steps: [
-          "Move three lab cards to Doing and try a fourth.",
-          "Record a plausible blocker and its written reason.",
-          "Complete at least two simulated tasks with stated acceptance assumptions.",
+          "Task 1: move three lab cards to Doing and try a fourth; observe that the limit is enforced.",
+          "Task 2: record the blocker reason, clear the obstacle and retain the resolution in your notes.",
+          "Task 3: finish the work, checking acceptance assumptions for the first two cards and then the rest.",
           "Transfer the owner and next-check habits to your own board."
         ],
-        notes: "Allow 7 minutes. Give learners time to observe the rejected fourth card and practise a blocked move. Explain that the lab enforces a rule which their free-plan board must not be assumed to enforce automatically."
+        notes: "Allow 7 minutes. Give learners time to observe the rejected fourth card and practise a blocked move and its resolution. Explain that the lab enforces a rule which their free-plan board must not be assumed to enforce automatically."
       },
       {
         kind: "content",
@@ -569,6 +769,28 @@ export default {
           "Report the actual practice result without claiming that the fictional event took place."
         ],
         tip: "Separate approval to do changed work from acceptance after that work is checked."
+      },
+      {
+        question: "Doing has a free slot, but the next card depends on an unaccepted draft. Would you start it?",
+        type: "scenario",
+        answerGuide: [
+          "Check the predecessor and the evidence required before the new task can proceed.",
+          "Distinguish available WIP capacity from readiness; a free slot does not remove a dependency.",
+          "Help resolve the missing input or review with its owner and a dated next check.",
+          "Choose another genuinely ready priority only after checking capacity and keeping waiting work visible."
+        ],
+        tip: "Use N04 waiting for N03 as a concrete example rather than treating the limit as a target to fill."
+      },
+      {
+        question: "Reconstruct Nila Learning Studio's blocked snapshot and explain how you would verify its final closure.",
+        type: "practical",
+        answerGuide: [
+          "At 18 November, reconcile Done 2 + Blocked 1 + Backlog 2 = 5; Doing and Review are both zero.",
+          "Explain six logged hours as 2 + 3 + 1, with six remaining as 2 + 2 + 2; partial work is not an accepted card.",
+          "Trace N03's room confirmation, remaining work and review before allowing N04 and then N05 to start.",
+          "Verify five accepted outputs, 12 total hours and the receiving acknowledgement, while describing only briefing-pack closure."
+        ],
+        tip: "Check the movement history as well as the final board; Done alone does not show whether dependencies were respected."
       }
     ]
   },
