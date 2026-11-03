@@ -376,3 +376,9 @@ body[data-area="classroom"] .inbox-fab, body[data-area="classroom"] .preview-dra
 
 /* Manual (bank transfer / UPI) payment card used when the live server has no payment provider */
 .pay-card.manual { aspect-ratio: auto; align-content: start; gap: 0.5rem; } .pay-card.manual strong { font-size: 1.1rem; } .pay-card.manual p { margin: 0; color: var(--ink-2); }
+
+/* Preview-only one-click sign-in card on the sign-in pages */
+.preview-shortcut { border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); padding: 1rem 1.1rem; background: rgba(223, 237, 157, 0.05); display: grid; gap: 0.75rem; }
+.preview-shortcut-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; } .preview-shortcut-head .icon { color: var(--lime); }
+.shortcut-row { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.button.shortcut { display: grid; justify-items: start; gap: 0.15rem; text-align: left; padding: 0.7rem 0.9rem; white-space: normal; line-height: 1.25; } .button.shortcut small { font-size: 0.7rem; color: var(--muted); font-weight: 500; line-height: 1.3; } .button.shortcut.is-busy { display: inline-flex; }

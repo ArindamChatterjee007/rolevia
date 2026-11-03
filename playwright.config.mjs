@@ -14,10 +14,24 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     reducedMotion: "reduce",
-    permissions: ["camera", "microphone"],
-    launchOptions: { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--autoplay-policy=no-user-gesture-required", "--auto-select-desktop-capture-source=Entire screen", "--enable-usermedia-screen-capturing"] },
-    ...devices["Desktop Chrome"],
   },
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        permissions: ["camera", "microphone"],
+        launchOptions: { args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--autoplay-policy=no-user-gesture-required", "--auto-select-desktop-capture-source=Entire screen", "--enable-usermedia-screen-capturing"] },
+      },
+    },
+    {
+      // Safari's engine (the founder tests on a Mac): public pages, registration and both sign-ins must boot and
+      // work there too. The live-class flow stays Chromium-only because its fake camera/screen flags are Chromium's.
+      name: "webkit",
+      use: { ...devices["Desktop Safari"] },
+      grep: /public site|registration pays|protected areas|preview shortcuts/,
+    },
+  ],
   webServer: {
     command: "node tests/serve.mjs",
     url: "http://127.0.0.1:4173/",

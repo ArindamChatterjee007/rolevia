@@ -1221,6 +1221,11 @@ async function seed(curriculum, assignmentBriefs, now) {
   const day = 24 * 60 * 60 * 1000;
   const previewCredentials = {
     student: { id: "RV-26-0001", password: "Learn#2026" },
+    students: [
+      { id: "RV-26-0001", name: "Ananya Iyer", note: "5 modules · career kit unlocked · leaderboard #1" },
+      { id: "RV-26-0002", name: "Rohit Menon", note: "3 modules · enrolled in the demo live class module" },
+      { id: "RV-26-0003", name: "Priya Sharma", note: "2 modules" },
+    ],
     admins: [
       { adminId: "RV-ADM-001", name: "Arindam Chatterjee", email: "arindam@rolevia.demo", phone: "+910000000001", role: "lead", password: "Lead-Arindam-2026" },
       { adminId: "RV-ADM-002", name: "Ayush", email: "ayush@rolevia.demo", phone: "+910000000002", role: "content", password: "Content-Ayush-2026" },

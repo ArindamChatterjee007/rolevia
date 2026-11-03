@@ -1,4 +1,4 @@
-import { h, icon, money, field, formData, busy, toast, showFieldErrors, clearFieldErrors } from "../ui.js";
+import { h, icon, money, field, formData, busy, toast, showFieldErrors, clearFieldErrors, spinner } from "../ui.js";
 import { ctx, setAuth } from "../context.js";
 import { publicShell, errorBox } from "./components.js";
 
@@ -15,6 +15,55 @@ function authShell(content, { title, eyebrow, aside }) {
   return publicShell(h("div", { class: "container section auth-layout" },
     h("div", { class: "auth-main" }, h("p", { class: "eyebrow" }, eyebrow), h("h1", {}, title), content),
     aside ? h("aside", { class: "auth-aside" }, aside) : null), { active: "" });
+}
+
+// Preview-only shortcuts: the demo accounts are already published in the preview inbox, so a one-click sign-in
+// that also completes the one-time code costs nothing in security and saves the founder a dozen steps.
+// Nothing here exists in live mode: previewCredentials() is null there and the card is not rendered.
+const ADMIN_ID = /^RV-ADM-\d{3}$/i;
+const STUDENT_ID = /^RV-\d{2}-\d{4}$/i;
+const device = () => ({ deviceId: ctx.device.id, deviceLabel: ctx.device.label });
+async function previewCodeFor(challenge) {
+  const messages = await ctx.api.previewInbox();
+  const match = messages.find(message => message.channel === "email" && /Code \d{6}/.test(message.body) && message.at >= (challenge.sentAt ?? 0))?.body.match(/Code (\d{6})/);
+  if (!match) throw new Error("The preview inbox has no sign-in code yet. Open the inbox and enter it manually.");
+  return match[1];
+}
+async function quickSignIn({ identifier, password, type, next }) {
+  const challenge = await ctx.api.login({ identifier, password, ...device(), expectedType: type });
+  const result = await ctx.api.verifyOtp({ challengeId: challenge.challengeId, code: await previewCodeFor(challenge), ...device() });
+  // Keep the published demo password so the account stays usable after a reload; production forces a new one.
+  if (result.mustChangePassword) await ctx.api.changePassword({ token: result.token, deviceId: ctx.device.id, currentPassword: password, newPassword: password });
+  setAuth({ token: result.token, type, user: { ...result.user, mustChangePassword: false } });
+  document.dispatchEvent(new CustomEvent("rolevia:inbox-refresh"));
+  toast(`Signed in as ${result.user.name.split(" ")[0]} (preview shortcut).`, "success");
+  location.hash = next;
+}
+function previewShortcuts(type, next) {
+  const credentials = ctx.mode === "preview" ? ctx.api.previewCredentials?.() : null;
+  if (!credentials) return null;
+  const accounts = type === "admin"
+    ? credentials.admins.map(admin => ({ identifier: admin.adminId, password: admin.password, label: admin.name.split(" ")[0], note: { lead: "Programme lead · everything", content: "Content manager · lessons, grading, live classes", success: "Student success · verification, payments, alerts" }[admin.role] ?? admin.role }))
+    : (credentials.students ?? [{ id: credentials.student.id, name: "Demo student", note: "" }]).map(student => ({ identifier: student.id, password: credentials.student.password, label: student.name, note: student.note }));
+  const status = h("div");
+  const buttons = accounts.map(account => h("button", { class: "button ghost small shortcut", type: "button", "data-shortcut": account.identifier, onClick: async (event) => {
+    const button = event.currentTarget;
+    const original = [...button.childNodes];
+    buttons.forEach(other => { other.disabled = true; });
+    button.classList.add("is-busy"); button.replaceChildren(spinner(), "Signing in…");
+    try { await quickSignIn({ ...account, type, next }); }
+    catch (error) { status.replaceChildren(errorBox(error)); button.classList.remove("is-busy"); button.replaceChildren(...original); buttons.forEach(other => { other.disabled = false; }); }
+  } }, h("strong", {}, account.label), h("small", {}, account.note ? `${account.identifier} · ${account.note}` : account.identifier)));
+  return h("div", { class: "preview-shortcut", role: "note" },
+    h("div", { class: "preview-shortcut-head" }, icon("bolt", 16), h("strong", {}, "Preview shortcut"), h("span", { class: "tiny muted" }, "Fictional demo accounts. One click signs in and enters the one-time code for you.")),
+    h("div", { class: "shortcut-row" }, buttons), status,
+    h("p", { class: "tiny muted" }, "Prefer the real flow? Use the form above: ID + password, then the 6-digit code from the preview inbox (bottom-right). Production has no shortcuts and never shows credentials."));
+}
+function misroutedIdHint(identifier, page) {
+  const value = String(identifier ?? "").trim();
+  if (page === "student" && ADMIN_ID.test(value)) return h("div", { class: "alert info" }, icon("info", 16), h("span", {}, "That is an Admin ID. Admins sign in at the ", h("a", { href: "#/admin/login" }, "admin console"), "."));
+  if (page === "admin" && STUDENT_ID.test(value)) return h("div", { class: "alert info" }, icon("info", 16), h("span", {}, "That is a Student ID. Students sign in at the ", h("a", { href: "#/login" }, "student sign-in"), "."));
+  return null;
 }
 
 export function registerPage(_, query) {
@@ -190,6 +239,8 @@ export function loginPage(_, query) {
     const form = h("form", { class: "form-grid", novalidate: true, onSubmit: async (event) => {
       event.preventDefault();
       const values = formData(form);
+      const hint = misroutedIdHint(values.identifier, "student");
+      if (hint) { error.replaceChildren(hint); return; }
       const button = form.querySelector("button[type=submit]");
       busy(button, true, "Checking");
       try {
@@ -234,12 +285,12 @@ export function loginPage(_, query) {
       h("div", { class: "otp-row" }, inputs),
       error,
       h("div", { class: "form-actions between" }, h("button", { class: "link-button", type: "button", onClick: renderCredentials }, "Use a different account"), h("button", { class: "button primary large", type: "submit" }, "Verify and sign in", icon("lock", 16))),
-      h("p", { class: "tiny muted" }, "Preview: the code is in the preview inbox (bottom-right)."));
+      ctx.mode === "preview" ? h("p", { class: "tiny muted" }, "Preview: the code was \"sent\" to the preview inbox. ", h("button", { class: "link-button", type: "button", onClick: () => document.dispatchEvent(new CustomEvent("rolevia:inbox")) }, "Open preview inbox")) : null);
     wrapper.replaceChildren(form);
     inputs[0].focus();
   };
   renderCredentials();
-  return authShell(wrapper, { eyebrow: "Student sign-in", title: "Welcome back.", aside: h("div", { class: "aside-card" }, h("h4", {}, "No account yet?"), h("p", { class: "small muted" }, "Register, pay for a skill module and we will verify you within 1 business day."), h("a", { class: "button ghost block", href: "#/register" }, "Register"), h("hr"), h("h4", {}, "Signing in from a new device?"), h("p", { class: "small muted" }, "Your previous device is signed out automatically. If you switch devices often you will receive a security notice.")) });
+  return authShell(h("div", { class: "stack" }, wrapper, previewShortcuts("student", next.startsWith("/") ? `#${next}` : "#/portal")), { eyebrow: "Student sign-in", title: "Welcome back.", aside: h("div", { class: "aside-card" }, h("h4", {}, "No account yet?"), h("p", { class: "small muted" }, "Register, pay for a skill module and we will verify you within 1 business day."), h("a", { class: "button ghost block", href: "#/register" }, "Register"), h("hr"), h("h4", {}, "Signing in from a new device?"), h("p", { class: "small muted" }, "Your previous device is signed out automatically. If you switch devices often you will receive a security notice.")) });
 }
 
 export function resetPage() {
@@ -276,6 +327,8 @@ export function adminLoginPage() {
   const credentials = h("form", { class: "form-grid", novalidate: true, onSubmit: async (event) => {
     event.preventDefault();
     const values = formData(credentials);
+    const hint = misroutedIdHint(values.identifier, "admin");
+    if (hint) { error.replaceChildren(hint); return; }
     const button = credentials.querySelector("button[type=submit]");
     busy(button, true, "Checking");
     try {
@@ -294,9 +347,10 @@ export function adminLoginPage() {
       toast(`Signed in as ${result.user.roleLabel}.`, "success");
       location.hash = result.mustChangePassword ? "#/admin/account?first=1" : "#/admin";
     } catch (apiError) { error.replaceChildren(errorBox(apiError)); busy(button, false); }
-  } }, h("p", { class: "muted" }, "Enter the 6-digit code sent to the admin email."), field({ label: "One-time code", name: "code", inputmode: "numeric", required: true }), error, h("div", { class: "form-actions" }, h("button", { class: "button primary", type: "submit" }, "Open admin console", icon("lock", 16))));
+  } }, h("p", { class: "muted" }, "Enter the 6-digit code sent to the admin email."), field({ label: "One-time code", name: "code", inputmode: "numeric", required: true }), error, h("div", { class: "form-actions" }, h("button", { class: "button primary", type: "submit" }, "Open admin console", icon("lock", 16))),
+    ctx.mode === "preview" ? h("p", { class: "tiny muted" }, "Preview: the code was \"sent\" to the preview inbox. ", h("button", { class: "link-button", type: "button", onClick: () => document.dispatchEvent(new CustomEvent("rolevia:inbox")) }, "Open preview inbox")) : null);
   wrapper.append(credentials);
-  return authShell(wrapper, { eyebrow: "Admin console", title: "Programme administration.", aside: h("div", { class: "aside-card" }, h("h4", {}, "Admin responsibilities"), h("ul", { class: "ticks small" }, h("li", {}, icon("check", 14), "Verify registrations and issue credentials"), h("li", {}, icon("check", 14), "Upload lessons, assignments and announcements"), h("li", {}, icon("check", 14), "Grade submissions and review device alerts")), h("p", { class: "tiny muted" }, "Three role-based admin accounts exist: programme lead, learning & content manager, student success & verification. Preview credentials are listed in the preview inbox panel.")) });
+  return authShell(h("div", { class: "stack" }, wrapper, previewShortcuts("admin", "#/admin")), { eyebrow: "Admin console", title: "Programme administration.", aside: h("div", { class: "aside-card" }, h("h4", {}, "Admin responsibilities"), h("ul", { class: "ticks small" }, h("li", {}, icon("check", 14), "Verify registrations and issue credentials"), h("li", {}, icon("check", 14), "Upload lessons, assignments and announcements"), h("li", {}, icon("check", 14), "Grade submissions and review device alerts")), h("p", { class: "tiny muted" }, "Three role-based admin accounts exist: programme lead, learning & content manager, student success & verification. Preview credentials are listed in the preview inbox panel.")) });
 }
 
 export function opsLoginPage() {

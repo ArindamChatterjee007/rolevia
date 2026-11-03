@@ -21,7 +21,7 @@ jobs:
           node-version: 22
       - run: npm install --no-audit --no-fund
       - run: npm run test:unit
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - run: npx playwright test
         env:
           CI: "true"

@@ -11,7 +11,11 @@ const strayText = (page) => page.evaluate(() => {
   return found;
 });
 const shot = async (page, name, fullPage = true) => {
-  await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage });
+  // Chromium shots are the published evidence set; other engines go into their own folder.
+  const project = test.info().project.name;
+  const dir = project === "chromium" ? SHOTS : `${SHOTS}/${project}`;
+  mkdirSync(dir, { recursive: true });
+  await page.screenshot({ path: `${dir}/${name}.png`, fullPage });
   expect(await strayText(page), `stray text on ${name}`).toEqual([]);
 };
 
@@ -104,6 +108,41 @@ test("public site renders the animated hero, company marquee, eight skills and s
   await expect(page.locator("h1")).toHaveText("AI for MBA & Business");
   await expect(page.locator(".price-big")).toHaveText("INR 2,999");
   expect(errors).toEqual([]);
+});
+
+test("preview shortcuts: one-click demo sign-in for a student and an admin; misrouted IDs get a hint instead of an error", async ({ page }) => {
+  await open(page, "/login");
+  await page.fill("input[name=identifier]", "RV-ADM-001");
+  await page.fill("input[name=password]", "whatever");
+  await page.click("button[type=submit]");
+  await expect(page.locator(".alert.info")).toContainText("That is an Admin ID");
+  await expect(page.locator(".alert.info a")).toHaveAttribute("href", "#/admin/login");
+  await expect(page.locator(".preview-shortcut")).toContainText("Preview shortcut");
+  await shot(page, "00-student-signin", false);
+  await page.locator('[data-shortcut="RV-26-0002"]').click();
+  await expect(page.locator("h1")).toHaveText("Dashboard", { timeout: 15_000 });
+  await expect(page.locator(".dash-hero h2")).toContainText("Rohit");
+  await page.getByRole("button", { name: "Sign out" }).click();
+
+  await open(page, "/admin/login");
+  await page.fill("input[name=identifier]", "RV-26-0001");
+  await page.fill("input[name=password]", "whatever");
+  await page.click("button[type=submit]");
+  await expect(page.locator(".alert.info")).toContainText("That is a Student ID");
+  await shot(page, "00a-admin-signin", false);
+  await page.locator('[data-shortcut="RV-ADM-002"]').click();
+  await expect(page.locator("h1")).toHaveText("Overview", { timeout: 15_000 });
+  await expect(page.locator(".portal-top")).toContainText("Ayush");
+  // The shortcut kept the demo password, so the manual flow still works afterwards without a forced change.
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await open(page, "/admin/login");
+  await page.fill("input[name=identifier]", "RV-ADM-002");
+  await page.fill("input[name=password]", "Content-Ayush-2026");
+  await page.click("button[type=submit]");
+  await expect(page.locator("input[name=code]")).toBeVisible();
+  await page.fill("input[name=code]", await latestCode(page));
+  await page.click("button[type=submit]");
+  await expect(page.locator("h1")).toHaveText("Overview", { timeout: 15_000 });
 });
 
 test("registration pays first, a human verifies, credentials arrive by message, OTP sign-in forces a password change", async ({ page }) => {

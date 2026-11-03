@@ -25,7 +25,10 @@ Preview accounts (fictional, shown in the on-page preview inbox): student `RV-26
 admins `RV-ADM-001` (programme lead), `RV-ADM-002` (learning & content manager), `RV-ADM-003`
 (student success & verification) with the temporary passwords listed in the preview inbox panel; operations
 passphrase `ROLEVIA-OPS-PREVIEW`. Admins must set a new password at first sign-in. One-time codes and
-credential emails appear in the **preview inbox** (bottom-right button).
+credential emails appear in the **preview inbox** (bottom-right button). Both sign-in pages also show a
+**Preview shortcut** card: one click signs in as a demo student or admin and enters the one-time code for
+you (it keeps the published demo password). The card exists only in preview mode; live mode has no
+shortcuts and never shows credentials.
 
 ### Admin roles and the tracker
 
