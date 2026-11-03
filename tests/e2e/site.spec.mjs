@@ -225,6 +225,7 @@ test("content manager uploads a lesson with a file, grades a submission, announc
   await page.getByRole("button", { name: "All open" }).click();
   await expect(page.locator(".task").first()).toBeVisible();
   await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/#\/$/);
 
   await open(page, "/ops");
   await expect(page).toHaveURL(/#\/ops\/login/);
