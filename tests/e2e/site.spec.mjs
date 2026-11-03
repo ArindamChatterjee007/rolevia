@@ -330,9 +330,9 @@ test("a student completes an interactive lab, a daily quiz, sees the leaderboard
   await page.locator(".chip", { hasText: "Paste from my assistant" }).click();
   await page.fill('textarea[aria-label="Assistant reply"]', "North: 4 orders, INR 6,600.\nSouth: 4 orders, INR 4,900.\nRecommendation: add stock in the North first.");
   await expect(page.locator(".verify-lines li")).toHaveCount(3);
-  await page.locator(".verify-lines li").nth(0).getByRole("button", { name: "Supported" }).click();
-  await page.locator(".verify-lines li").nth(1).getByRole("button", { name: "Unsupported" }).click();
-  await page.locator(".verify-lines li").nth(2).getByRole("button", { name: "Needs evidence" }).click();
+  await page.locator(".verify-lines li").nth(0).getByRole("button", { name: "Supported", exact: true }).click();
+  await page.locator(".verify-lines li").nth(1).getByRole("button", { name: "Unsupported", exact: true }).click();
+  await page.locator(".verify-lines li").nth(2).getByRole("button", { name: "Needs evidence", exact: true }).click();
   await page.fill('textarea[placeholder^="How you checked"]', "Recalculated both regional totals with SUM against the eight rows; South is 4,500 not 4,900, so line 2 is unsupported.");
   await expect(page.locator(".ai-total strong")).toHaveText("100 / 100");
   await expect(page.locator(".lab-status")).toContainText("best 100/100 · 50 points from this lab");
