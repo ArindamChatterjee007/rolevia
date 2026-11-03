@@ -212,7 +212,7 @@ function renderRoom(page, access, localStream, toggles) {
   const controlButton = (key, label, iconName, onClick, { danger = false } = {}) => h("button", { class: `control ${danger ? "danger" : ""}`, type: "button", dataset: { control: key }, "aria-label": label, title: label, onClick }, icon(iconName, 20), h("span", {}, label));
   const renderControls = () => {
     const state = room.state;
-    controls.replaceChildren(
+    controls.replaceChildren(...[
       builtin && room.localStream ? controlButton("mic", state.mic ? "Mute" : "Unmute", "bell", () => { room.setState({ mic: !room.state.mic }); renderControls(); renderStage(); }) : null,
       builtin && room.localStream ? controlButton("camera", state.camera ? "Camera off" : "Camera on", "eye", () => { room.setState({ camera: !room.state.camera }); renderControls(); renderStage(); }) : null,
       builtin ? controlButton("share", state.sharing ? "Stop sharing" : "Share screen", "upload", async () => { try { if (room.screenStream) room.stopScreenShare(); else await room.startScreenShare(() => getScreenStream({ testFallback: ctx.testMode })); } catch (error) { toast(error.name === "NotAllowedError" ? "Screen sharing was cancelled." : error.message, "info"); } renderControls(); renderStage(); }) : null,
@@ -221,7 +221,7 @@ function renderRoom(page, access, localStream, toggles) {
       isHost && builtin ? controlButton("record", recorder?.active ? "Stop recording" : "Record", "play", toggleRecording, { danger: Boolean(recorder?.active) }) : null,
       controlButton("chat", "Chat", "mail", () => { setPanel("chat"); sidePanel.classList.add("open"); }),
       isHost ? controlButton("quiz", "Live quiz", "quiz", () => { setPanel("quiz"); sidePanel.classList.add("open"); }) : null,
-      controlButton("leave", isHost ? "End class" : "Leave", "logout", isHost ? endClass : leaveRoom, { danger: true }));
+      controlButton("leave", isHost ? "End class" : "Leave", "logout", isHost ? endClass : leaveRoom, { danger: true })].filter(Boolean));
     const classes = { mic: !state.mic, camera: !state.camera, share: state.sharing, hand: state.hand, record: recorder?.active };
     for (const [key, on] of Object.entries(classes)) controls.querySelector(`[data-control="${key}"]`)?.classList.toggle("on", Boolean(on));
   };

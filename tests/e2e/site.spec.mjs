@@ -3,7 +3,17 @@ import { mkdirSync } from "node:fs";
 
 const SHOTS = "test-results/screens";
 mkdirSync(SHOTS, { recursive: true });
-const shot = (page, name, fullPage = true) => page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage });
+// Every screenshot doubles as a render check: a raw null/undefined child would show up as literal text.
+const strayText = (page) => page.evaluate(() => {
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const found = [];
+  while (walker.nextNode()) { const text = walker.currentNode.textContent.trim(); if (text === "null" || text === "undefined" || text === "nullnull" || text === "[object Object]") found.push(`${text} in ${walker.currentNode.parentElement?.className || walker.currentNode.parentElement?.tagName}`); }
+  return found;
+});
+const shot = async (page, name, fullPage = true) => {
+  await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage });
+  expect(await strayText(page), `stray text on ${name}`).toEqual([]);
+};
 
 async function open(page, route = "/") {
   await page.goto(`/?fast#${route}`);
