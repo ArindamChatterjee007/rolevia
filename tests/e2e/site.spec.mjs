@@ -123,8 +123,14 @@ test("preview shortcuts: one-click demo sign-in for a student and an admin; misr
   await expect(page.locator("h1")).toHaveText("Dashboard", { timeout: 15_000 });
   await expect(page.locator(".dash-hero h2")).toContainText("Rohit");
   await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/#\/$/);
 
   await open(page, "/admin/login");
+  // A wrong admin password must produce a visible error (regression: the admin page once rendered none).
+  await page.fill("input[name=identifier]", "RV-ADM-001");
+  await page.fill("input[name=password]", "wrong-password");
+  await page.click("button[type=submit]");
+  await expect(page.locator(".alert.error")).toContainText("could not match");
   await page.fill("input[name=identifier]", "RV-26-0001");
   await page.fill("input[name=password]", "whatever");
   await page.click("button[type=submit]");
@@ -135,6 +141,7 @@ test("preview shortcuts: one-click demo sign-in for a student and an admin; misr
   await expect(page.locator(".portal-top")).toContainText("Ayush");
   // The shortcut kept the demo password, so the manual flow still works afterwards without a forced change.
   await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/#\/$/);
   await open(page, "/admin/login");
   await page.fill("input[name=identifier]", "RV-ADM-002");
   await page.fill("input[name=password]", "Content-Ayush-2026");

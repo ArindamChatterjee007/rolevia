@@ -295,6 +295,7 @@ export function loginPage(_, query) {
 
 export function resetPage() {
   const error = h("div");
+  const resetError = h("div");
   let challenge = null;
   const wrapper = h("div", { class: "auth-card" });
   const requestForm = h("form", { class: "form-grid", novalidate: true, onSubmit: async (event) => {
@@ -311,17 +312,20 @@ export function resetPage() {
     event.preventDefault();
     const values = formData(resetForm);
     const button = resetForm.querySelector("button[type=submit]");
-    if (!challenge?.challengeId) { error.replaceChildren(errorBox(new Error("If that account exists, a code was sent. Check the inbox and try again with the correct ID."))); return; }
+    if (!challenge?.challengeId) { resetError.replaceChildren(errorBox(new Error("If that account exists, a code was sent. Check the inbox and try again with the correct ID."))); return; }
     busy(button, true, "Updating");
     try { await ctx.api.resetPassword({ challengeId: challenge.challengeId, code: values.code, newPassword: values.password }); toast("Password updated. Sign in with your new password.", "success"); location.hash = "#/login"; }
-    catch (apiError) { error.replaceChildren(errorBox(apiError)); busy(button, false); }
-  } }, h("p", { class: "muted" }, "If the account exists, a 6-digit code was sent to the registered email and phone."), field({ label: "6-digit code", name: "code", inputmode: "numeric", required: true }), field({ label: "New password", name: "password", type: "password", required: true, autocomplete: "new-password", hint: "At least 8 characters with letters and numbers." }), error, h("div", { class: "form-actions" }, h("button", { class: "button primary", type: "submit" }, "Set new password")));
+    catch (apiError) { resetError.replaceChildren(errorBox(apiError)); busy(button, false); }
+  } }, h("p", { class: "muted" }, "If the account exists, a 6-digit code was sent to the registered email and phone."), field({ label: "6-digit code", name: "code", inputmode: "numeric", required: true }), field({ label: "New password", name: "password", type: "password", required: true, autocomplete: "new-password", hint: "At least 8 characters with letters and numbers." }), resetError, h("div", { class: "form-actions" }, h("button", { class: "button primary", type: "submit" }, "Set new password")));
   wrapper.append(requestForm);
   return authShell(wrapper, { eyebrow: "Password reset", title: "Reset your password.", aside: null });
 }
 
 export function adminLoginPage() {
+  // One error box per form: a single node appended to both forms would live only in the last one built,
+  // leaving the credentials form unable to show "wrong password" at all.
   const error = h("div");
+  const otpError = h("div");
   let challenge = null;
   const wrapper = h("div", { class: "auth-card" });
   const credentials = h("form", { class: "form-grid", novalidate: true, onSubmit: async (event) => {
@@ -346,8 +350,8 @@ export function adminLoginPage() {
       setAuth({ token: result.token, type: "admin", user: result.user });
       toast(`Signed in as ${result.user.roleLabel}.`, "success");
       location.hash = result.mustChangePassword ? "#/admin/account?first=1" : "#/admin";
-    } catch (apiError) { error.replaceChildren(errorBox(apiError)); busy(button, false); }
-  } }, h("p", { class: "muted" }, "Enter the 6-digit code sent to the admin email."), field({ label: "One-time code", name: "code", inputmode: "numeric", required: true }), error, h("div", { class: "form-actions" }, h("button", { class: "button primary", type: "submit" }, "Open admin console", icon("lock", 16))),
+    } catch (apiError) { otpError.replaceChildren(errorBox(apiError)); busy(button, false); }
+  } }, h("p", { class: "muted" }, "Enter the 6-digit code sent to the admin email."), field({ label: "One-time code", name: "code", inputmode: "numeric", required: true }), otpError, h("div", { class: "form-actions" }, h("button", { class: "button primary", type: "submit" }, "Open admin console", icon("lock", 16))),
     ctx.mode === "preview" ? h("p", { class: "tiny muted" }, "Preview: the code was \"sent\" to the preview inbox. ", h("button", { class: "link-button", type: "button", onClick: () => document.dispatchEvent(new CustomEvent("rolevia:inbox")) }, "Open preview inbox")) : null);
   wrapper.append(credentials);
   return authShell(h("div", { class: "stack" }, wrapper, previewShortcuts("admin", "#/admin")), { eyebrow: "Admin console", title: "Programme administration.", aside: h("div", { class: "aside-card" }, h("h4", {}, "Admin responsibilities"), h("ul", { class: "ticks small" }, h("li", {}, icon("check", 14), "Verify registrations and issue credentials"), h("li", {}, icon("check", 14), "Upload lessons, assignments and announcements"), h("li", {}, icon("check", 14), "Grade submissions and review device alerts")), h("p", { class: "tiny muted" }, "Three role-based admin accounts exist: programme lead, learning & content manager, student success & verification. Preview credentials are listed in the preview inbox panel.")) });
