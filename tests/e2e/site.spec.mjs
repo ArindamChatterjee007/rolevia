@@ -51,7 +51,7 @@ test("public site renders the animated hero, company marquee, eight skills and s
   await expect(page.locator("h1.display")).toContainText("Business knowledge");
   await expect(page.locator(".orbit-chip")).toHaveCount(8);
   expect(await page.locator(".marquee .wordmark").count()).toBeGreaterThanOrEqual(12);
-  await expect(page.locator(".marquee-wrap")).toContainText("No partnership, endorsement or placement is implied");
+  await expect(page.locator(".marquee-wrap")).toContainText("no partnership with, endorsement from or placement arrangement with");
   await expect(page.locator(".skills-grid .skill-card")).toHaveCount(8);
   await expect(page.locator(".quotes-ticker .quote").first()).toBeVisible();
   await expect(page.locator(".teaser-row").first()).toContainText("#1");
