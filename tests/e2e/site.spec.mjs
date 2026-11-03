@@ -341,9 +341,10 @@ test("live class: host starts, learner joins with video, screen share, live quiz
   await hostPage.locator(".modal").getByRole("button", { name: "End class" }).click();
   await expect(studentPage.locator(".gate-card h1")).toHaveText("Class ended", { timeout: 15_000 });
   await expect(hostPage.locator("h1")).toHaveText("Class details", { timeout: 15_000 });
-  await expect(hostPage.locator(".card", { hasText: "Attendance" })).toContainText("Ananya Iyer");
-  await expect(hostPage.locator(".card", { hasText: "Live questions" })).toContainText("1 answered · 1 correct");
-  await expect(hostPage.locator(".card", { hasText: "Recordings" })).toContainText("kept on the host's device");
+  const detailCard = (heading) => hostPage.locator(".card", { has: hostPage.locator("h3", { hasText: heading }) });
+  await expect(detailCard("Attendance")).toContainText("Ananya Iyer");
+  await expect(detailCard("Live questions")).toContainText("1 answered · 1 correct");
+  await expect(detailCard("Recordings")).toContainText("kept on the host's device");
   await shot(hostPage, "16-admin-class-detail");
   await open(studentPage, "/portal/classes");
   await expect(studentPage.locator(".class-card", { hasText: "Week 1 live workshop" })).toContainText("You attended · 1/1 correct");
