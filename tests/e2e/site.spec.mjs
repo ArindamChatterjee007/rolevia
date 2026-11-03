@@ -60,6 +60,24 @@ test("public site renders the animated hero, company marquee, eight skills and s
   await open(page, "/");
   await expect(page.locator("h1.display")).toContainText("Business knowledge");
   await expect(page.locator(".orbit-chip")).toHaveCount(8);
+  // Orbit geometry: every chip stays inside the orbit box and clear of the core and of every other chip.
+  const orbitReport = () => page.evaluate(() => {
+    const rect = (element) => element.getBoundingClientRect();
+    const box = rect(document.querySelector(".orbit"));
+    const core = rect(document.querySelector(".orbit-core"));
+    const chips = [...document.querySelectorAll(".orbit-chip-inner")].map(rect);
+    const overlaps = (a, b) => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+    const outside = chips.filter(chip => chip.left < box.left - 1 || chip.right > box.right + 1 || chip.top < box.top - 1 || chip.bottom > box.bottom + 1).length;
+    const onCore = chips.filter(chip => overlaps(chip, core)).length;
+    let collisions = 0;
+    for (let i = 0; i < chips.length; i += 1) for (let j = i + 1; j < chips.length; j += 1) if (overlaps(chips[i], chips[j])) collisions += 1;
+    const clipped = chips.filter((chip, index) => document.querySelectorAll(".orbit-chip-inner")[index].scrollWidth > chip.width + 1).length;
+    return { width: Math.round(box.width), outside, onCore, collisions, clipped };
+  });
+  const desktopOrbit = await orbitReport();
+  expect(desktopOrbit, JSON.stringify(desktopOrbit)).toMatchObject({ outside: 0, onCore: 0, collisions: 0, clipped: 0 });
+  expect(desktopOrbit.width).toBeGreaterThanOrEqual(480);
+  await shot(page, "01a-hero-desktop", false);
   expect(await page.locator(".marquee .wordmark").count()).toBeGreaterThanOrEqual(12);
   await expect(page.locator(".marquee-wrap")).toContainText("no partnership with, endorsement from or placement arrangement with");
   await expect(page.locator(".skills-grid .skill-card")).toHaveCount(8);
@@ -71,6 +89,9 @@ test("public site renders the animated hero, company marquee, eight skills and s
   await page.waitForSelector("#splash", { state: "detached" });
   const widths = await page.evaluate(() => ({ viewport: window.innerWidth, content: document.documentElement.scrollWidth }));
   expect(widths.content).toBe(widths.viewport);
+  const mobileOrbit = await orbitReport();
+  expect(mobileOrbit, JSON.stringify(mobileOrbit)).toMatchObject({ outside: 0, onCore: 0, collisions: 0, clipped: 0 });
+  expect(mobileOrbit.width).toBeGreaterThanOrEqual(300);
   await shot(page, "02-home-mobile", false);
   await open(page, "/pricing");
   await page.getByRole("button", { name: "International · USD" }).click();

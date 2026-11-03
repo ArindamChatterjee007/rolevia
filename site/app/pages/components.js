@@ -37,14 +37,16 @@ export function previewBanner() {
   return h("div", { class: "preview-banner", role: "note" }, icon("info", 14), h("span", {}, h("strong", {}, "Preview mode."), " Fictional data, no real payments, OTP codes appear in the preview inbox. Sessions are per tab: open another tab to join as a second person. "), h("button", { class: "link-button", type: "button", onClick: () => document.dispatchEvent(new CustomEvent("rolevia:inbox")) }, "Open preview inbox"));
 }
 
+// Chips alternate between an inner and an outer ring (set in CSS), so neighbours never sit side by side and
+// nothing overlaps the core or leaves the box; the whole figure scales with its column width.
 export function orbit(modules) {
-  const radius = 150;
-  const wrapper = h("div", { class: "orbit", "aria-label": "Eight skill modules orbiting one learner" });
+  const wrapper = h("div", { class: "orbit", role: "group", "aria-label": "Eight skill modules orbiting one learner" });
   wrapper.append(h("div", { class: "orbit-ring ring-a" }), h("div", { class: "orbit-ring ring-b" }), h("div", { class: "orbit-ring ring-c" }));
   wrapper.append(h("div", { class: "orbit-core" }, h("span", { class: "orbit-core-label" }, "You"), h("span", { class: "orbit-core-sub" }, "one skill at a time")));
   modules.forEach((module, index) => {
-    const angle = (index / modules.length) * 360;
-    const chip = h("a", { class: `orbit-chip accent-${module.accent}`, href: `#/skills/${module.id}`, style: { "--angle": `${angle}deg`, "--radius": `${radius}px`, "--delay": `${index * -3.2}s` } }, h("span", { class: "orbit-chip-inner" }, h("strong", {}, module.title), h("small", {}, module.tool)));
+    const angle = (index / modules.length) * 360 - 90;
+    const chip = h("a", { class: `orbit-chip accent-${module.accent} ${index % 2 ? "ring-outer" : "ring-inner"}`, href: `#/skills/${module.id}`, "aria-label": `${module.title} (${module.tool})`, style: { "--angle": `${angle}deg`, "--delay": `${index * -4.5}s` } },
+      h("span", { class: "orbit-chip-inner" }, h("strong", {}, module.short ?? module.title), h("small", {}, module.shortTool ?? module.tool)));
     wrapper.append(chip);
   });
   return wrapper;
