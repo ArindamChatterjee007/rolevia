@@ -33,6 +33,8 @@ export const KIT_SERVICE_IDS = ["interview", "resume-audit", "resume-writing"];
 export const LAB_IDS = ["spreadsheets", "dashboards", "business-ai", "canva", "crm", "hr-tracker", "trello", "budgeting"];
 export const LIVE_QUIZ_POINTS = { correct: 10, participation: 2 };
 export const CLASS_JOIN_WINDOW_MS = 15 * 60 * 1000;
+export const CLASS_AUTO_END_GRACE_MS = 60 * 60 * 1000;
+export const DEFAULT_PAYMENT_INSTRUCTIONS = "Pay by bank transfer or UPI using the details our team sends you, quoting your payment reference. Nothing is activated until a person confirms the payment (within 1 business day).";
 export const DEFAULT_ICE_SERVERS = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }];
 
 export async function sha256(text) {
@@ -97,7 +99,7 @@ export function browserStorage(key, localStorage) {
   };
 }
 
-export async function createMockServer({ storage, curriculum, quizBank = {}, assignmentBriefs = {}, now = () => Date.now(), latency = () => 0, deliver = null, seedMode = "demo", opsPassphrase = null, iceServers = DEFAULT_ICE_SERVERS }) {
+export async function createMockServer({ storage, curriculum, quizBank = {}, assignmentBriefs = {}, now = () => Date.now(), latency = () => 0, deliver = null, seedMode = "demo", opsPassphrase = null, iceServers = DEFAULT_ICE_SERVERS, payments = "preview", paymentInstructions = "" }) {
   const modulesById = new Map(curriculum.modules.map(module => [module.id, module]));
   const servicesById = new Map(curriculum.services.map(service => [service.id, service]));
   const interview = curriculum.interviewCourse;
@@ -162,6 +164,31 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
   const kitUnlocked = (user) => user.status === "active" && distinctPaidModules(user) >= curriculum.careerBonus.qualifyingModules;
   const totalPoints = (userId, since = 0) => state.pointEvents.filter(event => event.userId === userId && event.at >= since).reduce((sum, event) => sum + event.points, 0);
   const addPoints = (userId, points, type, ref) => { if (points !== 0) state.pointEvents.push({ id: crypto.randomUUID(), userId, points, type, ref, at: now() }); };
+  // Payments: "preview" simulates a card; "manual" (live server without a payment provider) records a quote,
+  // emails transfer instructions and grants nothing until an admin with the payments permission confirms it.
+  const instructionsText = () => String(paymentInstructions || DEFAULT_PAYMENT_INSTRUCTIONS).slice(0, 1000);
+  function activateRegistration(user, payment) {
+    user.modules = [...new Set([...user.modules, ...payment.grants.moduleIds])];
+    user.pendingModules = [];
+    user.status = "pending_verification";
+    user.paidAt = now();
+    send(user, "email", "Payment received: verification in progress", `We received ${payment.currency} ${payment.subtotal} for ${payment.items.length} skill module(s). Our team verifies every registration within 1 business day, then sends your Student ID and a temporary password.`);
+    createTask({ title: `Verify registration: ${user.name} (${payment.items.length} module${payment.items.length === 1 ? "" : "s"}, ${payment.currency} ${payment.subtotal})`, type: "verify", role: "success", refId: user.id, dueAt: now() + 24 * 60 * 60 * 1000, link: "#/admin/students" });
+  }
+  function applyAddons(user, payment) {
+    for (const id of payment.grants.moduleIds) if (!user.modules.includes(id)) user.modules.push(id);
+    user.addons.push(...payment.grants.serviceIds.map(id => ({ id, paymentId: payment.id, at: now(), status: "scheduled" })));
+    send(user, "email", "Receipt: your Rolevia add-ons", `We received ${payment.currency} ${payment.subtotal} for ${payment.items.map(item => item.title).join(", ")}.`);
+    if (kitUnlocked(user) && !user.kitNotifiedAt) { user.kitNotifiedAt = now(); notify(user, "achievement", "Career kit unlocked", "Interview Ready, a resume review and a done-for-you resume are now included at no extra charge."); }
+  }
+  function requestManualPayment(user, quote, grants, purpose) {
+    const payment = { id: `PAY-${randomToken(8).toUpperCase()}`, userId: user.id, items: quote.items, subtotal: quote.subtotal, currency: quote.currency, method: "manual-transfer", status: "awaiting_confirmation", at: now(), preview: false, purpose, grants };
+    state.payments.unshift(payment);
+    send(user, "email", `How to pay ${quote.currency} ${quote.subtotal} to Rolevia`, `${instructionsText()} Amount: ${quote.currency} ${quote.subtotal} for ${quote.items.map(item => item.title).join(", ")}. Quote payment reference ${payment.id} with your transfer.`);
+    createTask({ title: `Confirm payment: ${user.name} (${quote.currency} ${quote.subtotal})`, type: "payment", role: "success", refId: payment.id, dueAt: now() + 2 * 24 * 60 * 60 * 1000, link: "#/admin/payments" });
+    audit(user.id, "payment_requested", { paymentId: payment.id, amount: quote.subtotal, currency: quote.currency });
+    return payment;
+  }
 
   async function setPassword(user, password) {
     if (typeof password !== "string" || password.length < 8 || !/[0-9]/.test(password) || !/[A-Za-z]/.test(password)) {
@@ -297,6 +324,24 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       addPoints(userId, points, "live", `${item.id}:${quiz.id}`);
     }
   }
+  function endLiveClass(item, by) {
+    item.status = "ended";
+    item.endedAt = now();
+    for (const entry of item.attendance) if (!entry.leftAt) closeAttendance(item, entry.userId);
+    for (const quiz of item.quizzes) if (!quiz.closedAt) closeQuiz(item, quiz);
+    completeTasks("class", item.id, by);
+  }
+  // A host who loses connection or forgets to end the class must not leave it "live" forever.
+  function sweepClasses() {
+    let changed = false;
+    for (const item of state.classes) {
+      if (item.status !== "live" || !item.startedAt || now() <= item.startedAt + item.durationMinutes * 60 * 1000 + CLASS_AUTO_END_GRACE_MS) continue;
+      endLiveClass(item, "system");
+      audit("system", "class_auto_ended", { classId: item.id });
+      changed = true;
+    }
+    if (changed) persist();
+  }
   const quizView = (quiz, user, item) => {
     const open = !quiz.closedAt && quiz.sentAt + quiz.seconds * 1000 > now();
     const mine = quiz.responses[user.id] ?? null;
@@ -386,19 +431,21 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       const user = findUser(item => item.id === applicationId && item.type === "student");
       if (!user || user.status !== "pending_payment") throw new ApiError("NOT_FOUND", "No payment is due for this application.");
       const quote = quoteFor(user.pendingModules, [], currency);
-      const payment = { id: `PAY-${randomToken(8).toUpperCase()}`, userId: user.id, items: quote.items, subtotal: quote.subtotal, currency, method, status: outcome === "success" ? "succeeded" : "declined", at: now(), preview: true };
+      const reference = `APP-${user.id.slice(0, 8).toUpperCase()}`;
+      user.currency = currency;
+      if (payments === "manual") {
+        const existing = state.payments.find(item => item.userId === user.id && item.status === "awaiting_confirmation" && item.purpose === "registration");
+        const payment = existing ?? requestManualPayment(user, quote, { moduleIds: [...user.pendingModules], serviceIds: [] }, "registration");
+        persist();
+        return { payment, status: user.status, reference, manual: true, instructions: instructionsText() };
+      }
+      const payment = { id: `PAY-${randomToken(8).toUpperCase()}`, userId: user.id, items: quote.items, subtotal: quote.subtotal, currency, method, status: outcome === "success" ? "succeeded" : "declined", at: now(), preview: true, purpose: "registration", grants: { moduleIds: [...user.pendingModules], serviceIds: [] } };
       state.payments.unshift(payment);
       if (outcome !== "success") { persist(); throw new ApiError("PAYMENT_DECLINED", "The preview payment was declined. Try again or use another method.", { paymentId: payment.id }); }
-      user.modules = [...new Set([...user.modules, ...user.pendingModules])];
-      user.pendingModules = [];
-      user.currency = currency;
-      user.status = "pending_verification";
-      user.paidAt = now();
-      send(user, "email", "Payment received: verification in progress", `We received ${currency} ${quote.subtotal} for ${quote.items.length} skill module(s). Our team verifies every registration within 1 business day, then sends your Student ID and a temporary password.`);
-      createTask({ title: `Verify registration: ${user.name} (${quote.items.length} module${quote.items.length === 1 ? "" : "s"}, ${currency} ${quote.subtotal})`, type: "verify", role: "success", refId: user.id, dueAt: now() + 24 * 60 * 60 * 1000, link: "#/admin/students" });
+      activateRegistration(user, payment);
       audit(user.id, "payment_succeeded", { paymentId: payment.id, amount: quote.subtotal, currency });
       persist();
-      return { payment, status: user.status, reference: `APP-${user.id.slice(0, 8).toUpperCase()}` };
+      return { payment, status: user.status, reference };
     },
     async applicationStatus(applicationId) {
       await wait();
@@ -602,13 +649,16 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       for (const id of requestedServices) if (kitUnlocked(user) && KIT_SERVICE_IDS.includes(id)) throw new ApiError("ALREADY_INCLUDED", "That benefit is already included in your career kit.");
       if (!newModules.length && !requestedServices.length) throw new ApiError("VALIDATION", "Nothing new to add.");
       const quote = quoteFor(newModules, requestedServices, user.currency ?? "INR");
-      const payment = { id: `PAY-${randomToken(8).toUpperCase()}`, userId: user.id, items: quote.items, subtotal: quote.subtotal, currency: quote.currency, method: "preview-card", status: outcome === "success" ? "succeeded" : "declined", at: now(), preview: true };
+      const grants = { moduleIds: newModules, serviceIds: requestedServices };
+      if (payments === "manual") {
+        const payment = requestManualPayment(user, quote, grants, "addon");
+        persist();
+        return { payment, user: publicUser(user), manual: true, instructions: instructionsText() };
+      }
+      const payment = { id: `PAY-${randomToken(8).toUpperCase()}`, userId: user.id, items: quote.items, subtotal: quote.subtotal, currency: quote.currency, method: "preview-card", status: outcome === "success" ? "succeeded" : "declined", at: now(), preview: true, purpose: "addon", grants };
       state.payments.unshift(payment);
       if (outcome !== "success") { persist(); throw new ApiError("PAYMENT_DECLINED", "The preview payment was declined.", { paymentId: payment.id }); }
-      user.modules.push(...newModules);
-      user.addons.push(...requestedServices.map(id => ({ id, paymentId: payment.id, at: now(), status: "scheduled" })));
-      send(user, "email", "Receipt: your Rolevia add-ons", `We received ${quote.currency} ${quote.subtotal} for ${quote.items.map(item => item.title).join(", ")}.`);
-      if (kitUnlocked(user) && !user.kitNotifiedAt) { user.kitNotifiedAt = now(); notify(user, "achievement", "Career kit unlocked", "Interview Ready, a resume review and a done-for-you resume are now included at no extra charge."); }
+      applyAddons(user, payment);
       audit(user.id, "addon_purchase", { paymentId: payment.id });
       persist();
       return { payment, user: publicUser(user) };
@@ -701,7 +751,29 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     async adminPayments({ token, deviceId }) {
       await wait();
       requireAdmin(token, deviceId, "payments");
-      return state.payments.map(payment => ({ ...payment, student: findUser(user => user.id === payment.userId)?.name ?? "Unknown" }));
+      return state.payments.map(payment => ({ ...payment, student: findUser(user => user.id === payment.userId)?.name ?? "Unknown" })).sort((a, b) => (a.status === "awaiting_confirmation" ? -1 : 0) - (b.status === "awaiting_confirmation" ? -1 : 0) || b.at - a.at);
+    },
+    async adminConfirmPayment({ token, deviceId, paymentId, action = "confirm" }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "payments");
+      const payment = state.payments.find(item => item.id === paymentId);
+      if (!payment || payment.status !== "awaiting_confirmation") throw new ApiError("INVALID_STATE", "This payment is not awaiting confirmation.");
+      const user = findUser(item => item.id === payment.userId);
+      if (!user) throw new ApiError("NOT_FOUND", "Student not found.");
+      payment.reviewedBy = admin.id;
+      payment.reviewedAt = now();
+      if (action === "decline") {
+        payment.status = "declined";
+        send(user, "email", "We could not confirm your payment", `Reference ${payment.id}: we could not match a transfer of ${payment.currency} ${payment.subtotal}. Reply to this email with your transfer proof and we will check again.`);
+      } else {
+        payment.status = "succeeded";
+        if (payment.purpose === "registration") { if (user.status === "pending_payment") activateRegistration(user, payment); }
+        else applyAddons(user, payment);
+      }
+      completeTasks("payment", payment.id, admin.id);
+      audit(admin.id, action === "decline" ? "payment_declined" : "payment_confirmed", { paymentId, userId: user.id, amount: payment.subtotal, currency: payment.currency });
+      persist();
+      return { ...payment, student: user.name };
     },
     async adminContent({ token, deviceId }) {
       await wait();
@@ -843,18 +915,22 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     // ---------- live classes ----------
     async classes({ token, deviceId }) {
       await wait();
+      sweepClasses();
       const { user } = requireSession(token, deviceId, ["student", "admin"]);
       const visible = state.classes.filter(item => item.status !== "cancelled" && (user.type === "admin" || user.modules.includes(item.moduleId)));
       return visible.map(item => classView(item, user)).sort((a, b) => a.startsAt - b.startsAt);
     },
     async classAccess({ token, deviceId, classId }) {
       await wait();
+      sweepClasses();
       const { user } = requireSession(token, deviceId, ["student", "admin"]);
       const item = requireClass(classId);
       const host = user.type === "admin" && (item.hostId === user.id || hasPermission(user, "classes"));
       if (user.type === "student" && !user.modules.includes(item.moduleId)) throw new ApiError("NOT_ENROLLED", "This class belongs to a module that is not in your plan.");
       if (!host && item.status !== "live" && !(item.status === "scheduled" && item.startsAt - now() <= CLASS_JOIN_WINDOW_MS)) throw new ApiError("NOT_OPEN", item.status === "ended" ? "This class has ended." : "The class room opens 15 minutes before the start time.");
-      return { room: { id: item.id, peerId: user.id, name: user.name, role: host ? "host" : "participant", avatar: user.avatar, iceServers }, class: classView(item, user), openQuiz: openQuizFor(item, user) };
+      // Hosts get the question bank without answer keys; keys stay on the server until the host closes a question.
+      const questionBank = host ? (quizBank[item.moduleId] ?? []).map(({ id, question }) => ({ id, question })) : [];
+      return { room: { id: item.id, peerId: user.id, name: user.name, role: host ? "host" : "participant", avatar: user.avatar, iceServers }, class: classView(item, user), openQuiz: openQuizFor(item, user), questionBank };
     },
     async joinClass({ token, deviceId, classId }) {
       await wait();
@@ -896,17 +972,20 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       await wait();
       const { user } = requireSession(token, deviceId, ["student", "admin"]);
       const item = requireClass(classId);
+      if (user.type === "student" && !user.modules.includes(item.moduleId)) throw new ApiError("NOT_ENROLLED", "This class is not in your plan.");
       const quiz = item.quizzes.find(entry => entry.id === quizId);
       if (!quiz) throw new ApiError("NOT_FOUND", "Quiz not found.");
       return quizView(quiz, user, item);
     },
     async adminClasses({ token, deviceId }) {
       await wait();
+      sweepClasses();
       const { user: admin } = requireAdmin(token, deviceId, "classes");
       return { classes: state.classes.map(item => classView(item, admin)).sort((a, b) => b.startsAt - a.startsAt), hosts: state.users.filter(user => user.type === "admin" && user.status === "active" && hasPermission(user, "classes")).map(user => ({ id: user.id, name: user.name, roleLabel: ROLES[user.role]?.label })), questionBank: Object.fromEntries(curriculum.modules.map(module => [module.id, (quizBank[module.id] ?? []).map(({ id, question }) => ({ id, question }))])) };
     },
     async adminClassDetail({ token, deviceId, classId }) {
       await wait();
+      sweepClasses();
       const { user: admin } = requireAdmin(token, deviceId, "classes");
       const item = requireClass(classId);
       return { ...classView(item, admin), attendance: item.attendance.map(entry => ({ ...entry, seconds: entry.leftAt ? entry.seconds : Math.round((now() - entry.joinedAt) / 1000) })), quizzes: item.quizzes.map(quiz => ({ ...quizView(quiz, admin, item), responses: Object.entries(quiz.responses).map(([userId, response]) => ({ userId, name: response.name, answerIndex: response.answerIndex, correct: response.answerIndex === quiz.answerIndex, at: response.at })) })), recordings: item.recordings };
@@ -924,7 +1003,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       const mode = cls?.mode === "external" ? "external" : "builtin";
       if (mode === "external" && !/^https:\/\/[^\s]+$/i.test(cls?.externalUrl ?? "")) errors.externalUrl = "Paste the https:// meeting link.";
       const host = cls?.hostId ? findUser(user => user.id === cls.hostId && user.type === "admin") : admin;
-      if (!host) errors.hostId = "Choose a host from the admin team.";
+      if (!host || host.status !== "active" || !hasPermission(host, "classes")) errors.hostId = "Choose an active host whose role includes live classes.";
       if (Object.keys(errors).length) throw new ApiError("VALIDATION", Object.values(errors)[0], { fields: errors });
       const existing = state.classes.find(item => item.id === cls.id);
       if (existing && ["ended", "cancelled"].includes(existing.status)) throw new ApiError("INVALID_STATE", "Ended or cancelled classes cannot be edited.");
@@ -948,7 +1027,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       const item = requireClass(classId);
       if (!["live", "ended", "cancelled"].includes(status)) throw new ApiError("VALIDATION", "Unknown class status.");
       if (status === "live") { if (item.status !== "scheduled") throw new ApiError("INVALID_STATE", "Only scheduled classes can start."); item.status = "live"; item.startedAt = now(); for (const student of state.users) if (student.type === "student" && student.status === "active" && student.modules.includes(item.moduleId)) notify(student, "class", `Live now: ${item.title}`, "Your class has started. Join from Live classes."); }
-      if (status === "ended") { if (item.status !== "live") throw new ApiError("INVALID_STATE", "Only live classes can end."); item.status = "ended"; item.endedAt = now(); for (const entry of item.attendance) if (!entry.leftAt) closeAttendance(item, entry.userId); for (const quiz of item.quizzes) if (!quiz.closedAt) closeQuiz(item, quiz); completeTasks("class", item.id, admin.id); }
+      if (status === "ended") { if (item.status !== "live") throw new ApiError("INVALID_STATE", "Only live classes can end."); endLiveClass(item, admin.id); }
       if (status === "cancelled") { if (item.status === "ended") throw new ApiError("INVALID_STATE", "Ended classes cannot be cancelled."); item.status = "cancelled"; completeTasks("class", item.id, admin.id); }
       audit(admin.id, `class_${status}`, { classId });
       persist();

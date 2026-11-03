@@ -418,3 +418,90 @@ test("empty production seed has no fictional people and needs a strong operation
   const created = await api.opsCreateAdmin({ token: ops.token, deviceId: "device-founder", name: "First Admin", email: "first@rolevia.example", phone: "+910000000099", role: "lead" });
   assert.equal(created.adminId, "RV-ADM-001");
 });
+
+test("manual payment mode grants nothing until an admin confirms the transfer, for registrations and add-ons", async () => {
+  let clock = Date.UTC(2026, 10, 3, 9);
+  const api = await createMockServer({ storage: memoryStorage(), curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, now: () => clock, payments: "manual", paymentInstructions: "Transfer to Rolevia, UPI rolevia@bank, quoting the reference." });
+  const latestCode = () => api._state().outbox.find(message => message.channel === "email" && message.body.includes("Code"))?.body.match(/Code (\d{6})/)?.[1];
+  const application = await registered(api, ["spreadsheets", "budgeting"]);
+  const requested = await api.pay({ applicationId: application.applicationId, currency: "INR", outcome: "success" });
+  assert.equal(requested.manual, true);
+  assert.equal(requested.status, "pending_payment", "a client-side success grants nothing in manual mode");
+  assert.equal(requested.payment.status, "awaiting_confirmation");
+  assert.match(requested.instructions, /rolevia@bank/);
+  assert.ok(api._state().outbox.some(message => message.subject.startsWith("How to pay INR 4998") && message.body.includes(requested.payment.id)));
+  const again = await api.pay({ applicationId: application.applicationId, currency: "INR" });
+  assert.equal(again.payment.id, requested.payment.id, "repeat requests reuse the open quote");
+  assert.equal((await api.applicationStatus(application.applicationId)).status, "pending_payment");
+  const student = api._state().users.find(user => user.id === application.applicationId);
+  assert.deepEqual(student.modules, [], "no module is granted before confirmation");
+
+  const content = await adminToken(api, latestCode, "content");
+  await rejects(api.adminConfirmPayment({ token: content, deviceId: "device-admin-laptop", paymentId: requested.payment.id }), "FORBIDDEN");
+  const success = await adminToken(api, latestCode, "success");
+  const successAuth = { token: success, deviceId: "device-admin-laptop" };
+  const tracker = await api.adminTracker(successAuth);
+  assert.ok(tracker.tasks.some(task => task.type === "payment" && task.refId === requested.payment.id && task.role === "success"), "a confirmation task is queued for the success role");
+  await rejects(api.adminConfirmPayment({ ...successAuth, paymentId: "PAY-NOPE" }), "INVALID_STATE");
+  const confirmed = await api.adminConfirmPayment({ ...successAuth, paymentId: requested.payment.id });
+  assert.equal(confirmed.status, "succeeded");
+  assert.equal((await api.applicationStatus(application.applicationId)).status, "pending_verification");
+  assert.deepEqual([...student.modules].sort(), ["budgeting", "spreadsheets"]);
+  assert.ok((await api.adminTracker(successAuth)).tasks.some(task => task.type === "verify" && task.refId === student.id), "confirmation opens the normal verification task");
+  assert.equal((await api.adminTracker(successAuth)).tasks.find(task => task.type === "payment" && task.refId === requested.payment.id).status, "done");
+  await rejects(api.adminConfirmPayment({ ...successAuth, paymentId: requested.payment.id }), "INVALID_STATE");
+
+  const rohit = await signIn(api, "RV-26-0002", "Learn#2026", device("rohit"), latestCode); // 3 modules, career kit not yet included
+  const rohitAuth = { token: rohit.token, deviceId: "device-rohit" };
+  const modulesBefore = [...rohit.user.modules];
+  const addon = await api.purchase({ ...rohitAuth, moduleIds: ["canva"], serviceIds: ["resume-audit"], outcome: "success" });
+  assert.equal(addon.manual, true);
+  assert.deepEqual(addon.user.modules, modulesBefore, "add-ons are not granted on request");
+  assert.equal(addon.user.addons.some(item => item.id === "resume-audit"), false);
+  const declined = await api.adminConfirmPayment({ ...successAuth, paymentId: addon.payment.id, action: "decline" });
+  assert.equal(declined.status, "declined");
+  assert.ok(api._state().outbox.some(message => message.subject === "We could not confirm your payment"));
+  const second = await api.purchase({ ...rohitAuth, moduleIds: ["canva"], serviceIds: ["resume-audit"] });
+  await api.adminConfirmPayment({ ...successAuth, paymentId: second.payment.id });
+  const me = await api.me(rohitAuth);
+  assert.ok(me.user.modules.includes("canva"));
+  assert.ok(me.user.addons.some(item => item.id === "resume-audit" && item.paymentId === second.payment.id));
+  assert.equal((await api.adminPayments(successAuth))[0].status !== "awaiting_confirmation", true, "no transfer is left waiting");
+});
+
+test("live classes: learners cannot read unpaid quizzes, only active hosts with the classes permission can be assigned, and abandoned live classes end automatically", async () => {
+  const { api, latestCode, tick } = await server();
+  const host = await adminToken(api, latestCode, "content");
+  const hostAuth = { token: host, deviceId: "device-admin-laptop" };
+  const success = await adminToken(api, latestCode, "success");
+  const successAuth = { token: success, deviceId: "device-admin-laptop" };
+  const startsAt = Date.UTC(2026, 10, 3, 9, 5);
+  await rejects(api.adminUpsertClass({ ...hostAuth, cls: { moduleId: "crm", title: "Wrong host", startsAt, hostId: "u-admin-3" } }), "VALIDATION");
+  const cls = await api.adminUpsertClass({ ...hostAuth, cls: { moduleId: "crm", title: "CRM clinic", startsAt, durationMinutes: 30, mode: "builtin" } });
+  for (const [method, payload] of [["adminUpsertClass", { cls: { moduleId: "crm", title: "Nope", startsAt } }], ["adminSetClassStatus", { classId: cls.id, status: "live" }], ["adminPushQuiz", { classId: cls.id, questionId: "crm-q1" }], ["adminCloseQuiz", { classId: cls.id, quizId: "x" }], ["adminAddRecording", { classId: cls.id, url: "https://example.com/v" }], ["adminClassDetail", { classId: cls.id }], ["adminNoteChat", { classId: cls.id, count: 1 }]]) {
+    await rejects(api[method]({ ...successAuth, ...payload }), "FORBIDDEN");
+  }
+  const rohit = await signIn(api, "RV-26-0002", "Learn#2026", device("rohit"), latestCode);
+  const priya = await signIn(api, "RV-26-0003", "Learn#2026", device("priya"), latestCode);
+  const rohitAuth = { token: rohit.token, deviceId: "device-rohit" };
+  const priyaAuth = { token: priya.token, deviceId: "device-priya" };
+  for (const method of ["adminClasses", "adminClassDetail", "adminPushQuiz", "adminSetClassStatus", "adminAddRecording"]) {
+    await rejects(api[method]({ ...rohitAuth, classId: cls.id, status: "live", questionId: "crm-q1", url: "https://example.com/v" }), "FORBIDDEN");
+  }
+  await api.adminSetClassStatus({ ...hostAuth, classId: cls.id, status: "live" });
+  const quiz = await api.adminPushQuiz({ ...hostAuth, classId: cls.id, questionId: "crm-q1", seconds: 60 });
+  await rejects(api.classQuizStatus({ ...priyaAuth, classId: cls.id, quizId: quiz.id }), "NOT_ENROLLED");
+  assert.equal((await api.classQuizStatus({ ...rohitAuth, classId: cls.id, quizId: quiz.id })).answerIndex, null);
+  await api.joinClass({ ...rohitAuth, classId: cls.id });
+  await api.classQuizAnswer({ ...rohitAuth, classId: cls.id, quizId: quiz.id, answerIndex: 0 });
+  tick(30 * 60 * 1000 + 59 * 60 * 1000);
+  assert.equal((await api.classes(rohitAuth)).find(item => item.id === cls.id).status, "live", "still live inside the grace period");
+  tick(2 * 60 * 1000);
+  const after = (await api.classes(rohitAuth)).find(item => item.id === cls.id);
+  assert.equal(after.status, "ended", "a class is ended automatically one hour after its planned end");
+  const detail = await api.adminClassDetail({ ...hostAuth, classId: cls.id });
+  assert.ok(detail.attendance.every(entry => entry.leftAt));
+  assert.ok(detail.quizzes.every(entry => entry.closedAt), "open questions are closed and scored");
+  assert.ok(api._state().auditLog.some(entry => entry.action === "class_auto_ended" && entry.meta.classId === cls.id));
+  assert.equal((await api.adminTracker(hostAuth)).tasks.find(task => task.type === "class" && task.refId === cls.id).status, "done");
+});

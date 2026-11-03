@@ -74,12 +74,27 @@ ROLEVIA_OPS_PASSPHRASE='a-long-founder-passphrase' node server/api.mjs
 ```
 
 Production starts **empty** (no fictional people): the founder signs in at `#/ops/login` with the passphrase,
-creates the admin accounts, and shares each Admin ID + temporary password privately. Optional env:
-`ROLEVIA_NOTIFY_WEBHOOK` (every outgoing email/SMS is POSTed as JSON to your mail/SMS automation),
-`ROLEVIA_GOOGLE_CLIENT_ID` (Drive uploads), `ROLEVIA_ICE_SERVERS` (JSON, add TURN), `ROLEVIA_ALLOW_ORIGIN`
-(if the static site is hosted elsewhere), `ROLEVIA_PREVIEW=1` (demo seed). Limits of GitHub-as-database:
-one commit per write burst (debounced 1.5 s), 100 MB file cap, API rate limits; it suits small cohorts and
-keeps a full history, but attachments should stay small and recordings should live in Drive/Releases as links.
+creates the admin accounts, and shares each Admin ID + temporary password privately. The served
+`/config.json` points the site at the API (`apiBase: "/"`) and the relay (`signalUrl: "/ws"`).
+
+**Payments without a provider.** The live server runs in *manual* payment mode: a student's "pay" step
+records a quote and emails bank-transfer / UPI instructions with a payment reference
+(`ROLEVIA_PAYMENT_INSTRUCTIONS` holds your account details text); nothing is activated until an admin with
+the payments permission confirms the transfer on the Payments page, which then triggers the normal
+verification task. The preview's simulated card payments (`ROLEVIA_PREVIEW=1`) are refused in live mode.
+
+Optional env: `ROLEVIA_NOTIFY_WEBHOOK` (every outgoing email/SMS is POSTed as JSON to your mail/SMS
+automation), `ROLEVIA_GOOGLE_CLIENT_ID` (Drive uploads), `ROLEVIA_ICE_SERVERS` (JSON, add TURN),
+`ROLEVIA_ALLOW_ORIGIN` (if the static site is hosted elsewhere), `ROLEVIA_PREVIEW=1` (demo seed),
+`ROLEVIA_STATE_FILE` (file storage path; the default `data/` folder is git-ignored). File storage writes
+atomically and refuses to start on a corrupt file rather than re-seeding over it.
+
+Limits of GitHub-as-database: one commit per write burst (debounced 1.5 s), one writer (a single server
+process), API rate limits, and a practical size of a few MB (reads above 1 MB use the raw media type; the
+contents API stops at 100 MB). It suits small cohorts and keeps a full history, but attachments should stay
+small and recordings should live in Drive/Releases as links. Recording note: the host's tab composes the
+recording with a timer that browsers throttle when the tab is hidden, so keep the room tab visible (or on a
+second screen) while presenting from another window.
 
 ### Registration form and uploads
 
@@ -92,7 +107,7 @@ files to private object storage.
 
 ## How it is built
 
-- Zero runtime dependencies: vanilla ES modules, CSS custom properties, hash routing, Web Crypto for hashing.
+- No build step and no front-end dependencies: vanilla ES modules, CSS custom properties, hash routing, Web Crypto for hashing. The optional Node server has one runtime dependency (`ws`).
 - `site/app/store.js` is the mock backend and the behavioural contract for the real API.
 - `site/data/curriculum.json` is the single source of truth for modules, prices, career-kit and referral rules.
 - Quiz questions, assignment briefs and principles live in `site/app/content/` (original content, fictional data).

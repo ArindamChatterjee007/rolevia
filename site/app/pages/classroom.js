@@ -61,8 +61,17 @@ function renderRoom(page, access, localStream, toggles) {
   const { room: roomInfo, class: cls } = access;
   const isHost = roomInfo.role === "host";
   const builtin = cls.mode === "builtin";
-  const signalUrl = new URLSearchParams(location.search).get("signal") || ctx.config.signalUrl;
-  const transport = signalUrl ? createSocketTransport({ url: signalUrl, roomId: cls.id, peerId: roomInfo.peerId, token: ctx.auth.token, deviceId: ctx.device.id, onStatus: (state) => { connection.textContent = state === "open" ? "Connected" : state; } }) : createLocalTransport({ roomId: cls.id, peerId: roomInfo.peerId });
+  const signalUrl = ctx.config.signalUrl;
+  const connection = h("span", { class: "tiny muted" }, "Connecting"); // declared before the transport, which reports status synchronously
+  const onTransportStatus = (state, detail) => {
+    connection.textContent = state === "open" ? "Connected" : state === "closed" && !detail?.terminal ? "Reconnecting" : state;
+    if (state !== "closed" || !detail?.terminal || ended) return;
+    const reason = detail.code === 4000 ? "This account joined the class from another tab or device, so this one was disconnected." : detail.code === 4001 ? "Your access to this class ended (signed out elsewhere, or the class closed)." : `The class connection was lost (${detail.reason || "signalling server unreachable"}).`;
+    toast(reason, "error", 8000);
+    cleanup();
+    location.hash = isHost ? `#/admin/classes/${cls.id}` : "#/portal/classes";
+  };
+  const transport = signalUrl ? createSocketTransport({ url: signalUrl, roomId: cls.id, peerId: roomInfo.peerId, token: ctx.auth.token, deviceId: ctx.device.id, onStatus: onTransportStatus }) : createLocalTransport({ roomId: cls.id, peerId: roomInfo.peerId, role: roomInfo.role, name: roomInfo.name });
   const room = createRoom({ transport, self: { id: roomInfo.peerId, name: roomInfo.name, role: roomInfo.role, avatar: roomInfo.avatar }, iceServers: ctx.config.iceServers ?? roomInfo.iceServers, media: builtin, heartbeatMs: ctx.testMode ? 1500 : 4000, staleMs: ctx.testMode ? 6000 : 14000, log: ctx.testMode ? (...args) => console.warn("[rtc]", ...args) : () => {} });
 
   // ---------- state ----------
@@ -78,7 +87,7 @@ function renderRoom(page, access, localStream, toggles) {
   const startedAt = Date.now();
 
   // ---------- layout ----------
-  const connection = h("span", { class: "tiny muted" }, transport.kind === "local" ? "Same-browser preview room" : "Connecting");
+  if (transport.kind === "local") connection.textContent = "Same-browser preview room";
   const elapsed = h("span", { class: "room-clock" }, "00:00");
   const stage = h("div", { class: "room-stage" });
   const tiles = h("div", { class: "room-tiles" });
@@ -131,7 +140,7 @@ function renderRoom(page, access, localStream, toggles) {
   const renderPeople = () => {
     panelBody.replaceChildren(h("div", { class: "stack" }, h("ul", { class: "roster" }, participants().map(person => h("li", {}, avatar(person, 32), h("div", { class: "grow" }, h("strong", {}, person.name), h("span", { class: "tiny muted block" }, [person.role === "host" ? "Host" : "Learner", person.state?.mic === false ? "muted" : "mic on", person.state?.camera === false ? "camera off" : null, person.state?.sharing ? "sharing" : null].filter(Boolean).join(" · "))), person.state?.hand ? h("span", { class: "tag pending" }, "✋ Hand") : null, isHost && !person.self && person.state?.mic !== false ? h("button", { class: "mini", type: "button", onClick: () => room.broadcast("request", { action: "mute" }, person.id) }, "Ask to mute") : null))),
       cls.mode === "external" && cls.externalUrl ? h("a", { class: "button ghost small block", href: cls.externalUrl, target: "_blank", rel: "noopener noreferrer" }, "Open the meeting link") : null,
-      h("p", { class: "tiny muted" }, transport.kind === "local" ? "Preview: this room connects tabs in the same browser. The production signalling server connects devices anywhere." : "Encrypted peer-to-peer media; the signalling server relays only connection messages.")));
+      h("p", { class: "tiny muted" }, transport.kind === "local" ? "Preview: this room connects tabs in the same browser. The production signalling server connects devices anywhere." : "Audio and video travel peer-to-peer, encrypted. Chat, questions, reactions and connection messages pass through Rolevia's signalling server, which verifies who sent them.")));
   };
   const chatList = h("div", { class: "chat-list" });
   const renderChat = () => {
@@ -142,7 +151,7 @@ function renderRoom(page, access, localStream, toggles) {
   };
 
   // ---------- live quiz ----------
-  const bankByModule = isHost ? (ctx.quizBank?.[cls.moduleId] ?? []) : [];
+  const bankByModule = isHost ? (access.questionBank ?? []) : [];
   const renderQuizPanel = () => {
     if (!isHost) { panelBody.replaceChildren(activeQuiz ? h("p", { class: "small" }, "A question is on your screen. Answer before the timer ends.") : h("p", { class: "muted small" }, "When the host sends a question it appears on your screen. Correct answers earn 10 points, taking part earns 2.")); return; }
     if (activeQuiz) {
@@ -229,7 +238,7 @@ function renderRoom(page, access, localStream, toggles) {
 
   // ---------- recording ----------
   async function toggleRecording() {
-    if (!recorder) recorder = createCompositeRecorder({ classId: cls.id, onTick: (seconds) => { recBadge.lastChild.textContent = `REC ${clock(seconds)}`; } });
+    if (!recorder) recorder = createCompositeRecorder({ classId: cls.id, onTick: (seconds) => { recBadge.lastChild.textContent = `REC ${clock(seconds)}`; }, onError: async (error) => { toast(`Recording problem: ${error.message}. Stopping and saving what was captured so far.`, "error", 9000); if (recorder?.active) await toggleRecording(); } });
     if (recorder.active) {
       clearInterval(recordingTimer);
       const result = await recorder.stop();
@@ -257,7 +266,7 @@ function renderRoom(page, access, localStream, toggles) {
       h("div", { class: "form-actions start" }, h("a", { class: "button primary small", href: url, download: result.name }, icon("upload", 14), "Download .webm"), driveButton, h("button", { class: "button ghost small", type: "button", onClick: async () => { await ctx.api.adminAddRecording(withSession({ classId: cls.id, name: result.name, size: result.size, durationSeconds: result.durationSeconds, storage: "local" })); toast("Noted on the class: recording kept on your device.", "success"); } }, "Note: kept locally")),
       driveButton ? progress : h("p", { class: "tiny muted" }, "Direct Google Drive upload is off (no googleClientId in config.json). Download the file, upload it to Drive or a GitHub release, then paste the link below."),
       linkForm,
-      h("p", { class: "tiny muted" }, "The file also stays in this browser's storage until you clear it, so you can retry an upload later from the class page (Resume recording upload).")), actions: [] });
+      h("p", { class: "tiny muted" }, "The file also stays in this browser's storage until you delete it. To retry later, open the class details page and use \"Stored recordings on this device\".")), actions: [] });
   }
 
   // ---------- room events ----------
@@ -265,7 +274,11 @@ function renderRoom(page, access, localStream, toggles) {
   room.on("stream", renderStage);
   room.on("state", renderStage);
   room.on("leave", (peer) => { renderStage(); toast(`${peer.name} left.`, "info", 2000); });
+  // Host-only instructions are honoured only when the sender's verified role is host (stamped by the relay in
+  // production; self-declared only in the same-browser preview).
+  const HOST_ONLY = new Set(["quiz", "quiz-close", "request", "recording", "ended"]);
   room.on("message", async ({ from, type, payload }) => {
+    if (HOST_ONLY.has(type) && from.role !== "host") return;
     if (type === "chat") { chat.push({ from: from.name, text: String(payload.text ?? "").slice(0, 500), self: false, at: Date.now() }); if (panel === "chat") renderChat(); else renderPanel(); }
     else if (type === "quiz" && !isHost) showQuizOverlay(payload.quiz);
     else if (type === "answered" && isHost) refreshQuizCounts();
@@ -273,7 +286,7 @@ function renderRoom(page, access, localStream, toggles) {
     else if (type === "reaction") floatReaction(payload.emoji, from.name);
     else if (type === "request" && payload.action === "mute" && room.state.mic) { room.setState({ mic: false }); renderControls(); renderStage(); toast("The host asked you to mute.", "info"); }
     else if (type === "recording") { toast(payload.on ? "The host is recording this class." : "Recording stopped.", "info", 5000); recBadge.hidden = !payload.on; if (payload.on) recBadge.lastChild.textContent = "Recording"; }
-    else if (type === "ended") { ended = true; cleanup(); page.replaceChildren(h("div", { class: "classroom-gate" }, h("div", { class: "gate-card" }, brand(30), h("h1", {}, "Class ended"), h("p", { class: "muted" }, "Thanks for joining. Points from live questions are on the leaderboard; the recording link appears on the class card when the host adds it."), h("a", { class: "button primary", href: "#/portal/classes" }, "Back to Live classes")))); }
+    else if (type === "ended" && !isHost) { ended = true; cleanup(); page.replaceChildren(h("div", { class: "classroom-gate" }, h("div", { class: "gate-card" }, brand(30), h("h1", {}, "Class ended"), h("p", { class: "muted" }, "Thanks for joining. Points from live questions are on the leaderboard; the recording link appears on the class card when the host adds it."), h("a", { class: "button primary", href: "#/portal/classes" }, "Back to Live classes")))); }
   });
 
   function cleanup() { clearInterval(clockTimer); clearInterval(quizTimer); clearInterval(overlayTimer); clearInterval(recordingTimer); room.leave(); window.removeEventListener("beforeunload", onUnload); }
@@ -286,9 +299,19 @@ function renderRoom(page, access, localStream, toggles) {
   function endClass() {
     modal({ title: "End the class for everyone?", body: h("p", {}, "Attendance and quiz results are saved. Participants are returned to their class list."), actions: [{ label: "End class", variant: "danger", onClick: async () => { if (recorder?.active) { const result = await recorder.stop(); recBadge.hidden = true; saveRecordingDialog(result); } try { await ctx.api.adminNoteChat(withSession({ classId: cls.id, count: chat.length })); await ctx.api.adminSetClassStatus(withSession({ classId: cls.id, status: "ended" })); } catch (error) { toast(error.message, "error"); return; } room.broadcast("ended", {}); await new Promise(resolve => setTimeout(resolve, 300)); cleanup(); toast("Class ended. Attendance and results are on the class page.", "success"); location.hash = `#/admin/classes/${cls.id}`; } }] });
   }
-  const onUnload = () => { room.leave(); };
+  const onUnload = (event) => {
+    if (recorder?.active) { event.preventDefault(); event.returnValue = ""; return; } // browser asks before discarding a live recording
+    room.leave();
+  };
   window.addEventListener("beforeunload", onUnload);
-  const stopOnRouteChange = () => { if (!location.hash.startsWith(`#/classroom/${cls.id}`) && !ended) { cleanup(); ctx.api.leaveClass(withSession({ classId: cls.id })).catch(() => {}); window.removeEventListener("hashchange", stopOnRouteChange); } };
+  const stopOnRouteChange = () => {
+    if (location.hash.startsWith(`#/classroom/${cls.id}`) || ended) return;
+    window.removeEventListener("hashchange", stopOnRouteChange);
+    // Leaving by back button or link while recording: finish the file first so it is never stranded.
+    if (recorder?.active) { clearInterval(recordingTimer); recorder.stop().then(result => { recBadge.hidden = true; if (result) saveRecordingDialog(result); }).catch(error => toast(`Recording could not be finalised: ${error.message}`, "error", 9000)); }
+    cleanup();
+    ctx.api.leaveClass(withSession({ classId: cls.id })).catch(() => {});
+  };
   window.addEventListener("hashchange", stopOnRouteChange);
 
   // ---------- go ----------

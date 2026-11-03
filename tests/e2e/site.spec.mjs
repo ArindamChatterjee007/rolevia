@@ -306,6 +306,27 @@ test("live class: host starts, learner joins with video, screen share, live quiz
   await expect.poll(() => studentPage.evaluate(() => document.querySelector('.tile[data-peer="u-admin-2"] video')?.videoWidth ?? 0), { timeout: 30_000, message: "host video should play on the learner's tile" }).toBeGreaterThan(0);
   await expect.poll(() => hostPage.evaluate(() => document.querySelector('.tile[data-peer="u-student-1"] video')?.videoWidth ?? 0), { timeout: 30_000, message: "learner video should play on the host's tile" }).toBeGreaterThan(0);
   await expect(hostPage.locator(".roster")).toContainText("Ananya Iyer");
+  // Role boundary inside the room: the learner has no host controls and is labelled as a learner everywhere.
+  for (const control of ["record", "quiz"]) await expect(studentPage.locator(`[data-control="${control}"]`)).toHaveCount(0);
+  await expect(studentPage.locator(".room-top").getByRole("button", { name: "End class" })).toHaveCount(0);
+  await expect(studentPage.locator(".room-top").getByRole("button", { name: "Leave" })).toBeVisible();
+  await expect(hostPage.locator(".roster li", { hasText: "Ananya Iyer" })).toContainText("Learner");
+  await expect(hostPage.locator(".roster li", { hasText: "Ayush (you)" })).toContainText("Host");
+  await expect(studentPage.locator(".roster li", { hasText: "Ayush" })).toContainText("Host");
+  // Host-only messages from a non-host peer are ignored: a "ghost" learner joins the channel, then tries to
+  // push a question and end the class; the learner's room shows neither.
+  await hostPage.evaluate(() => {
+    const channel = new BroadcastChannel("rolevia-class-cls-demo-live");
+    const envelope = (type, payload) => ({ room: "cls-demo-live", from: "u-ghost", role: "participant", name: "Ghost", to: "u-student-1", type, payload, at: Date.now() });
+    channel.postMessage(envelope("hello", { name: "Ghost", role: "participant", state: {}, media: false }));
+    setTimeout(() => channel.postMessage(envelope("quiz", { quiz: { id: "lq-fake", classId: "cls-demo-live", question: "Forged question?", options: ["A", "B"], seconds: 60, sentAt: Date.now(), closesAt: Date.now() + 60_000 } })), 150);
+    setTimeout(() => channel.postMessage(envelope("ended", {})), 300);
+    setTimeout(() => channel.postMessage(envelope("bye", {})), 450);
+  });
+  await studentPage.waitForTimeout(900);
+  await expect(studentPage.locator(".room")).toBeVisible();
+  await expect(studentPage.locator(".quiz-card")).toHaveCount(0);
+  await expect(studentPage.locator(".tile")).toHaveCount(2, { timeout: 10_000 });
 
   await hostPage.locator('[data-control="share"]').click();
   await expect(hostPage.locator('[data-control="share"]')).toHaveClass(/on/, { timeout: 15_000 });

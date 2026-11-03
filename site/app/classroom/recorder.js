@@ -33,7 +33,7 @@ export async function deleteRecording(recordingId) {
   await tx(db, "readwrite", store => { for (const row of rows) store.delete(row.key); return null; });
 }
 
-export function createCompositeRecorder({ classId, canvasSize = [1280, 720], fps = 15, onTick }) {
+export function createCompositeRecorder({ classId, canvasSize = [1280, 720], fps = 15, onTick, onError }) {
   const [width, height] = canvasSize;
   const canvas = document.createElement("canvas");
   canvas.width = width; canvas.height = height;
@@ -47,6 +47,7 @@ export function createCompositeRecorder({ classId, canvasSize = [1280, 720], fps
   let startedAt = 0;
   let recordingId = null;
   let bytes = 0;
+  let failure = null;
   let db = null;
   const writes = new Set();
 
@@ -90,6 +91,7 @@ export function createCompositeRecorder({ classId, canvasSize = [1280, 720], fps
 
   return {
     get active() { return Boolean(recorder && recorder.state !== "inactive"); },
+    get failure() { return failure; },
     get recordingId() { return recordingId; },
     get bytes() { return bytes; },
     get elapsedSeconds() { return startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0; },
@@ -108,7 +110,16 @@ export function createCompositeRecorder({ classId, canvasSize = [1280, 720], fps
       const stream = new MediaStream([...canvas.captureStream(fps).getVideoTracks(), ...destination.stream.getAudioTracks()]);
       const mimeType = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find(type => MediaRecorder.isTypeSupported(type)) ?? "";
       recorder = new MediaRecorder(stream, { mimeType: mimeType || undefined, videoBitsPerSecond: 1_200_000, audioBitsPerSecond: 64_000 });
-      recorder.ondataavailable = (event) => { if (!event.data?.size) return; bytes += event.data.size; const write = tx(db, "readwrite", store => store.add({ recordingId, classId, startedAt, at: Date.now(), blob: event.data })).catch(() => {}); writes.add(write); write.finally(() => writes.delete(write)); };
+      failure = null;
+      recorder.ondataavailable = (event) => {
+        if (!event.data?.size) return;
+        // A failed chunk write (quota, private mode) must surface immediately rather than yield a silently truncated file.
+        const write = tx(db, "readwrite", store => store.add({ recordingId, classId, startedAt, at: Date.now(), blob: event.data }))
+          .then(() => { bytes += event.data.size; })
+          .catch(error => { if (!failure) { failure = error instanceof Error ? error : new Error(String(error?.message ?? "storage write failed")); onError?.(failure); } });
+        writes.add(write); write.finally(() => writes.delete(write));
+      };
+      recorder.onerror = (event) => { if (!failure) { failure = event.error ?? new Error("The browser stopped the recorder."); onError?.(failure); } };
       recorder.start(4000);
       return recordingId;
     },

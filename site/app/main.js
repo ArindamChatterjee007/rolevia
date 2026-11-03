@@ -1,11 +1,8 @@
-import { createMockServer, browserStorage } from "./store.js";
 import { createHttpApi } from "./http-api.js";
 import { consumeDriveRedirect } from "./classroom/drive.js";
 import { createRouter } from "./router.js";
 import { ctx, loadDevice, loadAuth, setAuth, withSession } from "./context.js";
 import { h } from "./ui.js";
-import { QUIZ_BANK } from "./content/quiz-bank.js";
-import { ASSIGNMENT_BRIEFS } from "./content/assignments.js";
 import { previewDrawer, sessionLostOverlay } from "./pages/components.js";
 import { homePage, skillsPage, skillDetailPage, pricingPage, demoPage, publicLeaderboardPage, faqPage, badgePage, notFoundPage } from "./pages/public.js";
 import { registerPage, loginPage, resetPage, adminLoginPage, opsLoginPage } from "./pages/auth.js";
@@ -29,13 +26,19 @@ async function boot() {
   const [curriculumResponse, configResponse] = await Promise.all([fetch("data/curriculum.json", { cache: "no-store" }), fetch("config.json", { cache: "no-store" }).catch(() => null)]);
   ctx.curriculum = await curriculumResponse.json();
   ctx.config = { ...ctx.config, ...(configResponse?.ok ? await configResponse.json().catch(() => ({})) : {}) };
-  if (params.get("api")) ctx.config.apiBase = params.get("api");
-  if (params.get("signal")) ctx.config.signalUrl = params.get("signal");
-  ctx.quizBank = QUIZ_BANK;
+  // Backend overrides are a developer convenience only: on a public origin a crafted link could otherwise
+  // point sign-in requests at an attacker's server.
+  const localDev = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+  if (localDev && params.get("api")) ctx.config.apiBase = params.get("api");
+  if (localDev && params.get("signal")) ctx.config.signalUrl = params.get("signal");
   const testMode = params.has("fast");
   ctx.testMode = testMode;
   if (ctx.config.apiBase) { ctx.mode = "live"; ctx.api = createHttpApi(ctx.config.apiBase); document.body.dataset.mode = "live"; }
-  else ctx.api = await createMockServer({ storage: browserStorage(STORAGE_KEY, localStorage), curriculum: ctx.curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, latency: () => (testMode ? 0 : 220 + Math.random() * 320) });
+  else {
+    // Preview only: the in-browser backend and the quiz answer keys are never downloaded in live mode.
+    const [{ createMockServer, browserStorage }, { QUIZ_BANK }, { ASSIGNMENT_BRIEFS }] = await Promise.all([import("./store.js"), import("./content/quiz-bank.js"), import("./content/assignments.js")]);
+    ctx.api = await createMockServer({ storage: browserStorage(STORAGE_KEY, localStorage), curriculum: ctx.curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, latency: () => (testMode ? 0 : 220 + Math.random() * 320) });
+  }
 
   const router = createRouter([
     { path: "/", render: homePage },

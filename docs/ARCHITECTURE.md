@@ -42,14 +42,14 @@ must not exist in the production API.
 ## Live classes
 
 - Scheduling, attendance, live quizzes and recordings are domain data (`state.classes`) with API methods `classes`, `classAccess`, `joinClass`, `leaveClass`, `classQuizAnswer`, `classQuizStatus`, `adminClasses`, `adminClassDetail`, `adminUpsertClass`, `adminSetClassStatus`, `adminPushQuiz`, `adminCloseQuiz`, `adminAddRecording`, `adminNoteChat`.
-- Real-time traffic uses a transport interface (`site/app/classroom/transport.js`): `createLocalTransport` (BroadcastChannel, preview) or `createSocketTransport` (WebSocket to `server/signal.mjs`). Envelope: `{ room, from, to?, type, payload, at }`. The relay authorises every socket through `classAccess` and announces `peer-left`.
+- Real-time traffic uses a transport interface (`site/app/classroom/transport.js`): `createLocalTransport` (BroadcastChannel, preview) or `createSocketTransport` (WebSocket to `server/signal.mjs`). The relay stamps `from`, `role` and `name` from the verified session; the room UI honours host-only message types only from `role: "host"`. Envelope: `{ room, from, role, name, to?, type, payload, at }`. The relay authorises every socket through `classAccess` and announces `peer-left`.
 - Media is a WebRTC mesh (`site/app/classroom/rtc.js`) using perfect negotiation per pair; screen share is a second stream identified by stream id in presence messages. Default ICE is public STUN; add TURN through `iceServers` for restrictive networks.
 - Live quiz: host `adminPushQuiz` → broadcast `quiz` (answer key stripped) → learner `classQuizAnswer` → broadcast `answered` → host `classQuizStatus` → host `adminCloseQuiz` → broadcast `quiz-close` → learner `classQuizStatus` for own points. Closing a class closes open quizzes and attendance and completes the host task.
 - Recording (`site/app/classroom/recorder.js`): canvas composite + Web Audio mix → MediaRecorder → IndexedDB chunks → `.webm` download, optional resumable upload to Google Drive (`drive.js`, OAuth implicit flow, scope `drive.file`) → `adminAddRecording` link.
 
 ## Server and storage
 
-`server/api.mjs` hosts the same core (`createMockServer` with `seedMode: "empty"`) behind `POST /api/<method>`, blocks preview-only methods, maps `ApiError` codes to HTTP statuses, serves `site/` and `/config.json`, relays `/ws`, and forwards outgoing messages to `ROLEVIA_NOTIFY_WEBHOOK`. Storage adapters (`server/storage.mjs`): `fileStorage` (JSON on disk) and `githubStorage` (private repository file via the contents API with blob-SHA concurrency, debounced writes, conflict retry). State carries a `rev` counter so browser tabs and the server detect staleness cheaply.
+`server/api.mjs` hosts the same core (`createMockServer` with `seedMode: "empty"` and `payments: "manual"`, so `pay`/`purchase` record a transfer request that `adminConfirmPayment` activates) behind `POST /api/<method>`, blocks preview-only methods, maps `ApiError` codes to HTTP statuses, serves `site/` and `/config.json`, relays `/ws`, and forwards outgoing messages to `ROLEVIA_NOTIFY_WEBHOOK`. Storage adapters (`server/storage.mjs`): `fileStorage` (JSON on disk) and `githubStorage` (private repository file via the contents API with blob-SHA concurrency, debounced writes, conflict retry). State carries a `rev` counter so browser tabs and the server detect staleness cheaply.
 
 ## Content pipeline
 

@@ -19,17 +19,21 @@
 
 ## Live classes and recordings
 
-- Media is peer-to-peer and encrypted by WebRTC (DTLS-SRTP); the signalling relay sees connection messages only and authorises each socket with the learner's session.
+- Audio and video are peer-to-peer and encrypted by WebRTC (DTLS-SRTP). Chat, live-question notices, reactions, mute requests and connection messages pass through the signalling relay in clear text; the relay authorises each socket with the learner's session when it connects and again every heartbeat, and stamps `from`, `role` and `name` on every message so a learner cannot pose as the host. Clients ignore host-only messages (quiz, close, mute request, recording notice, end class) from non-hosts.
+- In the same-browser preview the identity on BroadcastChannel messages is self-declared: every tab belongs to the same person, so this is not a trust boundary.
+- Backend overrides (`?api=`, `?signal=`) are honoured only on localhost; on a public origin a crafted link could otherwise send sign-in requests to another server.
 - Hosts must announce recording; the room shows a recording badge to every participant and the pre-join screen states that the host may record.
 - Recordings are created on the host's device. Uploading to Google Drive uses the host's own Google account (OAuth scope limited to files the app creates). Share recordings only with enrolled students; prefer restricted sharing over "anyone with the link".
-- Learners never receive the answer key of an open live question; scoring happens when the host closes it.
+- The API never returns the answer key of an open live question to learners; scoring happens when the host closes it. In live mode the quiz bank (with answers) is not downloaded by the browser at all; in the preview it is part of the in-browser backend, so preview points are demonstrative only.
+- Google Drive sign-in uses a one-time nonce in the OAuth `state`; a token returned without the matching nonce is discarded, so a crafted link cannot plant someone else's Drive token in the host's browser.
+- Recording chunks are written to IndexedDB every 4 s; a write failure stops the recording with a visible error instead of producing a silently truncated file, and stored chunks can be recovered from the class details page.
 
 ## Production checklist
 
 1. Server-side sessions in httpOnly, Secure, SameSite cookies bound to the device identity.
 2. Rate limits on `login`, `verifyOtp`, `requestReset`; lockout and alerting on abuse.
 3. Transactional email/SMS providers with delivery logs; never show one-time codes to staff.
-4. Payment provider webhooks verified by signature; reconcile before `adminVerify`.
+4. Payment provider webhooks verified by signature; reconcile before `adminVerify`. Until then the live server runs in manual-payment mode: a client-side "payment success" grants nothing; students receive transfer instructions and an admin with the payments permission confirms each transfer against the bank or UPI statement.
 5. Private object storage for uploads; signed URLs with short expiry; virus scanning.
 6. Privacy notice, retention and deletion schedule, consent for AI processing of learner documents.
 7. Backups, restore drill, and an incident contact published to learners.

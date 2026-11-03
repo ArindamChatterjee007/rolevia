@@ -137,21 +137,27 @@ function paymentStep(draft) {
   renderSummary();
   const toggle = h("div", { class: "segmented", role: "group", "aria-label": "Billing currency" }, ["INR", "USD"].map(code => h("button", { type: "button", class: code === currency ? "active" : "", onClick: (event) => { currency = code; renderSummary(); toggle.querySelectorAll("button").forEach(button => button.classList.toggle("active", button === event.currentTarget)); } }, code)));
   const error = h("div");
-  const card = h("div", { class: "pay-card" }, h("div", { class: "pay-card-chip" }), h("span", { class: "pay-card-number" }, "4242 •••• •••• 4242"), h("span", { class: "pay-card-name" }, draft.name ?? "Student"), h("span", { class: "pay-card-brand" }, "PREVIEW"));
+  const manual = ctx.config.payments === "manual";
+  const card = manual
+    ? h("div", { class: "pay-card manual" }, h("strong", {}, "Bank transfer / UPI"), h("p", { class: "small" }, "Online card payment is not switched on yet. We email you the transfer details and a payment reference; a person confirms the transfer within 1 business day and verification follows."))
+    : h("div", { class: "pay-card" }, h("div", { class: "pay-card-chip" }), h("span", { class: "pay-card-number" }, "4242 •••• •••• 4242"), h("span", { class: "pay-card-name" }, draft.name ?? "Student"), h("span", { class: "pay-card-brand" }, "PREVIEW"));
   const pay = async (event, outcome) => {
     const button = event.currentTarget;
     busy(button, true, "Processing");
     try {
       const result = await ctx.api.pay({ applicationId: draft.applicationId, currency, outcome });
-      saveDraft({ ...draft, currency, paid: true, paymentId: result.payment.id, reference: result.reference });
+      saveDraft({ ...draft, currency, paid: !result.manual, awaitingPayment: Boolean(result.manual), instructions: result.instructions ?? null, paymentId: result.payment.id, reference: result.reference });
       document.dispatchEvent(new CustomEvent("rolevia:inbox-refresh"));
-      toast("Payment recorded. Verification is next.", "success");
+      toast(result.manual ? "Payment instructions were sent to your email." : "Payment recorded. Verification is next.", "success");
       location.hash = "#/register?step=4";
     } catch (apiError) { error.replaceChildren(errorBox(apiError)); busy(button, false); }
   };
+  const actions = manual
+    ? [h("button", { class: "button primary large", type: "button", onClick: (event) => pay(event, "success") }, icon("mail", 16), "Email me the payment details")]
+    : [h("button", { class: "button ghost", type: "button", onClick: (event) => pay(event, "declined") }, "Simulate declined"), h("button", { class: "button primary large", type: "button", onClick: (event) => pay(event, "success") }, icon("lock", 16), "Pay (preview)")];
   return authShell(h("div", {}, stepper(3), h("p", { class: "muted" }, "Payment comes before credentials. After payment, a person verifies the registration and emails your Student ID."), toggle, h("div", { class: "pay-grid" }, card, summary), error,
-    h("div", { class: "form-actions" }, h("a", { class: "button ghost", href: "#/register?step=2" }, "Change skills"), h("button", { class: "button ghost", type: "button", onClick: (event) => pay(event, "declined") }, "Simulate declined"), h("button", { class: "button primary large", type: "button", onClick: (event) => pay(event, "success") }, icon("lock", 16), "Pay (preview)")),
-    h("p", { class: "tiny muted" }, `Application reference ${draft.reference}. Production uses a PCI-compliant payment provider and server-side webhooks; card data never touches Rolevia servers.`)), { eyebrow: "Student registration", title: "Review and pay.", aside: registrationAside() });
+    h("div", { class: "form-actions" }, h("a", { class: "button ghost", href: "#/register?step=2" }, "Change skills"), ...actions),
+    h("p", { class: "tiny muted" }, manual ? `Application reference ${draft.reference}. Nothing is activated until our team confirms your transfer; you receive a receipt by email.` : `Application reference ${draft.reference}. Production uses a PCI-compliant payment provider and server-side webhooks; card data never touches Rolevia servers.`)), { eyebrow: "Student registration", title: "Review and pay.", aside: registrationAside() });
 }
 
 function verificationStep(draft) {
@@ -160,7 +166,10 @@ function verificationStep(draft) {
     try {
       const result = await ctx.api.applicationStatus(draft.applicationId);
       const verified = result.status === "active";
-      status.replaceChildren(h("div", { class: `status-badge ${verified ? "good" : "pending"}` }, icon(verified ? "check" : "shield", 16), verified ? "Verified: credentials sent" : "Awaiting human verification"), h("p", {}, verified ? `Your Student ID ${result.studentId} and a temporary password were sent to your email. Sign in to set a new password.` : "We verify every registration within 1 business day. You will receive your Student ID and a temporary password by email and SMS."), verified ? h("a", { class: "button primary", href: "#/login" }, "Go to sign-in", icon("arrow", 16)) : h("button", { class: "button ghost small", type: "button", onClick: refresh }, icon("refresh", 14), "Check again"));
+      const awaitingPayment = result.status === "pending_payment";
+      const label = verified ? "Verified: credentials sent" : awaitingPayment ? "Awaiting payment confirmation" : "Awaiting human verification";
+      const text = verified ? `Your Student ID ${result.studentId} and a temporary password were sent to your email. Sign in to set a new password.` : awaitingPayment ? `${draft.instructions ?? "Payment instructions were sent to your email."} Quote reference ${draft.paymentId ?? draft.reference}. Verification starts once a person confirms the transfer.` : "We verify every registration within 1 business day. You will receive your Student ID and a temporary password by email and SMS.";
+      status.replaceChildren(h("div", { class: `status-badge ${verified ? "good" : "pending"}` }, icon(verified ? "check" : "shield", 16), label), h("p", {}, text), verified ? h("a", { class: "button primary", href: "#/login" }, "Go to sign-in", icon("arrow", 16)) : h("button", { class: "button ghost small", type: "button", onClick: refresh }, icon("refresh", 14), "Check again"));
     } catch (error) { status.replaceChildren(errorBox(error)); }
   };
   refresh();

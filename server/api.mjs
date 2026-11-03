@@ -32,32 +32,51 @@ export async function createApp(options = {}) {
   const preview = env.ROLEVIA_PREVIEW === "1";
   const webhook = env.ROLEVIA_NOTIFY_WEBHOOK;
   const deliver = webhook ? (message) => fetch(webhook, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(message) }).catch(error => log(`[notify] ${error.message}`)) : null;
-  const core = await createMockServer({ storage, curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, deliver, seedMode: preview ? "demo" : "empty", opsPassphrase: env.ROLEVIA_OPS_PASSPHRASE, iceServers: env.ROLEVIA_ICE_SERVERS ? JSON.parse(env.ROLEVIA_ICE_SERVERS) : undefined });
+  // Without a payment provider the live server never grants anything on a client-side "success": students
+  // receive transfer instructions and an admin with the payments permission confirms each payment.
+  const paymentsMode = preview ? "preview" : "manual";
+  const core = await createMockServer({ storage, curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, deliver, seedMode: preview ? "demo" : "empty", opsPassphrase: env.ROLEVIA_OPS_PASSPHRASE, iceServers: env.ROLEVIA_ICE_SERVERS ? JSON.parse(env.ROLEVIA_ICE_SERVERS) : undefined, payments: paymentsMode, paymentInstructions: env.ROLEVIA_PAYMENT_INSTRUCTIONS || "" });
   const allowOrigin = env.ROLEVIA_ALLOW_ORIGIN || "";
+  const config = () => ({ apiBase: "/", signalUrl: "/ws", googleClientId: env.ROLEVIA_GOOGLE_CLIENT_ID || "", iceServers: env.ROLEVIA_ICE_SERVERS ? JSON.parse(env.ROLEVIA_ICE_SERVERS) : [{ urls: ["stun:stun.l.google.com:19302"] }], mode: preview ? "preview" : "live", payments: paymentsMode });
 
-  const server = createServer(async (request, response) => {
+  const server = createServer((request, response) => {
+    handle(request, response).catch(error => {
+      log(`[http] ${request.method} ${request.url}: ${error.stack ?? error.message}`);
+      if (!response.headersSent) response.writeHead(500, { "content-type": "application/json" });
+      response.end(JSON.stringify({ error: { code: "SERVER_ERROR", message: "Unexpected server error." } }));
+    });
+  });
+  async function handle(request, response) {
     const url = new URL(request.url, "http://localhost");
     const cors = allowOrigin && request.headers.origin === allowOrigin ? { "access-control-allow-origin": allowOrigin, "access-control-allow-headers": "content-type", "access-control-allow-methods": "POST, GET, OPTIONS" } : {};
     if (request.method === "OPTIONS") { response.writeHead(204, cors).end(); return; }
     if (url.pathname.startsWith("/api/")) {
       const method = url.pathname.slice(5);
-      if (request.method !== "POST" || BLOCKED.has(method) || typeof core[method] !== "function" || (!preview && method.startsWith("preview"))) { response.writeHead(404, { "content-type": "application/json", ...cors }).end(JSON.stringify({ error: { code: "NOT_FOUND", message: "Unknown API method." } })); return; }
+      if (request.method !== "POST" || BLOCKED.has(method) || !Object.hasOwn(core, method) || typeof core[method] !== "function" || (!preview && method.startsWith("preview"))) { response.writeHead(404, { "content-type": "application/json", ...cors }).end(JSON.stringify({ error: { code: "NOT_FOUND", message: "Unknown API method." } })); return; }
       let payload = {};
       try { payload = JSON.parse(await readBody(request, 6 * 1024 * 1024)) || {}; } catch (error) { response.writeHead(400, { "content-type": "application/json", ...cors }).end(JSON.stringify({ error: { code: "BAD_REQUEST", message: error.message } })); return; }
       try { const result = await core[method](payload); response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store", ...cors }).end(JSON.stringify({ result: result ?? null })); }
       catch (error) { const status = error instanceof ApiError ? statusFor(error.code) : 500; if (status === 500) log(`[api] ${method}: ${error.stack ?? error.message}`); response.writeHead(status, { "content-type": "application/json", ...cors }).end(JSON.stringify({ error: { code: error.code ?? "SERVER_ERROR", message: error instanceof ApiError ? error.message : "Unexpected server error.", extra: error.extra ?? {} } })); }
       return;
     }
-    if (url.pathname === "/config.json") { response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify({ apiBase: "", signalUrl: "/ws", googleClientId: env.ROLEVIA_GOOGLE_CLIENT_ID || "", iceServers: env.ROLEVIA_ICE_SERVERS ? JSON.parse(env.ROLEVIA_ICE_SERVERS) : [{ urls: ["stun:stun.l.google.com:19302"] }], mode: preview ? "preview" : "live" })); return; }
+    if (url.pathname === "/config.json") { response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify(config())); return; }
     if (url.pathname === "/healthz") { response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, storage: options.storage ? "custom" : env.ROLEVIA_STORAGE === "github" ? "github" : "file", preview })); return; }
     serveStatic(url.pathname, response);
-  });
-  const signalling = attachSignalling(server, { log, authorize: async ({ room, peer, token, device }) => { const access = await core.classAccess({ token, deviceId: device, classId: room }); if (access.room.peerId !== peer) throw new ApiError("FORBIDDEN", "Peer identity mismatch."); return { room, peer }; } });
+  }
+  // The relay stamps identity, role and display name from the session so no participant can claim to be the host.
+  const authorize = async ({ room, peer, token, device }) => {
+    const access = await core.classAccess({ token, deviceId: device, classId: room });
+    if (access.room.peerId !== peer) throw new ApiError("FORBIDDEN", "Peer identity mismatch.");
+    return { room, peer, role: access.room.role, name: access.room.name };
+  };
+  const signalling = attachSignalling(server, { log, authorize, heartbeatMs: options.heartbeatMs });
   return { server, core, storage, signalling, close: async () => { signalling.close(); await storage.flush?.(); await new Promise(resolve => server.close(resolve)); } };
 }
 
 function serveStatic(pathname, response) {
-  let file = normalize(join(site, decodeURIComponent(pathname === "/" ? "index.html" : pathname)));
+  let decoded;
+  try { decoded = decodeURIComponent(pathname === "/" ? "index.html" : pathname); } catch { response.writeHead(400, { "content-type": "text/plain" }).end("Bad request"); return; }
+  let file = normalize(join(site, decoded));
   if (!file.startsWith(site + sep) && file !== site) { response.writeHead(403).end(); return; }
   try {
     if (statSync(file).isDirectory()) file = join(file, "index.html");

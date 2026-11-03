@@ -2,3 +2,6 @@ node_modules/
 test-results/
 playwright-report/
 .DS_Store
+# Local server state (learner data, hashes, OTPs) must never be committed; site/data/ is the public curriculum
+/data/
+*.corrupt-*.bak

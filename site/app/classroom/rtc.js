@@ -70,11 +70,14 @@ export function createRoom({ transport, self, iceServers = [], media = true, hea
   const unsubscribe = transport.subscribe(async (message) => {
     if (closed) return;
     const { from, type, payload } = message;
-    if (type === "hello") { const peer = addPeer(from, payload); transport.send("welcome", presence(), from); ensureConnection(peer); emit("peer", peer); return; }
-    if (type === "welcome") { const peer = addPeer(from, payload); ensureConnection(peer); emit("peer", peer); return; }
+    // Identity stamped by the relay (message.role / message.name) wins over anything the sender claims.
+    const identity = (info) => ({ ...info, role: message.role ?? info?.role, name: message.name || info?.name });
+    if (type === "hello") { const peer = addPeer(from, identity(payload)); transport.send("welcome", presence(), from); ensureConnection(peer); emit("peer", peer); return; }
+    if (type === "welcome") { const peer = addPeer(from, identity(payload)); ensureConnection(peer); emit("peer", peer); return; }
     const peer = peers.get(from);
-    if (type === "ping") { if (peer) peer.lastSeen = Date.now(); else transport.send("welcome", presence(), from); return; }
-    if (type === "peer-left") { dropPeer(payload?.peerId ?? from, "left"); return; }
+    // An unknown pinger (e.g. after a reconnect) is greeted with hello so both sides add each other and negotiate.
+    if (type === "ping") { if (peer) peer.lastSeen = Date.now(); else transport.send("hello", presence(), from); return; }
+    if (type === "peer-left") { dropPeer(from, "left"); return; }
     if (!peer) return;
     peer.lastSeen = Date.now();
     if (type === "signal") { peer.queue = peer.queue.then(() => handleSignal(peer, payload)).catch(() => {}); return; }
