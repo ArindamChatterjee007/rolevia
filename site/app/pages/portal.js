@@ -130,7 +130,10 @@ export async function assignmentsPage() {
     if (!items.length) return empty("No assignments yet for your modules.");
     return h("div", { class: "stack" }, items.map(item => {
       const body = h("div", { class: "assignment-body" });
+      const summaryTag = h("span", { class: "tag" });
+      const updateTag = () => { const current = item.submission; summaryTag.className = `tag ${current?.gradedAt ? "good" : current ? "" : "pending"}`; summaryTag.textContent = current?.gradedAt ? "Graded" : current ? "Submitted" : "Open"; };
       const renderBody = () => {
+        updateTag();
         const submission = item.submission;
         if (submission?.gradedAt) body.replaceChildren(h("div", { class: "grade good" }, h("strong", {}, `${submission.score}/${item.maxScore}`), h("span", {}, "graded ", formatDate(submission.gradedAt))), submission.feedback ? h("p", { class: "small" }, h("strong", {}, "Feedback: "), submission.feedback) : null, submission.file ? h("p", { class: "tiny muted" }, `Submitted file: ${submission.file.name} (${formatBytes(submission.file.size)})`, submission.file.dataUrl ? [" · ", h("a", { class: "link-button small", href: submission.file.dataUrl, download: submission.file.name }, "Download")] : null) : null);
         else {
@@ -147,7 +150,7 @@ export async function assignmentsPage() {
         }
       };
       renderBody();
-      return h("details", { class: "card assignment", open: !item.submission?.gradedAt }, h("summary", {}, h("div", {}, h("p", { class: "eyebrow" }, item.moduleTitle), h("strong", {}, item.title), h("span", { class: "tiny muted block" }, `Due ${formatDate(item.dueAt)} · ${item.maxScore} points`)), h("span", { class: `tag ${item.submission?.gradedAt ? "good" : item.submission ? "" : "pending"}` }, item.submission?.gradedAt ? "Graded" : item.submission ? "Submitted" : "Open")), h("p", { class: "small" }, item.brief), item.acceptance?.length ? h("ul", { class: "ticks small" }, item.acceptance.map(line => h("li", {}, icon("check", 14), line))) : null, body);
+      return h("details", { class: "card assignment", open: !item.submission?.gradedAt }, h("summary", {}, h("div", {}, h("p", { class: "eyebrow" }, item.moduleTitle), h("strong", {}, item.title), h("span", { class: "tiny muted block" }, `Due ${formatDate(item.dueAt)} · ${item.maxScore} points`)), summaryTag), h("p", { class: "small" }, item.brief), item.acceptance?.length ? h("ul", { class: "ticks small" }, item.acceptance.map(line => h("li", {}, icon("check", 14), line))) : null, body);
     }));
   });
   return portalShell(content, { active: "assignments", title: "Assignments", user: user() });
