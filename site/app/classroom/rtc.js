@@ -1,6 +1,10 @@
 // WebRTC mesh room with "perfect negotiation" per peer pair, camera/mic/screen tracks, presence,
 // heartbeat pruning and a generic broadcast channel for chat, quiz and reactions.
 
+// Platform objects cannot cross BroadcastChannel (structured clone) and should not be trusted on the wire.
+const plainDescription = (description) => ({ type: description.type, sdp: description.sdp });
+const plainCandidate = (candidate) => ({ candidate: candidate.candidate, sdpMid: candidate.sdpMid, sdpMLineIndex: candidate.sdpMLineIndex, usernameFragment: candidate.usernameFragment ?? undefined });
+
 export function createRoom({ transport, self, iceServers = [], media = true, heartbeatMs = 4000, staleMs = 14000, log = () => {} }) {
   const peers = new Map();
   const handlers = { peer: new Set(), stream: new Set(), leave: new Set(), message: new Set(), state: new Set() };
@@ -26,7 +30,7 @@ export function createRoom({ transport, self, iceServers = [], media = true, hea
     peer.pc = pc;
     for (const track of localStream?.getTracks() ?? []) pc.addTrack(track, localStream);
     for (const track of screenStream?.getTracks() ?? []) pc.addTrack(track, screenStream);
-    pc.onicecandidate = ({ candidate }) => { if (candidate) transport.send("signal", { candidate }, peer.id); };
+    pc.onicecandidate = ({ candidate }) => { if (candidate) transport.send("signal", { candidate: plainCandidate(candidate) }, peer.id); };
     pc.ontrack = ({ track, streams }) => {
       const stream = streams[0] ?? new MediaStream([track]);
       peer.streams.set(stream.id, stream);
@@ -38,7 +42,7 @@ export function createRoom({ transport, self, iceServers = [], media = true, hea
       try {
         peer.makingOffer = true;
         await pc.setLocalDescription();
-        transport.send("signal", { description: pc.localDescription }, peer.id);
+        transport.send("signal", { description: plainDescription(pc.localDescription) }, peer.id);
       } catch (error) { log("negotiation failed", error); } finally { peer.makingOffer = false; }
     };
     pc.onconnectionstatechange = () => { log(`peer ${peer.id} ${pc.connectionState}`); if (pc.connectionState === "failed") pc.restartIce(); emit("peer", peer); };
@@ -55,7 +59,7 @@ export function createRoom({ transport, self, iceServers = [], media = true, hea
         if (peer.ignoreOffer) return;
         await pc.setRemoteDescription(description);
         for (const pending of peer.pendingCandidates.splice(0)) await pc.addIceCandidate(pending).catch(() => {});
-        if (description.type === "offer") { await pc.setLocalDescription(); transport.send("signal", { description: pc.localDescription }, peer.id); }
+        if (description.type === "offer") { await pc.setLocalDescription(); transport.send("signal", { description: plainDescription(pc.localDescription) }, peer.id); }
       } else if (candidate) {
         if (!pc.remoteDescription) { peer.pendingCandidates.push(candidate); return; }
         try { await pc.addIceCandidate(candidate); } catch (error) { if (!peer.ignoreOffer) throw error; }

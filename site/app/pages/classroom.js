@@ -63,7 +63,7 @@ function renderRoom(page, access, localStream, toggles) {
   const builtin = cls.mode === "builtin";
   const signalUrl = new URLSearchParams(location.search).get("signal") || ctx.config.signalUrl;
   const transport = signalUrl ? createSocketTransport({ url: signalUrl, roomId: cls.id, peerId: roomInfo.peerId, token: ctx.auth.token, deviceId: ctx.device.id, onStatus: (state) => { connection.textContent = state === "open" ? "Connected" : state; } }) : createLocalTransport({ roomId: cls.id, peerId: roomInfo.peerId });
-  const room = createRoom({ transport, self: { id: roomInfo.peerId, name: roomInfo.name, role: roomInfo.role, avatar: roomInfo.avatar }, iceServers: ctx.config.iceServers ?? roomInfo.iceServers, media: builtin, heartbeatMs: ctx.testMode ? 1500 : 4000, staleMs: ctx.testMode ? 6000 : 14000, log: () => {} });
+  const room = createRoom({ transport, self: { id: roomInfo.peerId, name: roomInfo.name, role: roomInfo.role, avatar: roomInfo.avatar }, iceServers: ctx.config.iceServers ?? roomInfo.iceServers, media: builtin, heartbeatMs: ctx.testMode ? 1500 : 4000, staleMs: ctx.testMode ? 6000 : 14000, log: ctx.testMode ? (...args) => console.warn("[rtc]", ...args) : () => {} });
 
   // ---------- state ----------
   const chat = [];
@@ -129,9 +129,9 @@ function renderRoom(page, access, localStream, toggles) {
     if (panel === "people") renderPeople(); else if (panel === "chat") renderChat(); else renderQuizPanel();
   };
   const renderPeople = () => {
-    panelBody.replaceChildren(h("ul", { class: "roster" }, participants().map(person => h("li", {}, avatar(person, 32), h("div", { class: "grow" }, h("strong", {}, person.name), h("span", { class: "tiny muted block" }, [person.role === "host" ? "Host" : "Learner", person.state?.mic === false ? "muted" : "mic on", person.state?.camera === false ? "camera off" : null, person.state?.sharing ? "sharing" : null].filter(Boolean).join(" · "))), person.state?.hand ? h("span", { class: "tag pending" }, "✋ Hand") : null, isHost && !person.self && person.state?.mic !== false ? h("button", { class: "mini", type: "button", onClick: () => room.broadcast("request", { action: "mute" }, person.id) }, "Ask to mute") : null))),
+    panelBody.replaceChildren(h("div", { class: "stack" }, h("ul", { class: "roster" }, participants().map(person => h("li", {}, avatar(person, 32), h("div", { class: "grow" }, h("strong", {}, person.name), h("span", { class: "tiny muted block" }, [person.role === "host" ? "Host" : "Learner", person.state?.mic === false ? "muted" : "mic on", person.state?.camera === false ? "camera off" : null, person.state?.sharing ? "sharing" : null].filter(Boolean).join(" · "))), person.state?.hand ? h("span", { class: "tag pending" }, "✋ Hand") : null, isHost && !person.self && person.state?.mic !== false ? h("button", { class: "mini", type: "button", onClick: () => room.broadcast("request", { action: "mute" }, person.id) }, "Ask to mute") : null))),
       cls.mode === "external" && cls.externalUrl ? h("a", { class: "button ghost small block", href: cls.externalUrl, target: "_blank", rel: "noopener noreferrer" }, "Open the meeting link") : null,
-      h("p", { class: "tiny muted" }, transport.kind === "local" ? "Preview: this room connects tabs in the same browser. The production signalling server connects devices anywhere." : "Encrypted peer-to-peer media; the signalling server relays only connection messages."));
+      h("p", { class: "tiny muted" }, transport.kind === "local" ? "Preview: this room connects tabs in the same browser. The production signalling server connects devices anywhere." : "Encrypted peer-to-peer media; the signalling server relays only connection messages.")));
   };
   const chatList = h("div", { class: "chat-list" });
   const renderChat = () => {
