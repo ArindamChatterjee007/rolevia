@@ -57,7 +57,7 @@ function previewShortcuts(type, next) {
   return h("div", { class: "preview-shortcut", role: "note" },
     h("div", { class: "preview-shortcut-head" }, icon("bolt", 16), h("strong", {}, "Preview shortcut"), h("span", { class: "tiny muted" }, "Fictional demo accounts. One click signs in and enters the one-time code for you.")),
     h("div", { class: "shortcut-row" }, buttons), status,
-    h("p", { class: "tiny muted" }, "Prefer the real flow? Use the form above: ID + password, then the 6-digit code from the preview inbox (bottom-right). Production has no shortcuts and never shows credentials."));
+    h("p", { class: "tiny muted" }, "Prefer the real flow? Use the form below: ID + password, then the 6-digit code from the preview inbox (bottom-right). Production has no shortcuts and never shows credentials."));
 }
 function misroutedIdHint(identifier, page) {
   const value = String(identifier ?? "").trim();
@@ -290,7 +290,7 @@ export function loginPage(_, query) {
     inputs[0].focus();
   };
   renderCredentials();
-  return authShell(h("div", { class: "stack" }, wrapper, previewShortcuts("student", next.startsWith("/") ? `#${next}` : "#/portal")), { eyebrow: "Student sign-in", title: "Welcome back.", aside: h("div", { class: "aside-card" }, h("h4", {}, "No account yet?"), h("p", { class: "small muted" }, "Register, pay for a skill module and we will verify you within 1 business day."), h("a", { class: "button ghost block", href: "#/register" }, "Register"), h("hr"), h("h4", {}, "Signing in from a new device?"), h("p", { class: "small muted" }, "Your previous device is signed out automatically. If you switch devices often you will receive a security notice.")) });
+  return authShell(h("div", { class: "stack" }, previewShortcuts("student", next.startsWith("/") ? `#${next}` : "#/portal"), wrapper), { eyebrow: "Student sign-in", title: "Welcome back.", aside: h("div", { class: "aside-card" }, h("h4", {}, "No account yet?"), h("p", { class: "small muted" }, "Register, pay for a skill module and we will verify you within 1 business day."), h("a", { class: "button ghost block", href: "#/register" }, "Register"), h("hr"), h("h4", {}, "Signing in from a new device?"), h("p", { class: "small muted" }, "Your previous device is signed out automatically. If you switch devices often you will receive a security notice.")) });
 }
 
 export function resetPage() {
@@ -354,7 +354,7 @@ export function adminLoginPage() {
   } }, h("p", { class: "muted" }, "Enter the 6-digit code sent to the admin email."), field({ label: "One-time code", name: "code", inputmode: "numeric", required: true }), otpError, h("div", { class: "form-actions" }, h("button", { class: "button primary", type: "submit" }, "Open admin console", icon("lock", 16))),
     ctx.mode === "preview" ? h("p", { class: "tiny muted" }, "Preview: the code was \"sent\" to the preview inbox. ", h("button", { class: "link-button", type: "button", onClick: () => document.dispatchEvent(new CustomEvent("rolevia:inbox")) }, "Open preview inbox")) : null);
   wrapper.append(credentials);
-  return authShell(h("div", { class: "stack" }, wrapper, previewShortcuts("admin", "#/admin")), { eyebrow: "Admin console", title: "Programme administration.", aside: h("div", { class: "aside-card" }, h("h4", {}, "Admin responsibilities"), h("ul", { class: "ticks small" }, h("li", {}, icon("check", 14), "Verify registrations and issue credentials"), h("li", {}, icon("check", 14), "Upload lessons, assignments and announcements"), h("li", {}, icon("check", 14), "Grade submissions and review device alerts")), h("p", { class: "tiny muted" }, "Three role-based admin accounts exist: programme lead, learning & content manager, student success & verification. Preview credentials are listed in the preview inbox panel.")) });
+  return authShell(h("div", { class: "stack" }, previewShortcuts("admin", "#/admin"), wrapper), { eyebrow: "Admin console", title: "Programme administration.", aside: h("div", { class: "aside-card" }, h("h4", {}, "Admin responsibilities"), h("ul", { class: "ticks small" }, h("li", {}, icon("check", 14), "Verify registrations and issue credentials"), h("li", {}, icon("check", 14), "Upload lessons, assignments and announcements"), h("li", {}, icon("check", 14), "Grade submissions and review device alerts")), h("p", { class: "tiny muted" }, "Three role-based admin accounts exist: programme lead, learning & content manager, student success & verification. Preview credentials are listed in the preview inbox panel.")) });
 }
 
 export function opsLoginPage() {
