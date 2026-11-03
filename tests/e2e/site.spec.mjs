@@ -93,6 +93,8 @@ test("public site renders the animated hero, company marquee, eight skills and s
   expect(mobileOrbit, JSON.stringify(mobileOrbit)).toMatchObject({ outside: 0, onCore: 0, collisions: 0, clipped: 0 });
   expect(mobileOrbit.width).toBeGreaterThanOrEqual(300);
   await shot(page, "02-home-mobile", false);
+  await page.locator(".orbit").scrollIntoViewIfNeeded();
+  await shot(page, "02a-orbit-mobile", false);
   await open(page, "/pricing");
   await page.getByRole("button", { name: "International · USD" }).click();
   await expect(page.locator(".pricing-table")).toContainText("USD 49");
