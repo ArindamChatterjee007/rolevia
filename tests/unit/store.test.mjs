@@ -370,6 +370,7 @@ test("live classes: scheduling, access window, attendance, live quiz scoring, re
   await rejects(api.classQuizAnswer({ ...priyaAuth, classId: scheduled.id, quizId: quiz.id, answerIndex: 3 }), "NOT_ENROLLED");
   await rejects(api.classQuizAnswer({ ...rohitAuth, classId: scheduled.id, quizId: quiz.id, answerIndex: 9 }), "VALIDATION");
   const before = (await api.dashboard(rohitAuth)).points;
+  const liveBefore = (await api.leaderboard({ ...rohitAuth, period: "all" })).me.live;
   await api.classQuizAnswer({ ...rohitAuth, classId: scheduled.id, quizId: quiz.id, answerIndex: 3 });
   await rejects(api.classQuizAnswer({ ...rohitAuth, classId: scheduled.id, quizId: quiz.id, answerIndex: 1 }), "ALREADY_DONE");
   assert.equal((await api.classQuizStatus({ ...hostAuth, classId: scheduled.id, quizId: quiz.id })).counts[3], 1);
@@ -387,7 +388,7 @@ test("live classes: scheduling, access window, attendance, live quiz scoring, re
   await rejects(api.adminAddRecording({ ...hostAuth, classId: scheduled.id, url: "http://insecure/video" }), "VALIDATION");
   await api.adminAddRecording({ ...hostAuth, classId: scheduled.id, url: "https://drive.google.com/file/d/abc/view", name: "clinic.webm", size: 120000, durationSeconds: 2700, storage: "drive" });
   const leaderboard = await api.leaderboard({ ...rohitAuth, period: "all" });
-  assert.equal(leaderboard.me.live, 10, "live points appear as their own leaderboard column before the open poll closes");
+  assert.equal(leaderboard.me.live, liveBefore + 10, "live points appear as their own leaderboard column before the open poll closes");
   const ended = await api.adminSetClassStatus({ ...hostAuth, classId: scheduled.id, status: "ended" });
   assert.equal(ended.status, "ended");
   assert.equal((await api.dashboard(rohitAuth)).points, before + 12, "ending the class closes the open poll and awards participation points");
