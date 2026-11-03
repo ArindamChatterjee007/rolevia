@@ -67,7 +67,7 @@ export function aiLab(onComplete) {
   const fields = BRIEF_FIELDS.map(([key, label, placeholder]) => h("label", { class: "field" }, h("span", { class: "field-label" }, label), h("textarea", { class: "input", rows: 2, placeholder, "data-field": key, onInput: (event) => { values[key] = event.target.value; renderBrief(); } })));
   const renderBrief = () => {
     const result = scoreBrief(values);
-    briefScore.replaceChildren(h("ul", { class: "ticks compact" }, result.checks.map(item => h("li", { class: item.specific ? "ok" : item.present ? "half" : "miss" }, icon(item.specific ? "check" : "info", 12), `${item.label.split(" (")[0]}: ${item.specific ? "specific" : item.present ? "present, make it checkable" : "missing"}`))), result.privacyOk ? null : h("p", { class: "alert error" }, "Never put passwords, ID numbers, salaries or phone numbers into a brief."));
+    briefScore.replaceChildren(...[h("ul", { class: "ticks compact" }, result.checks.map(item => h("li", { class: item.specific ? "ok" : item.present ? "half" : "miss" }, icon(item.specific ? "check" : "info", 12), `${item.label.split(" (")[0]}: ${item.specific ? "specific" : item.present ? "present, make it checkable" : "missing"}`))), result.privacyOk ? null : h("p", { class: "alert error" }, "Never put passwords, ID numbers, salaries or phone numbers into a brief.")].filter(Boolean));
     report();
   };
   const useSample = h("button", { class: "link-button", type: "button", onClick: () => { values.context = SAMPLE_DATA; root.querySelector('[data-field="context"]').value = SAMPLE_DATA; renderBrief(); } }, "Insert the fictional sample data");
