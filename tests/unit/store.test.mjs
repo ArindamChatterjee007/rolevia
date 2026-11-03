@@ -526,7 +526,8 @@ test("course material and slide decks: lessons via the API only, drafts for admi
   assert.ok(material.course.interview.questions.length >= 8);
   assert.equal(material.decks.length, 0, "a draft deck is not listed for learners");
   const doneBefore = material.progress.done; // seeded instructor materials already count towards progress
-  assert.equal(material.progress.total, 4 + material.materials.length, "structured lessons and instructor materials both count");
+  const structuredCount = material.course.weeks.reduce((sum, week) => sum + week.lessons.length, 0);
+  assert.equal(material.progress.total, structuredCount + material.materials.length, "structured lessons and instructor materials both count");
   await rejects(api.lessons({ ...priyaAuth, moduleId: "canva" }), "NOT_ENROLLED");
 
   const firstLesson = material.course.weeks[0].lessons[0];
