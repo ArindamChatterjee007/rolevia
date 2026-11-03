@@ -1,0 +1,14 @@
+{
+  "name": "rolevia-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Rolevia Business Skills Studio: premium static web app with a preview-mode mock backend. Builds, tests and deployment run on GitHub Actions only.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test:unit": "node --test tests/unit/",
+    "test:e2e": "playwright test",
+    "serve": "node tests/serve.mjs"
+  },
+  "devDependencies": { "@playwright/test": "1.63.0" }
+}

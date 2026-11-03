@@ -1,0 +1,367 @@
+{
+  "brand": {
+    "name": "Rolevia",
+    "descriptor": "Business Skills Studio",
+    "tagline": "Learn the role. Practise the work.",
+    "edition": "Affordable skills edition / November 2026",
+    "status": "Pre-launch programme proposal",
+    "audience": "MBA graduates, career starters and non-technical professionals",
+    "currencyNote": "INR fees are proposed India prices. USD fees are separate international prices, not currency conversions. Applicable taxes are additional and must be shown before payment.",
+    "availabilityNote": "Module dates, instructors, demo availability and final written terms must be confirmed before enrollment. The practice website is planned, not live.",
+    "claimBoundary": "Each module develops a specific practical skill. It does not by itself qualify someone for a job, make them an industry expert or guarantee an interview, salary or promotion."
+  },
+  "skillFormat": {
+    "weeks": 2,
+    "recordedHours": 4,
+    "liveWorkshopCount": 1,
+    "liveWorkshopMinutes": 60,
+    "doubtClinicCount": 2,
+    "doubtClinicMinutes": 30,
+    "practiceHours": 6,
+    "accessDays": 180,
+    "practiceTasks": 4,
+    "reviewedProjects": 1,
+    "proposedCohortLimit": 12,
+    "responseBusinessDays": 2,
+    "resubmissionDays": 14
+  },
+  "modules": [
+    {
+      "id": "spreadsheets",
+      "code": "01",
+      "title": "Business Spreadsheets",
+      "tool": "Excel / Google Sheets",
+      "label": "Clean, calculate and summarise business data",
+      "priceINR": 2499,
+      "priceUSD": 49,
+      "accent": "blue",
+      "bestFor": "A useful first skill for almost every MBA or business-support role.",
+      "prerequisite": "Basic arithmetic and laptop use. Follow the supplied Google Sheets route; Excel is optional if you already have access.",
+      "roles": ["Reporting support", "Operations associate", "Management trainee"],
+      "companies": ["Accenture", "Genpact", "Amazon"],
+      "outcomes": ["Clean dates, duplicates and missing values.", "Use IF, SUMIFS and lookup formulas.", "Explain a pivot summary and its checks."],
+      "sessions": [
+        ["Week 1 / A", "Organise a business sheet", "Use tables, data types, filters and a clear column dictionary.", "A clean sales register"],
+        ["Week 1 / B", "Use practical formulas", "Practise IF, SUMIFS, COUNTIFS and a lookup with test values.", "A checked formula workbook"],
+        ["Week 2 / A", "Summarise the story", "Build pivots and compare products, periods and regions.", "A management summary tab"],
+        ["Week 2 / B", "Check and hand over", "Audit totals, label assumptions and explain one useful finding.", "A reusable reporting workbook"]
+      ],
+      "capstone": "Turn a supplied fictional shop's messy sales file into a checked workbook with a clean-data tab, summary and a short decision note.",
+      "assessment": "Correct calculations, traceable checks, readable layout and a recommendation supported by the data.",
+      "interviewEvidence": "I cleaned a synthetic sales file, checked the formulas and built a pivot summary. I can show the checks and explain the business finding.",
+      "next": "Dashboard Building or Business Budgeting is a useful next step, not a compulsory purchase."
+    },
+    {
+      "id": "dashboards",
+      "code": "02",
+      "title": "Dashboard Building",
+      "tool": "Google Data Studio",
+      "label": "Turn a spreadsheet into a useful report",
+      "priceINR": 2999,
+      "priceUSD": 59,
+      "accent": "blue",
+      "bestFor": "Learners who can already handle a simple sheet and want visual reporting skills.",
+      "prerequisite": "Basic spreadsheet skills, a supported browser and a Google account. Use supplied CSV/Sheets data; paid connectors are not required.",
+      "roles": ["Reporting associate", "Marketing reporting support", "Junior operations analyst"],
+      "companies": ["Accenture", "Genpact", "Unilever"],
+      "outcomes": ["Connect a simple data source and define KPIs.", "Build clear charts, filters and scorecards.", "Validate and explain a one-page dashboard."],
+      "sessions": [
+        ["Week 1 / A", "Start with a decision", "Choose three useful KPIs and connect the practice dataset.", "A KPI and source checklist"],
+        ["Week 1 / B", "Build the report", "Add scorecards, comparison charts and readable labels.", "A first dashboard draft"],
+        ["Week 2 / A", "Make it usable", "Add date controls and filters; test empty or missing data.", "An interactive reporting view"],
+        ["Week 2 / B", "Check the numbers", "Reconcile every KPI to the source and present a recommendation.", "A verified one-page dashboard"]
+      ],
+      "capstone": "Build a dashboard for a fictional sales team, with three defined KPIs, two filters and a five-point validation checklist.",
+      "assessment": "Source-to-report accuracy, sensible chart choices, filter behaviour and a clear interpretation.",
+      "interviewEvidence": "I built and checked a dashboard against its source sheet, then used it to explain a sales-performance question.",
+      "next": "Google's current documentation uses Data Studio; older Looker Studio documentation links redirect there."
+    },
+    {
+      "id": "business-ai",
+      "code": "03",
+      "title": "AI for MBA & Business",
+      "tool": "ChatGPT or a comparable AI assistant",
+      "label": "Research, reason and communicate with human checks",
+      "priceINR": 2999,
+      "priceUSD": 59,
+      "accent": "green",
+      "bestFor": "Non-technical learners who want useful AI habits, not an AI-engineering course.",
+      "prerequisite": "Basic writing and spreadsheet use. No coding or paid AI subscription is required; a supplied example-output route supports practice if account access is unavailable.",
+      "roles": ["Business support", "Marketing operations", "Management trainee"],
+      "companies": ["Accenture", "HubSpot", "Unilever"],
+      "outcomes": ["Write a specific business-task brief and prompt.", "Verify sources, calculations and invented claims.", "Turn a checked analysis into a clear business memo."],
+      "sessions": [
+        ["Week 1 / A", "Give AI a useful brief", "Specify the task, audience, constraints and acceptance checks.", "Three reusable business prompts"],
+        ["Week 1 / B", "Research without inventing", "Compare public business information and verify each cited source.", "A checked comparison matrix"],
+        ["Week 2 / A", "Analyse and question", "Ask AI to explain sample figures, then recalculate in a sheet.", "An error log and decision note"],
+        ["Week 2 / B", "Communicate the decision", "Draft a stakeholder email, meeting summary and short slide outline.", "A reviewed business communication kit"]
+      ],
+      "capstone": "Create a business-decision pack from fictional data: a prompt, checked comparison, spreadsheet cross-check, short memo and a record of what you corrected.",
+      "assessment": "Task clarity, verifiable evidence, accurate numbers, useful communication and safe information handling.",
+      "interviewEvidence": "I used AI to draft a business comparison, verified the sources and figures, corrected an error and explained the final decision myself.",
+      "next": "Do not upload customer data, resumes, employer documents or secrets. Do not claim time or revenue savings that you have not measured."
+    },
+    {
+      "id": "canva",
+      "code": "04",
+      "title": "Canva for Business Communication",
+      "tool": "Canva Free",
+      "label": "Make a clear presentation, not just a pretty slide",
+      "priceINR": 1999,
+      "priceUSD": 39,
+      "accent": "coral",
+      "bestFor": "Learners who need to present an idea, explain a result or create a simple marketing asset.",
+      "prerequisite": "Basic writing and a supported Canva account/browser. Use your own or supplied licensed assets; paid templates are not required.",
+      "roles": ["Marketing coordinator", "Sales support", "Management trainee"],
+      "companies": ["Freshworks", "HubSpot", "Unilever"],
+      "outcomes": ["Structure a concise business story.", "Create consistent, readable slides.", "Export a presentation and one-page brief."],
+      "sessions": [
+        ["Week 1 / A", "Plan the message", "Define the audience, decision and three supporting points.", "A five-slide outline"],
+        ["Week 1 / B", "Design with consistency", "Use spacing, contrast, typography and a simple colour system.", "A reusable slide style"],
+        ["Week 2 / A", "Show evidence clearly", "Turn a small data table into a chart with an honest caption.", "A data-story slide"],
+        ["Week 2 / B", "Present and export", "Check sources, proofread and rehearse a three-minute explanation.", "A presentation and one-page brief"]
+      ],
+      "capstone": "Create a five-slide pitch and one-page brief for a fictional business idea, with one checked chart and a clear next-step request.",
+      "assessment": "Message structure, readable design, truthful evidence, asset rights and a clear spoken explanation.",
+      "interviewEvidence": "I turned a business brief into a five-slide presentation, checked the supporting data and practised explaining the recommendation.",
+      "next": "This is a focused communication skill, not a complete graphic-design or digital-marketing qualification."
+    },
+    {
+      "id": "crm",
+      "code": "05",
+      "title": "CRM & Sales Pipeline",
+      "tool": "HubSpot CRM / supplied practice workbook",
+      "label": "Know the customer, the stage and the next action",
+      "priceINR": 2499,
+      "priceUSD": 49,
+      "accent": "green",
+      "bestFor": "Learners exploring sales support, customer success or customer-facing business operations.",
+      "prerequisite": "Basic writing and spreadsheet use. Use synthetic contacts only. A workbook route is supplied if a suitable free CRM account is unavailable.",
+      "roles": ["Sales support associate", "Customer success associate", "CRM coordinator"],
+      "companies": ["Freshworks", "HubSpot", "Accenture"],
+      "outcomes": ["Maintain clean contact and deal records.", "Track stages, follow-ups and handovers.", "Explain a simple funnel and next-step plan."],
+      "sessions": [
+        ["Week 1 / A", "Understand CRM records", "Separate a contact, company, deal and activity using fictional data.", "A clean contact register"],
+        ["Week 1 / B", "Build a pipeline", "Define stages and record amounts, owners and next actions.", "A practice sales pipeline"],
+        ["Week 2 / A", "Follow up professionally", "Write useful notes, schedule actions and prepare an onboarding handover.", "A follow-up and handover kit"],
+        ["Week 2 / B", "Read the funnel", "Calculate stage conversion and identify one process improvement.", "A pipeline review summary"]
+      ],
+      "capstone": "Manage 20 fictional opportunities through a simple pipeline. Submit the pipeline, clean activity notes and a short sales-to-service handover.",
+      "assessment": "Data accuracy, consistent stages, useful next actions, clear communication and respectful data handling.",
+      "interviewEvidence": "I maintained a synthetic CRM pipeline, checked stage conversion and prepared a handover with owners and next actions.",
+      "next": "No real prospect scraping, bulk messaging, paid sales automation or unsupervised customer outreach is required."
+    },
+    {
+      "id": "hr-tracker",
+      "code": "06",
+      "title": "Hiring Tracker & HR Reporting",
+      "tool": "Google Sheets / Excel",
+      "label": "Make recruitment progress visible and fair",
+      "priceINR": 2499,
+      "priceUSD": 49,
+      "accent": "plum",
+      "bestFor": "Learners interested in recruiting coordination and accurate people-process reporting.",
+      "prerequisite": "Basic spreadsheet use. Work only with fictional candidates. This is not employment-law, payroll or HR-system certification.",
+      "roles": ["Recruiting coordinator", "HR operations associate", "Talent acquisition trainee"],
+      "companies": ["Accenture", "Amazon", "HubSpot"],
+      "outcomes": ["Build a consistent hiring-stage tracker.", "Use a structured interview scorecard.", "Calculate and explain basic recruitment metrics."],
+      "sessions": [
+        ["Week 1 / A", "Define the hiring process", "Map the role, criteria, stages and responsible people.", "A hiring workflow and role brief"],
+        ["Week 1 / B", "Track candidates carefully", "Use validation, stage dates and follow-up fields.", "A synthetic candidate tracker"],
+        ["Week 2 / A", "Record fair evidence", "Use a skill-based scorecard and consistent interview notes.", "A structured evaluation sheet"],
+        ["Week 2 / B", "Report and hand over", "Calculate stage conversion and time-to-fill; plan onboarding.", "A recruitment summary and checklist"]
+      ],
+      "capstone": "Build a tracker for 15 fictional applicants, a consistent interview scorecard and a recruitment summary with a clear audit trail.",
+      "assessment": "Fair criteria, accurate formulas, process clarity, confidentiality and appropriate escalation.",
+      "interviewEvidence": "I built a recruitment tracker with stage dates and a consistent scorecard, then used it to explain hiring progress.",
+      "next": "Use a small dataset to learn the workflow; do not make real hiring decisions or upload candidate documents during practice."
+    },
+    {
+      "id": "trello",
+      "code": "07",
+      "title": "Task & Project Boards",
+      "tool": "Trello Free",
+      "label": "Turn a team plan into owned, visible tasks",
+      "priceINR": 1999,
+      "priceUSD": 39,
+      "accent": "ochre",
+      "bestFor": "Learners who want to coordinate small projects, events or everyday team workflows.",
+      "prerequisite": "Basic browser use and an eligible Trello account. The same workflow can be practised on the supplied task-board template.",
+      "roles": ["Project coordinator", "Operations associate", "Team support"],
+      "companies": ["Accenture", "Amazon", "Genpact"],
+      "outcomes": ["Create an understandable board and backlog.", "Assign owners, dates and acceptance criteria.", "Report blockers and handle a scope change."],
+      "sessions": [
+        ["Week 1 / A", "Break down a project", "Define the outcome, exclusions and small deliverable tasks.", "A project brief and backlog"],
+        ["Week 1 / B", "Build the board", "Use lists, cards, labels, checklists and owners.", "A practical Trello board"],
+        ["Week 2 / A", "Track work honestly", "Manage priorities, dependencies, blockers and next steps.", "A weekly status update"],
+        ["Week 2 / B", "Handle change and close", "Assess a late request, agree trade-offs and review delivery.", "An updated plan and handover"]
+      ],
+      "capstone": "Coordinate a fictional workshop launch using a board of 15 tasks, clear owners, a risk list and a response to one late change.",
+      "assessment": "Useful task breakdown, ownership, feasible sequencing, clear status and explicit trade-offs.",
+      "interviewEvidence": "I planned a fictional rollout on a task board, tracked blockers and explained how I handled a change in scope.",
+      "next": "This is a coordination skill, not a project-manager job guarantee or a PMP/Scrum certification."
+    },
+    {
+      "id": "budgeting",
+      "code": "08",
+      "title": "Business Budgeting & Unit Economics",
+      "tool": "Google Sheets / Excel",
+      "label": "Understand what a sale really contributes",
+      "priceINR": 2499,
+      "priceUSD": 49,
+      "accent": "blue",
+      "bestFor": "Learners who want to discuss costs, pricing and cash needs with more confidence.",
+      "prerequisite": "Basic arithmetic and spreadsheet formulas. No accounting background is assumed; no investment, audit or tax qualification is awarded.",
+      "roles": ["Finance operations support", "Business operations", "Management trainee"],
+      "companies": ["Genpact", "Accenture", "Unilever"],
+      "outcomes": ["Separate revenue, contribution, profit and cash.", "Build a small operating budget.", "Calculate break-even and explain assumptions."],
+      "sessions": [
+        ["Week 1 / A", "Classify the money", "Separate fixed costs, variable costs, revenue and cash timing.", "A cost map"],
+        ["Week 1 / B", "Price a simple service", "Calculate contribution per sale and a break-even quantity.", "A checked unit-economics sheet"],
+        ["Week 2 / A", "Build a useful budget", "Model a month and compare base, lower and higher sales.", "A three-scenario budget"],
+        ["Week 2 / B", "Explain the decision", "Show the assumptions, cash risks and actual-versus-plan differences.", "A one-page management memo"]
+      ],
+      "capstone": "Price a fictional service, build a monthly budget and explain when it breaks even. Show what changes if demand is lower than expected.",
+      "assessment": "Correct formulas, defensible assumptions, scenario logic and a clear distinction between profit and cash.",
+      "interviewEvidence": "I built a small pricing and budget model, tested lower sales and explained the difference between contribution and profit.",
+      "next": "This is one business-finance skill, not a complete FP&A, accounting, investment or compliance programme."
+    }
+  ],
+  "interviewCourse": {
+    "id": "interview",
+    "title": "Interview Ready",
+    "priceINR": 2499,
+    "priceUSD": 49,
+    "weeks": 2,
+    "recordedHours": 3,
+    "liveWorkshopCount": 1,
+    "liveWorkshopMinutes": 60,
+    "doubtClinicCount": 0,
+    "doubtClinicMinutes": 0,
+    "mockCount": 1,
+    "mockMinutes": 45,
+    "practiceHours": 3.25,
+    "sessions": [
+      ["Know the role and your evidence", "Read a job description, choose a role family and prepare an honest introduction and four STAR stories."],
+      ["Explain what you can do", "Walk through a module project, answer a simple business case and practise communicating with a recruiter."],
+      ["Practise and track your applications", "Attend a 60-minute strategy/Q&A session, complete a 45-minute individual mock and use an interview tracker for follow-ups."]
+    ]
+  },
+  "services": [
+    {"id": "resume-audit", "name": "Resume Review", "priceINR": 499, "priceUSD": 9, "scope": "One existing resume, up to 2 pages: annotated review and prioritised actions. First-time applicants can receive a profile/intake review instead.", "turnaround": "2 business days", "revisions": "One clarification round", "deliveryHours": 0.5},
+    {"id": "resume-writing", "name": "Done-for-you Resume", "priceINR": 1999, "priceUSD": 39, "scope": "One role-targeted resume, up to 2 pages, delivered in editable DOCX and PDF after an intake.", "turnaround": "5 business days to first draft", "revisions": "2 consolidated revision rounds", "deliveryHours": 2},
+    {"id": "linkedin", "name": "LinkedIn Profile Rewrite", "priceINR": 999, "priceUSD": 19, "scope": "Headline, About and up to 3 experience entries supplied as copy. No account login or publishing.", "turnaround": "3 business days", "revisions": "1 consolidated revision round", "deliveryHours": 1},
+    {"id": "cover-letter", "name": "Targeted Cover Letter", "priceINR": 499, "priceUSD": 9, "scope": "One editable cover letter, up to 1 page, tailored to one supplied job description.", "turnaround": "3 business days", "revisions": "1 consolidated revision round", "deliveryHours": 0.5},
+    {"id": "mock", "name": "Extra Mock Interview", "priceINR": 999, "priceUSD": 19, "scope": "One 45-minute role-specific mock plus a written scorecard. Buy only if you want an additional mock or are not taking Interview Ready.", "turnaround": "By agreed appointment", "revisions": "Feedback within 2 business days", "deliveryHours": 1},
+    {"id": "career-pack", "name": "Career Launch Pack", "priceINR": 3499, "priceUSD": 69, "scope": "Done-for-you Resume + LinkedIn Profile Rewrite + one Extra Mock Interview. This paid service bundle is different from the five-module bonus.", "turnaround": "7 business days for written drafts", "revisions": "Component revision limits apply", "deliveryHours": 4, "components": ["resume-writing", "linkedin", "mock"]}
+  ],
+  "careerBonus": {
+    "qualifyingModules": 5,
+    "purchaseWindowMonths": 12,
+    "redemptionDays": 180,
+    "benefitIds": ["interview", "resume-audit", "resume-writing"],
+    "policy": [
+      "Buy any 5 distinct paid skill modules from this catalogue for the same learner, together or gradually within 12 months of the first module's access activation. You do not have to buy all 8.",
+      "All five module fees must be fully paid and clear the 7-calendar-day refund window. Repeated purchases of the same module, free demos and cancelled/refunded modules do not count.",
+      "Receive Interview Ready, its one included 45-minute mock, one Resume Review and one Done-for-you Resume at no additional tuition or service fee. The resume includes one target role, up to 2 pages and 2 revision rounds.",
+      "One career-support package per learner. Redeem within 180 days of qualification. Confirm coach slots before purchase; the proposed start target is within 30 days of a valid claim and completed intake.",
+      "Previous standalone payments are not retroactively refunded or credited; the earned package can still be redeemed once. No cash alternative, transfer or automatic discount on other services.",
+      "LinkedIn rewriting, cover letters, additional mocks and additional resumes are not included. Do not buy overlapping services unless you genuinely want extra work.",
+      "Referral cashback does not remove a paid module from the five-module count. The purchase bonus and referral reward can both be earned; neither requires the other.",
+      "If an ordinary module refund reduces the count below five before bonus delivery, unredeemed benefits pause until eligibility is restored. After benefits are used, cancellations follow disclosed lawful terms; no surprise charge for items advertised as free."
+    ]
+  },
+  "referral": {
+    "qualifyingPeople": 5,
+    "refundPercent": 50,
+    "windowDays": 180,
+    "reviewBusinessDays": 7,
+    "payoutBusinessDays": 15,
+    "courseRefundDays": 7,
+    "eligibleModuleIds": ["spreadsheets", "dashboards", "business-ai", "canva", "crm", "hr-tracker", "trello", "budgeting"],
+    "policy": [
+      "Choose one paid skill module as the reward purchase before referring. Its full tuition must be paid and its 7-day refund window complete. Cashback is on that one module, not a five-module purchase or the whole catalogue.",
+      "Five distinct new students must each use your code before payment and buy at least one eligible skill module in the same billing currency. Each friend needs one module, not five.",
+      "Each referred payment must clear the 7-calendar-day refund window without cancellation, ordinary tuition refund or payment dispute. Only the first qualifying purchase per new student counts.",
+      "All five must qualify within 180 days of your designated module's access activation. Referrals count once, for one referrer; self-referrals, duplicate identities and recruitment fees are not allowed.",
+      "Receive 50% of your actual tuition paid for the designated module, after discounts or earlier ordinary tuition refunds. Taxes, payment-provider/FX fees and third-party charges are excluded.",
+      "One cashback reward per learner during the founding offer. A learner's own earned referral cashback does not invalidate their qualifying purchase or five-module career bonus.",
+      "A completed claim is reviewed within 7 business days. Approved cashback is initiated to the original payment method within 15 business days; bank processing time is additional.",
+      "Interview Ready, free bonus items, resume services and Career Launch Pack do not qualify. Only direct purchases count; this is not a job referral or multi-level commission.",
+      "Share codes voluntarily, disclose the reward and do not upload friends' contact lists. Final accepted terms must protect earned rewards and statutory consumer rights."
+    ]
+  },
+  "demo": {
+    "priceINR": 0,
+    "priceUSD": 0,
+    "minutes": 30,
+    "title": "See one skill in action",
+    "agenda": [
+      ["0-5 min", "Choose a business question", "Use a fictional shop's sales and cost data."],
+      ["5-15 min", "Watch a practical tool workflow", "Ask AI for an explanation; verify the calculation in a sheet."],
+      ["15-25 min", "Try a short task", "Calculate contribution per sale and draft a two-sentence recommendation."],
+      ["25-30 min", "Ask questions and choose", "See the rubric, workload and fee; decide whether one module fits."]
+    ]
+  },
+  "sources": {
+    "checkedDate": "2026-11-03",
+    "learning": [
+      {"name": "Google Sheets help", "url": "https://support.google.com/a/users/answer/9282959?hl=en", "description": "First-party quick starts, spreadsheet guidance and collaboration help."},
+      {"name": "Google Data Studio", "url": "https://docs.cloud.google.com/data-studio", "description": "Official tutorials for data sources, dashboards, charts and filters."},
+      {"name": "OpenAI Academy", "url": "https://academy.openai.com/", "description": "Official learning entry point for practical AI use, prompting and review."},
+      {"name": "Canva Design School", "url": "https://www.canva.com/en/design-school/", "description": "Official design-learning entry point; a supported browser is required."},
+      {"name": "HubSpot CRM", "url": "https://www.hubspot.com/products/crm", "description": "Official CRM overview and free-product entry point; account features and limits apply."},
+      {"name": "Trello board basics", "url": "https://trello.com/guide/trello-101", "description": "Official introduction to boards, lists, cards and everyday work management."}
+    ],
+    "companies": [
+      {"name": "Accenture", "url": "https://www.accenture.com/in-en/careers", "focus": "Business services, operations and reporting-related role families."},
+      {"name": "Genpact", "url": "https://www.genpact.com/careers", "focus": "Digital operations, finance processes and reporting."},
+      {"name": "Amazon", "url": "https://www.amazon.jobs/en/", "focus": "Business operations, project coordination and people functions."},
+      {"name": "Freshworks", "url": "https://www.freshworks.com/company/careers/", "focus": "Sales, marketing and customer-facing software roles."},
+      {"name": "HubSpot", "url": "https://www.hubspot.com/careers", "focus": "Sales, customer success, marketing, operations and people teams."},
+      {"name": "Unilever", "url": "https://careers.unilever.com/en", "focus": "Commercial, marketing and finance career areas."}
+    ]
+  },
+  "economics": {
+    "pilotModuleId": "spreadsheets",
+    "pilotStudents": 10,
+    "INR": {
+      "paymentFeePercent": 3,
+      "ordinaryRefundReservePercent": 5,
+      "referralReserve": 300,
+      "careerBonusReserve": 600,
+      "mentorReviewPerLearner": 300,
+      "acquisitionPerLearner": 150,
+      "platformAdminPerLearner": 50,
+      "cohortDeliveryFixed": 2000,
+      "oneTimeModuleProduction": 7500,
+      "oneTimeInterviewProduction": 6000,
+      "bonusFulfilment": [
+        ["Resume review / 0.5 hour", 300],
+        ["Resume writing and revisions / 2 hours", 1200],
+        ["Mock and scorecard / 1 coach hour", 600],
+        ["Strategy and Q&A / 1 coach hour", 750],
+        ["Intake, scheduling and handoff", 150]
+      ]
+    },
+    "USD": {
+      "paymentFeePercent": 4,
+      "ordinaryRefundReservePercent": 5,
+      "referralReserve": 6,
+      "careerBonusReserve": 12,
+      "mentorReviewPerLearner": 6,
+      "acquisitionPerLearner": 3,
+      "platformAdminPerLearner": 1,
+      "cohortDeliveryFixed": 40,
+      "oneTimeModuleProduction": 150,
+      "oneTimeInterviewProduction": 120,
+      "bonusFulfilment": [
+        ["Resume review / 0.5 hour", 6],
+        ["Resume writing and revisions / 2 hours", 24],
+        ["Mock and scorecard / 1 coach hour", 12],
+        ["Strategy and Q&A / 1 coach hour", 15],
+        ["Intake, scheduling and handoff", 3]
+      ]
+    }
+  }
+}
