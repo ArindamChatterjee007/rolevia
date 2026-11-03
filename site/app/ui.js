@@ -181,6 +181,40 @@ export function field({ label, name, type = "text", value = "", placeholder = ""
 
 export const formData = (form) => Object.fromEntries(new FormData(form).entries());
 
+export function clearFieldErrors(form) {
+  form.querySelectorAll(".field-error").forEach(element => element.remove());
+  form.querySelectorAll("[aria-invalid]").forEach(element => { element.removeAttribute("aria-invalid"); element.closest(".field")?.classList.remove("has-error"); });
+}
+
+// Shows API/validation errors next to the fields they belong to; returns true when at least one field matched.
+export function showFieldErrors(form, fields = {}) {
+  clearFieldErrors(form);
+  let matched = false;
+  for (const [name, message] of Object.entries(fields)) {
+    const input = form.querySelector(`[name="${name}"]`);
+    if (!input) continue;
+    matched = true;
+    input.setAttribute("aria-invalid", "true");
+    const wrapper = input.closest(".field") ?? input.parentElement;
+    wrapper.classList.add("has-error");
+    wrapper.append(h("span", { class: "field-error", role: "alert" }, message));
+  }
+  form.querySelector("[aria-invalid]")?.focus();
+  return matched;
+}
+
+export async function readFileRecord(file, { maxStoredBytes = 400 * 1024 } = {}) {
+  if (!file) return null;
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  const sha256 = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+  const record = { name: file.name, size: file.size, type: file.type || "application/octet-stream", sha256, dataUrl: null };
+  if (file.size <= maxStoredBytes) record.dataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); });
+  return record;
+}
+
+export const formatBytes = (bytes) => bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
 export function busy(button, isBusy, label) {
   if (isBusy) { button.dataset.label = button.textContent; button.disabled = true; button.classList.add("is-busy"); button.replaceChildren(spinner(), label ?? "Working"); }
   else { button.disabled = false; button.classList.remove("is-busy"); button.textContent = button.dataset.label ?? label ?? "Done"; }

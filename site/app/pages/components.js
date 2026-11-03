@@ -86,8 +86,8 @@ export function previewDrawer() {
   const credentials = ctx.api.previewCredentials();
   const creds = h("div", { class: "preview-creds" },
     h("p", { class: "small" }, h("strong", {}, "Demo student:"), ` ${credentials.student.id} / ${credentials.student.password}`),
-    h("p", { class: "small" }, h("strong", {}, "Demo admin:"), ` ${credentials.admin.email} / ${credentials.admin.password}`),
-    h("p", { class: "tiny muted" }, "Fictional preview accounts. Production issues unique credentials after verification and never shows them here."));
+    ...credentials.admins.map(admin => h("p", { class: "small" }, h("strong", {}, `${admin.name.split(" ")[0]} (${admin.role}):`), ` ${admin.adminId} / ${admin.password}`)),
+    h("p", { class: "tiny muted" }, "Fictional preview accounts; admins must set a new password at first sign-in. Production issues unique credentials and never shows them here."));
   const simulate = h("button", { class: "button ghost small", type: "button", onClick: async (event) => {
     if (!authed("student")) { toast("Sign in as a student first to simulate a second device.", "info"); return; }
     event.currentTarget.disabled = true;

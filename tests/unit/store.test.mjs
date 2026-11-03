@@ -18,8 +18,16 @@ async function signIn(api, identifier, password, dev, latestCode) {
   const challenge = await api.login({ identifier, password, ...dev });
   return api.verifyOtp({ challengeId: challenge.challengeId, code: latestCode(), ...dev });
 }
-async function adminToken(api, latestCode) {
-  return (await signIn(api, "admin@rolevia.demo", "Admin#2026", device("admin-laptop"), latestCode)).token;
+const ADMINS = { lead: ["RV-ADM-001", "Lead-Arindam-2026"], content: ["RV-ADM-002", "Content-Ayush-2026"], success: ["RV-ADM-003", "Success-Souvik-2026"] };
+async function adminToken(api, latestCode, role = "lead") {
+  return (await signIn(api, ...ADMINS[role], device("admin-laptop"), latestCode)).token;
+}
+const DETAILS = { name: "Nisha Rao", email: "Nisha@Example.com", phone: "+91 98000 11111", city: "Hyderabad", education: "mba", graduationYear: "2025", currentStatus: "fresher", preferredSlot: "weekend-morning", goal: "Move into a reporting role within six months.", acceptedTerms: true };
+const contactCode = (api, email) => api._state().otps.find(otp => otp.purpose === "contact" && otp.contact === email.toLowerCase()).code;
+async function registered(api, moduleIds, overrides = {}) {
+  const details = { ...DETAILS, ...overrides };
+  const challenge = await api.requestContactCode({ email: details.email, phone: details.phone });
+  return api.register({ ...details, moduleIds, contactChallengeId: challenge.challengeId, contactCode: contactCode(api, details.email) });
 }
 const rejects = (promise, code) => assert.rejects(promise, (error) => error instanceof ApiError && error.code === code);
 
@@ -40,7 +48,10 @@ test("content integrity: 8 modules, 64 reviewed questions, matching assignment b
 test("registration requires payment, then human verification issues the Student ID and temporary password", async () => {
   const { api, latestCode } = await server();
   await rejects(api.register({ name: "A", email: "bad", phone: "1", moduleIds: ["spreadsheets"], acceptedTerms: true }), "VALIDATION");
-  const application = await api.register({ name: "Nisha Rao", email: "Nisha@Example.com", phone: "+91 98000 11111", city: "Hyderabad", moduleIds: ["spreadsheets", "budgeting"], acceptedTerms: true });
+  await rejects(api.register({ ...DETAILS, moduleIds: ["spreadsheets"] }), "CONTACT_UNVERIFIED");
+  const challenge = await api.requestContactCode({ email: DETAILS.email, phone: DETAILS.phone });
+  await rejects(api.register({ ...DETAILS, moduleIds: ["spreadsheets"], contactChallengeId: challenge.challengeId, contactCode: "000000" }), "OTP_INVALID");
+  const application = await api.register({ ...DETAILS, moduleIds: ["spreadsheets", "budgeting"], contactChallengeId: challenge.challengeId, contactCode: contactCode(api, DETAILS.email) });
   assert.equal(application.quoteINR.subtotal, 2499 + 2499);
   assert.equal(application.quoteUSD.subtotal, 49 + 49);
   await rejects(api.login({ identifier: "nisha@example.com", password: "x", ...device("phone") }), "NOT_VERIFIED");
@@ -48,11 +59,19 @@ test("registration requires payment, then human verification issues the Student 
   const paid = await api.pay({ applicationId: application.applicationId, currency: "INR" });
   assert.equal(paid.status, "pending_verification");
   await rejects(api.login({ identifier: "nisha@example.com", password: "anything", ...device("phone") }), "NOT_VERIFIED");
-  const admin = await adminToken(api, latestCode);
+  const content = await adminToken(api, latestCode, "content");
+  await rejects(api.adminStudents({ token: content, deviceId: "device-admin-laptop" }), "FORBIDDEN");
+  const admin = await adminToken(api, latestCode, "success");
   const students = await api.adminStudents({ token: admin, deviceId: "device-admin-laptop" });
   const pending = students.find(student => student.email === "nisha@example.com");
   assert.equal(pending.status, "pending_verification");
+  assert.equal(pending.profile.preferredSlot, "weekend-morning");
+  const tracker = await api.adminTracker({ token: admin, deviceId: "device-admin-laptop" });
+  const verifyTask = tracker.tasks.find(task => task.type === "verify" && task.refId === pending.id);
+  assert.equal(verifyTask.status, "open");
+  assert.equal(verifyTask.mine, true, "verification tasks route to the success role");
   const issued = await api.adminVerify({ token: admin, deviceId: "device-admin-laptop", userId: pending.id });
+  assert.equal((await api.adminTracker({ token: admin, deviceId: "device-admin-laptop" })).tasks.find(task => task.id === verifyTask.id).status, "done");
   assert.match(issued.studentId, /^RV-26-\d{4}$/);
   const credentialMail = api._state().outbox.find(message => message.subject.includes("Student ID") && message.channel === "email");
   assert.ok(credentialMail.body.includes(issued.studentId) && credentialMail.body.includes(issued.previewTemporaryPassword));
@@ -103,9 +122,13 @@ test("only one device stays signed in; frequent switching triggers a security no
   const notifications = await api.notifications({ token: fifth.token, deviceId: "device-tablet" });
   assert.ok(notifications.some(item => item.kind === "security" && item.title.includes("multiple devices")));
   assert.ok(api._state().outbox.some(message => message.subject.includes("multiple devices")));
-  const admin = await adminToken(api, latestCode);
+  const admin = await adminToken(api, latestCode, "success");
   const alerts = await api.adminDeviceAlerts({ token: admin, deviceId: "device-admin-laptop" });
   assert.equal(alerts.filter(alert => alert.status === "open").length, 1);
+  const alertTask = (await api.adminTracker({ token: admin, deviceId: "device-admin-laptop" })).tasks.find(task => task.type === "alert" && task.refId === alerts[0].id);
+  assert.equal(alertTask.role, "success");
+  await api.adminResolveAlert({ token: admin, deviceId: "device-admin-laptop", alertId: alerts[0].id });
+  assert.equal((await api.adminTracker({ token: admin, deviceId: "device-admin-laptop" })).tasks.find(task => task.id === alertTask.id).status, "done");
   const sixth = await signIn(api, "RV-26-0001", "Learn#2026", device("laptop"), latestCode);
   assert.equal(sixth.warned, false, "the notice repeats only at every fifth switch");
 });
@@ -153,10 +176,18 @@ test("labs award points for improvement only and assignments move through submis
   assert.equal(canva.submission, null);
   await rejects(api.submitAssignment({ ...auth, assignmentId: canva.id, text: "too short" }), "VALIDATION");
   await rejects(api.submitAssignment({ ...auth, assignmentId: canva.id, text: "x".repeat(50), link: "http://insecure.example" }), "VALIDATION");
-  const submission = await api.submitAssignment({ ...auth, assignmentId: canva.id, text: "Built the five-slide pitch with a checked chart and a one-page brief for the fictional idea.", link: "https://example.com/deck" });
-  const admin = await adminToken(api, latestCode);
+  await rejects(api.submitAssignment({ ...auth, assignmentId: canva.id, text: "x".repeat(50), file: { name: "big.pdf", size: 900 * 1024, type: "application/pdf", dataUrl: `data:application/pdf;base64,${"A".repeat(100)}` } }), "FILE_TOO_LARGE");
+  const submission = await api.submitAssignment({ ...auth, assignmentId: canva.id, text: "Built the five-slide pitch with a checked chart and a one-page brief for the fictional idea.", link: "https://example.com/deck", file: { name: "pitch.pdf", size: 2048, type: "application/pdf", sha256: "ab".repeat(32), dataUrl: `data:application/pdf;base64,${"QUJD".repeat(20)}` } });
+  assert.equal(submission.file.stored, true);
+  assert.equal(submission.fileName, "pitch.pdf");
+  const success = await adminToken(api, latestCode, "success");
+  await rejects(api.adminSubmissions({ token: success, deviceId: "device-admin-laptop" }), "FORBIDDEN");
+  const admin = await adminToken(api, latestCode, "content");
   const queue = await api.adminSubmissions({ token: admin, deviceId: "device-admin-laptop" });
   assert.equal(queue[0].id, submission.id, "ungraded submissions sort first, newest first");
+  assert.equal(queue[0].file.dataUrl.startsWith("data:application/pdf"), true);
+  const gradeTask = (await api.adminTracker({ token: admin, deviceId: "device-admin-laptop" })).tasks.find(task => task.type === "grade" && task.refId === submission.id);
+  assert.equal(gradeTask.mine, true, "grading tasks route to the content role");
   const before = (await api.dashboard(auth)).points;
   await api.adminGrade({ token: admin, deviceId: "device-admin-laptop", submissionId: submission.id, score: 85, feedback: "Clear structure." });
   assert.equal((await api.dashboard(auth)).points, before + 85);
@@ -165,6 +196,7 @@ test("labs award points for improvement only and assignments move through submis
   assert.ok(notifications.some(item => item.kind === "grade"));
   await api.adminGrade({ token: admin, deviceId: "device-admin-laptop", submissionId: submission.id, score: 90 });
   assert.equal((await api.dashboard(auth)).points, before + 90, "regrading adjusts points instead of double counting");
+  assert.equal((await api.adminTracker({ token: admin, deviceId: "device-admin-laptop" })).tasks.find(task => task.id === gradeTask.id).status, "done");
 });
 
 test("any five distinct paid modules unlock the career kit and included services cannot be sold again", async () => {
@@ -199,13 +231,27 @@ test("leaderboard issues one top-scorer badge that resolves publicly, and public
   await rejects(api.badge("RV-TOP-NOPE"), "NOT_FOUND");
 });
 
-test("admin content management validates links and the operations view needs the ops passphrase", async () => {
+test("admin content management validates links and attachments; roles gate pages; the operations view manages the team", async () => {
   const { api, latestCode } = await server();
-  const admin = await adminToken(api, latestCode);
+  const success = await adminToken(api, latestCode, "success");
+  await rejects(api.adminUpsertLesson({ token: success, deviceId: "device-admin-laptop", moduleId: "trello", lesson: { title: "Board walkthrough" } }), "FORBIDDEN");
+  await rejects(api.adminAudit({ token: success, deviceId: "device-admin-laptop" }), "FORBIDDEN");
+  const admin = await adminToken(api, latestCode, "content");
   const adminAuth = { token: admin, deviceId: "device-admin-laptop" };
   await rejects(api.adminUpsertLesson({ ...adminAuth, moduleId: "trello", lesson: { title: "Board walkthrough", url: "http://insecure" } }), "VALIDATION");
-  const lesson = await api.adminUpsertLesson({ ...adminAuth, moduleId: "trello", lesson: { title: "Board walkthrough", url: "https://videos.example/board", minutes: 25, type: "video" } });
+  const lesson = await api.adminUpsertLesson({ ...adminAuth, moduleId: "trello", lesson: { title: "Board walkthrough", url: "https://videos.example/board", minutes: 25, type: "video", attachment: { name: "board-slides.pdf", size: 1500, type: "application/pdf", dataUrl: `data:application/pdf;base64,${"QUJD".repeat(10)}` } } });
   assert.equal((await api.adminContent(adminAuth)).lessons.trello.at(-1).id, lesson.id);
+  assert.equal(lesson.attachment.stored, true);
+  const kept = await api.adminUpsertLesson({ ...adminAuth, moduleId: "trello", lesson: { id: lesson.id, title: "Board walkthrough (updated)" } });
+  assert.equal(kept.attachment.name, "board-slides.pdf", "editing without a new file keeps the attachment");
+  const removed = await api.adminUpsertLesson({ ...adminAuth, moduleId: "trello", lesson: { id: lesson.id, title: "Board walkthrough", attachment: null } });
+  assert.equal(removed.attachment, null);
+  const lead = await adminToken(api, latestCode, "lead");
+  const task = await api.adminCreateTask({ token: lead, deviceId: "device-admin-laptop", title: "Upload week 2 slides", role: "content", assigneeId: "u-admin-2", link: "#/admin/content" });
+  assert.equal(task.assigneeId, "u-admin-2");
+  await rejects(api.adminUpdateTask({ ...adminAuth, taskId: task.id, action: "assign", notes: { assigneeId: null } }), "FORBIDDEN");
+  const done = await api.adminUpdateTask({ ...adminAuth, taskId: task.id, action: "done", notes: "Uploaded." });
+  assert.equal(done.status, "done");
   await api.adminAnnounce({ ...adminAuth, title: "Batch 1 dates", body: "Live workshop on Saturday." });
   const student = await signIn(api, "RV-26-0004", "Learn#2026", device("phone"), latestCode);
   const dashboard = await api.dashboard({ token: student.token, deviceId: "device-phone" });
@@ -213,6 +259,17 @@ test("admin content management validates links and the operations view needs the
   await rejects(api.opsSummary({ token: admin, deviceId: "device-admin-laptop" }), "FORBIDDEN");
   await rejects(api.opsLogin({ passphrase: "wrong", ...device("founder") }), "INVALID_CREDENTIALS");
   const ops = await api.opsLogin({ passphrase: "ROLEVIA-OPS-PREVIEW", ...device("founder") });
+  const team = await api.opsTeam({ token: ops.token, deviceId: "device-founder" });
+  assert.deepEqual(team.admins.map(item => item.adminId), ["RV-ADM-001", "RV-ADM-002", "RV-ADM-003"]);
+  assert.deepEqual(team.admins.map(item => item.role), ["lead", "content", "success"]);
+  await rejects(api.opsCreateAdmin({ token: ops.token, deviceId: "device-founder", name: "New Admin", email: "ayush@rolevia.demo", phone: "+919800000777", role: "content" }), "VALIDATION");
+  const created = await api.opsCreateAdmin({ token: ops.token, deviceId: "device-founder", name: "Fourth Person", email: "fourth@rolevia.demo", phone: "+919800000777", role: "success" });
+  assert.equal(created.adminId, "RV-ADM-004");
+  const fourth = await signIn(api, "RV-ADM-004", created.previewTemporaryPassword, device("fourth"), latestCode);
+  assert.equal(fourth.mustChangePassword, true);
+  assert.equal(fourth.user.roleLabel, "Student success & verification");
+  await api.opsSetAdmin({ token: ops.token, deviceId: "device-founder", adminUserId: fourth.user.id, status: "suspended" });
+  await rejects(api.me({ token: fourth.token, deviceId: "device-fourth" }), "SESSION_REVOKED");
   const summary = await api.opsSummary({ token: ops.token, deviceId: "device-founder" });
   assert.equal(summary.cohorts.length, 8);
   const inr = summary.byCurrency.find(row => row.currency === "INR");
@@ -223,8 +280,8 @@ test("admin content management validates links and the operations view needs the
 
 test("referral codes are validated and reset tokens revoke every session", async () => {
   const { api, latestCode } = await server();
-  await rejects(api.register({ name: "Guest User", email: "guest@example.com", phone: "+919800000099", moduleIds: ["crm"], referralCode: "RV-REF-NOPE", acceptedTerms: true }), "VALIDATION");
-  const referred = await api.register({ name: "Guest User", email: "guest@example.com", phone: "+919800000099", moduleIds: ["crm"], referralCode: "RV-REF-00001", acceptedTerms: true });
+  await rejects(registered(api, ["crm"], { name: "Guest User", email: "guest@example.com", phone: "+919800000099", referralCode: "RV-REF-NOPE" }), "VALIDATION");
+  const referred = await registered(api, ["crm"], { name: "Guest User", email: "guest2@example.com", phone: "+919800000099", referralCode: "RV-REF-00001" });
   assert.ok(referred.applicationId);
   const session = await signIn(api, "RV-26-0001", "Learn#2026", device("laptop"), latestCode);
   const status = await api.referralStatus({ token: session.token, deviceId: "device-laptop" });

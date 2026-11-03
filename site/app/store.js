@@ -21,6 +21,14 @@ const LOCK_MS = 15 * 60 * 1000;
 const SAFE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
 
 export const SERVICE_IDS = ["resume-audit", "resume-writing", "linkedin", "cover-letter", "mock", "career-pack"];
+export const PERMISSIONS = ["students", "verify", "alerts", "payments", "content", "grading", "announce", "audit", "tasks"];
+export const ROLES = {
+  lead: { label: "Programme lead", permissions: PERMISSIONS, summary: "Owns the whole admin console: verification, payments, content, grading, alerts, audit and task assignment." },
+  content: { label: "Learning & content manager", permissions: ["content", "grading", "announce", "tasks"], summary: "Uploads lessons and assignments, grades submissions, publishes announcements." },
+  success: { label: "Student success & verification", permissions: ["students", "verify", "alerts", "payments", "tasks"], summary: "Verifies paid registrations, issues credentials, reviews device alerts and payments." },
+};
+export const MAX_ATTACHMENT_BYTES = 400 * 1024;
+export const MAX_TOTAL_ATTACHMENT_BYTES = 2 * 1024 * 1024;
 export const KIT_SERVICE_IDS = ["interview", "resume-audit", "resume-writing"];
 export const LAB_IDS = ["spreadsheets", "dashboards", "business-ai", "canva", "crm", "hr-tracker", "trello", "budgeting"];
 
@@ -89,7 +97,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
   const servicesById = new Map(curriculum.services.map(service => [service.id, service]));
   const interview = curriculum.interviewCourse;
   let state = storage.get();
-  if (!state || state.version !== 3) {
+  if (!state || state.version !== 4) {
     state = await seed(curriculum, assignmentBriefs, now());
     storage.set(state);
   }
@@ -109,8 +117,38 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
   const findUser = (predicate) => state.users.find(predicate);
   const publicUser = (user) => {
     const { passHash, salt, failedLogins, lockUntil, ...rest } = user;
-    return { ...rest, kitUnlocked: kitUnlocked(user), points: totalPoints(user.id) };
+    const role = user.type === "admin" ? ROLES[user.role] ?? ROLES.lead : null;
+    return { ...rest, kitUnlocked: kitUnlocked(user), points: totalPoints(user.id), roleLabel: role?.label ?? null, permissions: role?.permissions ?? [] };
   };
+  const hasPermission = (user, permission) => user.type === "admin" && (ROLES[user.role] ?? ROLES.lead).permissions.includes(permission);
+  function requireAdmin(token, deviceId, permission) {
+    const result = requireSession(token, deviceId, ["admin"]);
+    if (permission && !hasPermission(result.user, permission)) throw new ApiError("FORBIDDEN", `Your role (${ROLES[result.user.role]?.label ?? "admin"}) does not include ${permission}. Ask the programme lead.`);
+    return result;
+  }
+  const attachmentBytes = () => [...state.submissions.map(item => item.file?.dataUrl?.length ?? 0), ...Object.values(state.content.lessons).flat().map(item => item.attachment?.dataUrl?.length ?? 0)].reduce((sum, value) => sum + value, 0);
+  function normaliseFile(file) {
+    if (!file || !file.name) return null;
+    const record = { name: String(file.name).slice(0, 120), size: Number(file.size) || 0, type: String(file.type ?? "").slice(0, 80), sha256: file.sha256 ? String(file.sha256).slice(0, 64) : null, dataUrl: null, stored: false };
+    if (file.dataUrl) {
+      if (!/^data:[\w.+/-]+;base64,/.test(file.dataUrl)) throw new ApiError("VALIDATION", "Unsupported file encoding.");
+      if (record.size > MAX_ATTACHMENT_BYTES) throw new ApiError("FILE_TOO_LARGE", "Preview stores files up to 400 KB. Share larger files with an https link; production uses private cloud storage.");
+      if (attachmentBytes() + file.dataUrl.length > MAX_TOTAL_ATTACHMENT_BYTES) throw new ApiError("STORAGE_FULL", "Preview storage for attachments is full. Use a link for this file.");
+      record.dataUrl = file.dataUrl;
+      record.stored = true;
+    }
+    return record;
+  }
+  function createTask({ title, type, role, refId = null, assigneeId = null, createdBy = "system", dueAt = null, link = "" }) {
+    if (state.tasks.some(task => task.status !== "done" && task.type === type && task.refId === refId && refId)) return null;
+    const task = { id: crypto.randomUUID(), title: String(title).slice(0, 140), type, role, refId, assigneeId, createdBy, status: "open", createdAt: now(), dueAt: dueAt ?? now() + 2 * 24 * 60 * 60 * 1000, completedAt: null, completedBy: null, link, notes: "" };
+    state.tasks.unshift(task);
+    state.tasks = state.tasks.slice(0, 400);
+    return task;
+  }
+  function completeTasks(type, refId, by) {
+    for (const task of state.tasks) if (task.type === type && task.refId === refId && task.status !== "done") { task.status = "done"; task.completedAt = now(); task.completedBy = by; }
+  }
   const distinctPaidModules = (user) => new Set(user.modules).size;
   const kitUnlocked = (user) => user.status === "active" && distinctPaidModules(user) >= curriculum.careerBonus.qualifyingModules;
   const totalPoints = (userId, since = 0) => state.pointEvents.filter(event => event.userId === userId && event.at >= since).reduce((sum, event) => sum + event.points, 0);
@@ -178,7 +216,9 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
         warned = true;
         notify(user, "security", "You are using multiple devices", `Your account signed in from a new device ${user.deviceSwitches} times. Rolevia allows one active device at a time. If this was not you, change your password now.`);
         send(user, "email", "Security notice: multiple devices", `Your Rolevia account has switched devices ${user.deviceSwitches} times. Only one active device is allowed. If this was not you, change your password immediately.`);
-        state.deviceAlerts.unshift({ id: crypto.randomUUID(), userId: user.id, count: user.deviceSwitches, at: now(), status: "open" });
+        const alert = { id: crypto.randomUUID(), userId: user.id, count: user.deviceSwitches, at: now(), status: "open" };
+        state.deviceAlerts.unshift(alert);
+        createTask({ title: `Review device alert: ${user.name} (${user.deviceSwitches} switches)`, type: "alert", role: "success", refId: alert.id, link: "#/admin/alerts" });
         audit("system", "device_alert", { userId: user.id, count: user.deviceSwitches });
       }
     }
@@ -243,12 +283,43 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       const user = findUser(item => item.id === badge.userId);
       return { ...badge, name: user.name, modules: user.modules.map(id => modulesById.get(id).title), studentId: user.studentId, previewOnly: true };
     },
-    async register({ name, email, phone, city, moduleIds = [], referralCode = "", acceptedTerms = false }) {
+    async requestContactCode({ email, phone }) {
       await wait();
-      if (typeof name !== "string" || name.trim().length < 2) throw new ApiError("VALIDATION", "Enter your full name.");
-      if (!EMAIL_PATTERN.test(String(email))) throw new ApiError("VALIDATION", "Enter a valid email address.");
-      if (!PHONE_PATTERN.test(String(phone).replace(/[\s-]/g, ""))) throw new ApiError("VALIDATION", "Enter a valid mobile number with country code.");
-      if (!acceptedTerms) throw new ApiError("VALIDATION", "Please accept the proposed terms to continue.");
+      const normalisedEmail = String(email ?? "").trim().toLowerCase();
+      if (!EMAIL_PATTERN.test(normalisedEmail)) throw new ApiError("VALIDATION", "Enter a valid email address.", { field: "email" });
+      if (!PHONE_PATTERN.test(String(phone ?? "").replace(/[\s-]/g, ""))) throw new ApiError("VALIDATION", "Enter a valid mobile number with country code.", { field: "phone" });
+      const existing = findUser(user => user.email === normalisedEmail);
+      if (existing && existing.status !== "pending_payment") throw new ApiError("DUPLICATE", "An account with this email already exists. Sign in instead.", { field: "email" });
+      state.otps = state.otps.filter(otp => otp.expiresAt > now() - 60 * 60 * 1000);
+      const otp = { id: crypto.randomUUID(), userId: null, contact: normalisedEmail, code: randomCode(), purpose: "contact", expiresAt: now() + OTP_TTL_MS, attempts: 0, consumedAt: null };
+      state.otps.push(otp);
+      const pseudo = { email: normalisedEmail, phone: String(phone).replace(/[\s-]/g, "") };
+      send(pseudo, "email", "Confirm your email for Rolevia registration", `Code ${otp.code}. Enter it on the registration page within 5 minutes to confirm this address.`);
+      send(pseudo, "sms", "Rolevia registration code", `${otp.code} is your Rolevia registration code. Valid for 5 minutes.`);
+      persist();
+      return { challengeId: otp.id, channels: [maskEmail(normalisedEmail), maskPhone(pseudo.phone)], expiresAt: otp.expiresAt };
+    },
+    async register({ name, email, phone, city, education = "", graduationYear = "", currentStatus = "", preferredSlot = "", goal = "", moduleIds = [], referralCode = "", acceptedTerms = false, contactChallengeId = null, contactCode = "" }) {
+      await wait();
+      const errors = {};
+      if (typeof name !== "string" || name.trim().length < 2) errors.name = "Enter your full name.";
+      if (!EMAIL_PATTERN.test(String(email))) errors.email = "Enter a valid email address.";
+      if (!PHONE_PATTERN.test(String(phone).replace(/[\s-]/g, ""))) errors.phone = "Enter a valid mobile number with country code.";
+      if (!String(city ?? "").trim()) errors.city = "Enter your city.";
+      if (!["mba", "pgdm", "graduate", "other"].includes(education)) errors.education = "Choose your highest qualification.";
+      if (graduationYear && !(Number(graduationYear) >= 1990 && Number(graduationYear) <= 2030)) errors.graduationYear = "Enter a valid year.";
+      if (!["student", "fresher", "working", "switching"].includes(currentStatus)) errors.currentStatus = "Tell us your current situation.";
+      if (!["weekday-evening", "weekend-morning", "weekend-evening"].includes(preferredSlot)) errors.preferredSlot = "Pick a live-session slot you can usually attend.";
+      if (String(goal ?? "").trim().length < 10) errors.goal = "Describe your goal in a sentence (10+ characters).";
+      if (!acceptedTerms) errors.acceptedTerms = "Please accept the proposed terms to continue.";
+      if (Object.keys(errors).length) throw new ApiError("VALIDATION", Object.values(errors)[0], { fields: errors });
+      const contactOtp = state.otps.find(otp => otp.id === contactChallengeId && otp.purpose === "contact");
+      if (!contactOtp || contactOtp.contact !== String(email).trim().toLowerCase()) throw new ApiError("CONTACT_UNVERIFIED", "Confirm your email with the code we sent before continuing.");
+      if (!contactOtp.consumedAt) {
+        if (contactOtp.expiresAt < now()) throw new ApiError("OTP_EXPIRED", "That confirmation code expired. Request a new one.");
+        if (String(contactCode).trim() !== contactOtp.code) { contactOtp.attempts += 1; persist(); if (contactOtp.attempts >= 5) throw new ApiError("OTP_LOCKED", "Too many attempts. Request a new code."); throw new ApiError("OTP_INVALID", "That confirmation code is not right."); }
+        contactOtp.consumedAt = now();
+      }
       const uniqueModules = [...new Set(moduleIds)];
       if (!uniqueModules.length) throw new ApiError("VALIDATION", "Choose at least one skill module.");
       for (const id of uniqueModules) if (!modulesById.has(id)) throw new ApiError("NOT_FOUND", `Unknown module ${id}`);
@@ -258,7 +329,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       const referrer = referralCode ? findUser(user => user.referralCode === referralCode.trim().toUpperCase()) : null;
       if (referralCode && !referrer) throw new ApiError("VALIDATION", "That referral code was not found.");
       const user = existing ?? blankUser({ type: "student", createdAt: now() });
-      Object.assign(user, { name: name.trim(), email: normalisedEmail, phone: String(phone).replace(/[\s-]/g, ""), city: String(city ?? "").trim(), pendingModules: uniqueModules, referredBy: referrer?.id ?? null, status: "pending_payment" });
+      Object.assign(user, { name: name.trim(), email: normalisedEmail, phone: String(phone).replace(/[\s-]/g, ""), city: String(city ?? "").trim(), profile: { education, graduationYear: String(graduationYear ?? ""), currentStatus, preferredSlot, goal: String(goal).trim().slice(0, 300) }, contactVerifiedAt: now(), pendingModules: uniqueModules, referredBy: referrer?.id ?? null, status: "pending_payment" });
       if (!existing) state.users.push(user);
       audit(user.id, "register", { modules: uniqueModules });
       persist();
@@ -278,6 +349,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       user.status = "pending_verification";
       user.paidAt = now();
       send(user, "email", "Payment received: verification in progress", `We received ${currency} ${quote.subtotal} for ${quote.items.length} skill module(s). Our team verifies every registration within 1 business day, then sends your Student ID and a temporary password.`);
+      createTask({ title: `Verify registration: ${user.name} (${quote.items.length} module${quote.items.length === 1 ? "" : "s"}, ${currency} ${quote.subtotal})`, type: "verify", role: "success", refId: user.id, dueAt: now() + 24 * 60 * 60 * 1000, link: "#/admin/students" });
       audit(user.id, "payment_succeeded", { paymentId: payment.id, amount: quote.subtotal, currency });
       persist();
       return { payment, status: user.status, reference: `APP-${user.id.slice(0, 8).toUpperCase()}` };
@@ -293,7 +365,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     async login({ identifier, password, deviceId, deviceLabel }) {
       await wait();
       const needle = String(identifier ?? "").trim().toLowerCase();
-      const user = findUser(item => item.studentId?.toLowerCase() === needle || item.email === needle);
+      const user = findUser(item => item.studentId?.toLowerCase() === needle || item.adminId?.toLowerCase() === needle || item.email === needle);
       if (!user) throw new ApiError("INVALID_CREDENTIALS", "We could not match that ID or password.");
       if (user.lockUntil && user.lockUntil > now()) throw new ApiError("LOCKED", `Too many attempts. Try again in ${Math.ceil((user.lockUntil - now()) / 60000)} minutes.`);
       if (user.status === "pending_payment" || user.status === "pending_verification") throw new ApiError("NOT_VERIFIED", "Your registration is being verified. We will email your Student ID and password once approved.");
@@ -441,19 +513,21 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       const { user } = requireSession(token, deviceId);
       return state.content.assignments.filter(assignment => user.modules.includes(assignment.moduleId)).map(assignment => ({ ...assignment, moduleTitle: modulesById.get(assignment.moduleId).title, submission: state.submissions.find(item => item.assignmentId === assignment.id && item.userId === user.id) ?? null }));
     },
-    async submitAssignment({ token, deviceId, assignmentId, text = "", link = "", fileName = "" }) {
+    async submitAssignment({ token, deviceId, assignmentId, text = "", link = "", file = null }) {
       await wait();
       const { user } = requireSession(token, deviceId);
       const assignment = state.content.assignments.find(item => item.id === assignmentId);
       if (!assignment) throw new ApiError("NOT_FOUND", "Assignment not found.");
       requireModule(user, assignment.moduleId);
-      if (String(text).trim().length < 40 && !link && !fileName) throw new ApiError("VALIDATION", "Describe your work in at least 40 characters or attach a link or file.");
-      if (link && !/^https:\/\/[^\s]+$/i.test(link)) throw new ApiError("VALIDATION", "Links must start with https://");
+      const fileRecord = normaliseFile(file);
+      if (String(text).trim().length < 40 && !link && !fileRecord) throw new ApiError("VALIDATION", "Describe your work in at least 40 characters or attach a link or file.", { fields: { text: "Add at least 40 characters, a link or a file." } });
+      if (link && !/^https:\/\/[^\s]+$/i.test(link)) throw new ApiError("VALIDATION", "Links must start with https://", { fields: { link: "Links must start with https://" } });
       let submission = state.submissions.find(item => item.assignmentId === assignmentId && item.userId === user.id);
       if (submission?.gradedAt) throw new ApiError("ALREADY_GRADED", "This assignment is already graded.");
       if (!submission) { submission = { id: crypto.randomUUID(), assignmentId, userId: user.id }; state.submissions.push(submission); }
-      Object.assign(submission, { text: String(text).slice(0, 3000), link, fileName: String(fileName).slice(0, 120), submittedAt: now(), score: null, feedback: null, gradedAt: null });
-      audit(user.id, "assignment_submitted", { assignmentId });
+      Object.assign(submission, { text: String(text).slice(0, 3000), link, file: fileRecord, fileName: fileRecord?.name ?? "", submittedAt: now(), score: null, feedback: null, gradedAt: null });
+      createTask({ title: `Grade: ${assignment.title} by ${user.name}`, type: "grade", role: "content", refId: submission.id, link: "#/admin/grading" });
+      audit(user.id, "assignment_submitted", { assignmentId, file: fileRecord?.name ?? null });
       persist();
       return submission;
     },
@@ -516,19 +590,20 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     // ---------- admin ----------
     async adminOverview({ token, deviceId }) {
       await wait();
-      requireSession(token, deviceId, ["admin"]);
+      const { user: admin } = requireAdmin(token, deviceId);
+      const myTasks = state.tasks.filter(task => task.status !== "done" && (task.assigneeId === admin.id || (!task.assigneeId && hasPermission(admin, task.role === "content" ? "grading" : task.role === "success" ? "verify" : "tasks"))));
       const students = state.users.filter(user => user.type === "student");
       const count = (status) => students.filter(user => user.status === status).length;
-      return { pendingVerification: count("pending_verification"), pendingPayment: count("pending_payment"), active: count("active"), suspended: count("suspended"), ungraded: state.submissions.filter(item => !item.gradedAt).length, openAlerts: state.deviceAlerts.filter(alert => alert.status === "open").length, revenue: ["INR", "USD"].map(currency => ({ currency, amount: state.payments.filter(payment => payment.status === "succeeded" && payment.currency === currency).reduce((sum, payment) => sum + payment.subtotal, 0) })), recentAudit: state.auditLog.slice(0, 12) };
+      return { me: publicUser(admin), myTasks: myTasks.slice(0, 8), openTasks: state.tasks.filter(task => task.status !== "done").length, pendingVerification: count("pending_verification"), pendingPayment: count("pending_payment"), active: count("active"), suspended: count("suspended"), ungraded: state.submissions.filter(item => !item.gradedAt).length, openAlerts: state.deviceAlerts.filter(alert => alert.status === "open").length, revenue: ["INR", "USD"].map(currency => ({ currency, amount: state.payments.filter(payment => payment.status === "succeeded" && payment.currency === currency).reduce((sum, payment) => sum + payment.subtotal, 0) })), recentAudit: state.auditLog.slice(0, 12) };
     },
     async adminStudents({ token, deviceId }) {
       await wait();
-      requireSession(token, deviceId, ["admin"]);
+      requireAdmin(token, deviceId, "students");
       return state.users.filter(user => user.type === "student").map(user => ({ ...publicUser(user), moduleTitles: (user.modules.length ? user.modules : user.pendingModules).map(id => modulesById.get(id)?.title ?? id), payments: state.payments.filter(payment => payment.userId === user.id) }));
     },
     async adminVerify({ token, deviceId, userId }) {
       await wait();
-      const { user: admin } = requireSession(token, deviceId, ["admin"]);
+      const { user: admin } = requireAdmin(token, deviceId, "verify");
       const user = findUser(item => item.id === userId && item.type === "student");
       if (!user || user.status !== "pending_verification") throw new ApiError("INVALID_STATE", "This registration is not awaiting verification.");
       state.counters.studentSeq += 1;
@@ -542,58 +617,61 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       send(user, "email", "Your Rolevia Student ID and temporary password", `Welcome, ${user.name}. Student ID: ${user.studentId}. Temporary password: ${temporaryPassword}. Sign in at the student portal; we will send a one-time code to this email or your phone, and you will set a new password on first sign-in. One device can stay signed in at a time.`);
       send(user, "sms", "Rolevia Student ID", `Your Student ID is ${user.studentId}. Your temporary password was sent by email.`);
       notify(user, "welcome", "Welcome to Rolevia", "Your plan is active. Start with the first lesson or try today's quiz.");
+      completeTasks("verify", user.id, admin.id);
       audit(admin.id, "verify_student", { userId, studentId: user.studentId });
       persist();
       return { studentId: user.studentId, previewTemporaryPassword: temporaryPassword };
     },
     async adminSetStatus({ token, deviceId, userId, status, reason = "" }) {
       await wait();
-      const { user: admin } = requireSession(token, deviceId, ["admin"]);
+      const { user: admin } = requireAdmin(token, deviceId, "students");
       const user = findUser(item => item.id === userId && item.type === "student");
       if (!user) throw new ApiError("NOT_FOUND", "Student not found.");
       if (!["active", "suspended", "rejected"].includes(status)) throw new ApiError("VALIDATION", "Unknown status.");
       if (status === "active" && !user.studentId) throw new ApiError("INVALID_STATE", "Verify the registration to issue credentials first.");
       user.status = status;
       if (status !== "active") for (const session of state.sessions) if (session.userId === user.id && !session.revokedAt) { session.revokedAt = now(); session.revokedReason = status; }
-      if (status === "rejected") send(user, "email", "About your Rolevia registration", `We could not verify your registration. ${reason || "Please reply to this email so we can help."}`);
+      if (status === "rejected") { send(user, "email", "About your Rolevia registration", `We could not verify your registration. ${reason || "Please reply to this email so we can help."}`); completeTasks("verify", user.id, admin.id); }
       audit(admin.id, `set_status_${status}`, { userId, reason });
       persist();
       return publicUser(user);
     },
     async adminResolveAlert({ token, deviceId, alertId }) {
       await wait();
-      const { user: admin } = requireSession(token, deviceId, ["admin"]);
+      const { user: admin } = requireAdmin(token, deviceId, "alerts");
       const alert = state.deviceAlerts.find(item => item.id === alertId);
       if (!alert) throw new ApiError("NOT_FOUND", "Alert not found.");
       alert.status = "resolved";
+      completeTasks("alert", alert.id, admin.id);
       audit(admin.id, "resolve_alert", { alertId });
       persist();
       return alert;
     },
     async adminDeviceAlerts({ token, deviceId }) {
       await wait();
-      requireSession(token, deviceId, ["admin"]);
+      requireAdmin(token, deviceId, "alerts");
       return state.deviceAlerts.map(alert => ({ ...alert, student: publicUser(findUser(user => user.id === alert.userId)) }));
     },
     async adminPayments({ token, deviceId }) {
       await wait();
-      requireSession(token, deviceId, ["admin"]);
+      requireAdmin(token, deviceId, "payments");
       return state.payments.map(payment => ({ ...payment, student: findUser(user => user.id === payment.userId)?.name ?? "Unknown" }));
     },
     async adminContent({ token, deviceId }) {
       await wait();
-      requireSession(token, deviceId, ["admin"]);
+      requireAdmin(token, deviceId, "content");
       return { lessons: state.content.lessons, assignments: state.content.assignments, announcements: state.content.announcements };
     },
     async adminUpsertLesson({ token, deviceId, moduleId, lesson }) {
       await wait();
-      const { user: admin } = requireSession(token, deviceId, ["admin"]);
+      const { user: admin } = requireAdmin(token, deviceId, "content");
       if (!modulesById.has(moduleId)) throw new ApiError("NOT_FOUND", "Unknown module.");
-      if (!lesson?.title || String(lesson.title).trim().length < 3) throw new ApiError("VALIDATION", "Give the lesson a title.");
-      if (lesson.url && !/^https:\/\//i.test(lesson.url)) throw new ApiError("VALIDATION", "Lesson links must use https://");
+      if (!lesson?.title || String(lesson.title).trim().length < 3) throw new ApiError("VALIDATION", "Give the lesson a title.", { fields: { title: "At least 3 characters." } });
+      if (lesson.url && !/^https:\/\//i.test(lesson.url)) throw new ApiError("VALIDATION", "Lesson links must use https://", { fields: { url: "Use an https:// link." } });
       const list = state.content.lessons[moduleId] ??= [];
       const existing = list.find(item => item.id === lesson.id);
-      const record = { id: existing?.id ?? `${moduleId}-l${Date.now().toString(36)}`, title: String(lesson.title).trim().slice(0, 120), type: ["video", "reading", "task"].includes(lesson.type) ? lesson.type : "video", minutes: Math.max(1, Math.min(240, Number(lesson.minutes) || 30)), url: lesson.url ?? "", summary: String(lesson.summary ?? "").slice(0, 600), output: String(lesson.output ?? "").slice(0, 160), order: Number(lesson.order) || list.length + 1 };
+      const attachment = lesson.attachment === null ? null : lesson.attachment ? normaliseFile(lesson.attachment) : existing?.attachment ?? null;
+      const record = { id: existing?.id ?? `${moduleId}-l${Date.now().toString(36)}`, title: String(lesson.title).trim().slice(0, 120), type: ["video", "reading", "task"].includes(lesson.type) ? lesson.type : "video", minutes: Math.max(1, Math.min(240, Number(lesson.minutes) || 30)), url: lesson.url ?? "", attachment, summary: String(lesson.summary ?? "").slice(0, 600), output: String(lesson.output ?? "").slice(0, 160), order: Number(lesson.order) || list.length + 1, updatedBy: admin.id, updatedAt: now() };
       if (existing) Object.assign(existing, record); else list.push(record);
       list.sort((a, b) => a.order - b.order);
       audit(admin.id, "upsert_lesson", { moduleId, lessonId: record.id });
@@ -602,7 +680,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     },
     async adminDeleteLesson({ token, deviceId, moduleId, lessonId }) {
       await wait();
-      const { user: admin } = requireSession(token, deviceId, ["admin"]);
+      const { user: admin } = requireAdmin(token, deviceId, "content");
       state.content.lessons[moduleId] = (state.content.lessons[moduleId] ?? []).filter(lesson => lesson.id !== lessonId);
       audit(admin.id, "delete_lesson", { moduleId, lessonId });
       persist();
@@ -610,7 +688,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     },
     async adminUpsertAssignment({ token, deviceId, assignment }) {
       await wait();
-      const { user: admin } = requireSession(token, deviceId, ["admin"]);
+      const { user: admin } = requireAdmin(token, deviceId, "content");
       if (!modulesById.has(assignment?.moduleId)) throw new ApiError("NOT_FOUND", "Unknown module.");
       if (!assignment.title || String(assignment.title).trim().length < 3) throw new ApiError("VALIDATION", "Give the assignment a title.");
       const existing = state.content.assignments.find(item => item.id === assignment.id);
@@ -622,12 +700,12 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     },
     async adminSubmissions({ token, deviceId }) {
       await wait();
-      requireSession(token, deviceId, ["admin"]);
+      requireAdmin(token, deviceId, "grading");
       return state.submissions.map(submission => ({ ...submission, student: findUser(user => user.id === submission.userId)?.name ?? "Unknown", assignment: state.content.assignments.find(item => item.id === submission.assignmentId) ?? null })).sort((a, b) => (a.gradedAt ? 1 : 0) - (b.gradedAt ? 1 : 0) || b.submittedAt - a.submittedAt);
     },
     async adminGrade({ token, deviceId, submissionId, score, feedback = "" }) {
       await wait();
-      const { user: admin } = requireSession(token, deviceId, ["admin"]);
+      const { user: admin } = requireAdmin(token, deviceId, "grading");
       const submission = state.submissions.find(item => item.id === submissionId);
       if (!submission) throw new ApiError("NOT_FOUND", "Submission not found.");
       const assignment = state.content.assignments.find(item => item.id === submission.assignmentId);
@@ -638,13 +716,14 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       addPoints(submission.userId, clamped - previous, "assignment", submission.assignmentId);
       const student = findUser(user => user.id === submission.userId);
       if (student) notify(student, "grade", `Graded: ${assignment?.title ?? "assignment"}`, `Score ${clamped}/${assignment?.maxScore ?? 100}. ${feedback ? "Feedback is ready." : ""}`);
+      completeTasks("grade", submission.id, admin.id);
       audit(admin.id, "grade", { submissionId, score: clamped });
       persist();
       return submission;
     },
     async adminAnnounce({ token, deviceId, title, body }) {
       await wait();
-      const { user: admin } = requireSession(token, deviceId, ["admin"]);
+      const { user: admin } = requireAdmin(token, deviceId, "announce");
       if (!title || String(title).trim().length < 3) throw new ApiError("VALIDATION", "Give the announcement a title.");
       const announcement = { id: crypto.randomUUID(), title: String(title).trim().slice(0, 120), body: String(body ?? "").slice(0, 800), at: now() };
       state.content.announcements.unshift(announcement);
@@ -655,8 +734,56 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     },
     async adminAudit({ token, deviceId }) {
       await wait();
-      requireSession(token, deviceId, ["admin"]);
+      requireAdmin(token, deviceId, "audit");
       return state.auditLog.slice(0, 100);
+    },
+    async adminTracker({ token, deviceId }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "tasks");
+      const admins = state.users.filter(user => user.type === "admin").map(user => ({ id: user.id, name: user.name, adminId: user.adminId, role: user.role, roleLabel: ROLES[user.role]?.label, status: user.status }));
+      const students = state.users.filter(user => user.type === "student");
+      const pipeline = students.filter(user => user.status !== "rejected").map(user => {
+        const payment = state.payments.find(item => item.userId === user.id && item.status === "succeeded");
+        return { id: user.id, name: user.name, email: user.email, city: user.city, status: user.status, modules: (user.modules.length ? user.modules : user.pendingModules).map(id => modulesById.get(id)?.title ?? id), paid: Boolean(payment), paymentId: payment?.id ?? null, currency: payment?.currency ?? user.currency, amount: payment?.subtotal ?? null, contactVerified: Boolean(user.contactVerifiedAt), registeredAt: user.createdAt, waitingSince: user.status === "pending_verification" ? user.paidAt : user.status === "pending_payment" ? user.createdAt : null, studentId: user.studentId, preferredSlot: user.profile?.preferredSlot ?? "", referredBy: user.referredBy ? findUser(item => item.id === user.referredBy)?.name ?? null : null };
+      }).sort((a, b) => ["pending_verification", "pending_payment", "active", "suspended"].indexOf(a.status) - ["pending_verification", "pending_payment", "active", "suspended"].indexOf(b.status) || b.registeredAt - a.registeredAt);
+      const progress = students.filter(user => user.status === "active").map(user => {
+        const lessons = user.modules.flatMap(id => state.content.lessons[id] ?? []);
+        const done = lessons.filter(lesson => user.completedLessons.includes(lesson.id)).length;
+        const assignments = state.content.assignments.filter(item => user.modules.includes(item.moduleId));
+        const graded = state.submissions.filter(item => item.userId === user.id && item.gradedAt).length;
+        const submitted = state.submissions.filter(item => item.userId === user.id).length;
+        const lastEvent = Math.max(user.verifiedAt ?? 0, ...state.pointEvents.filter(event => event.userId === user.id).map(event => event.at), ...state.sessions.filter(session => session.userId === user.id).map(session => session.lastSeen));
+        return { id: user.id, name: user.name, studentId: user.studentId, modules: user.modules.length, lessonsDone: done, lessonsTotal: lessons.length, quizDays: new Set(state.quizAttempts.filter(item => item.userId === user.id).map(item => item.date)).size, labs: state.labRuns.filter(run => run.userId === user.id).length, labsTotal: user.modules.length, assignmentsGraded: graded, assignmentsSubmitted: submitted, assignmentsTotal: assignments.length, points: totalPoints(user.id), weekPoints: totalPoints(user.id, now() - 7 * 24 * 60 * 60 * 1000), lastActive: lastEvent || null, deviceSwitches: user.deviceSwitches, kitUnlocked: kitUnlocked(user) };
+      }).sort((a, b) => b.points - a.points);
+      const tasks = state.tasks.map(task => ({ ...task, assignee: admins.find(item => item.id === task.assigneeId)?.name ?? null, mine: task.assigneeId === admin.id || (!task.assigneeId && (hasPermission(admin, task.role === "content" ? "grading" : task.role === "success" ? "verify" : "tasks") || task.role === admin.role)), overdue: task.status !== "done" && task.dueAt < now() }));
+      return { me: publicUser(admin), admins, roles: ROLES, pipeline, progress, tasks, summary: { openTasks: tasks.filter(task => task.status !== "done").length, overdue: tasks.filter(task => task.overdue).length, awaitingVerification: pipeline.filter(row => row.status === "pending_verification").length, unpaid: pipeline.filter(row => row.status === "pending_payment").length, active: progress.length } };
+    },
+    async adminCreateTask({ token, deviceId, title, role = "lead", assigneeId = null, dueAt = null, link = "" }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "tasks");
+      if (!String(title ?? "").trim() || String(title).trim().length < 4) throw new ApiError("VALIDATION", "Give the task a clear title.", { fields: { title: "At least 4 characters." } });
+      if (!ROLES[role]) throw new ApiError("VALIDATION", "Unknown role.");
+      if (assigneeId && !findUser(user => user.id === assigneeId && user.type === "admin")) throw new ApiError("NOT_FOUND", "Assignee not found.");
+      if (link && !/^(#\/|https:\/\/)/.test(link)) throw new ApiError("VALIDATION", "Links must be an in-app route (#/...) or https://", { fields: { link: "Use #/admin/... or https://" } });
+      const task = createTask({ title: String(title).trim(), type: "custom", role, refId: null, assigneeId, createdBy: admin.id, dueAt: Number(dueAt) || null, link });
+      audit(admin.id, "create_task", { taskId: task.id, role, assigneeId });
+      persist();
+      return task;
+    },
+    async adminUpdateTask({ token, deviceId, taskId, action, notes }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "tasks");
+      const task = state.tasks.find(item => item.id === taskId);
+      if (!task) throw new ApiError("NOT_FOUND", "Task not found.");
+      if (action === "claim") { task.assigneeId = admin.id; task.status = "in_progress"; }
+      else if (action === "done") { task.status = "done"; task.completedAt = now(); task.completedBy = admin.id; }
+      else if (action === "reopen") { task.status = "open"; task.completedAt = null; task.completedBy = null; }
+      else if (action === "assign") { if (!hasPermission(admin, "audit")) throw new ApiError("FORBIDDEN", "Only the programme lead reassigns tasks."); task.assigneeId = notes?.assigneeId ?? null; task.status = task.assigneeId ? "in_progress" : "open"; }
+      else throw new ApiError("VALIDATION", "Unknown task action.");
+      if (typeof notes === "string") task.notes = notes.slice(0, 500);
+      audit(admin.id, `task_${action}`, { taskId });
+      persist();
+      return task;
     },
 
     // ---------- operations (unlisted) ----------
@@ -685,6 +812,57 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       });
       const cohorts = curriculum.modules.map(module => ({ id: module.id, title: module.title, enrolled: students.filter(user => user.status === "active" && user.modules.includes(module.id)).length, limit: curriculum.skillFormat.proposedCohortLimit }));
       return { funnel, byCurrency, cohorts, openAlerts: state.deviceAlerts.filter(alert => alert.status === "open").length, ungraded: state.submissions.filter(item => !item.gradedAt).length, notes: state.opsNotes, generatedAt: now() };
+    },
+    async opsTeam({ token, deviceId }) {
+      await wait();
+      requireSession(token, deviceId, ["ops"]);
+      return { roles: ROLES, admins: state.users.filter(user => user.type === "admin").map(user => ({ id: user.id, adminId: user.adminId, name: user.name, email: user.email, phone: user.phone, role: user.role, roleLabel: ROLES[user.role]?.label, status: user.status, mustChangePassword: user.mustChangePassword, lastSignIn: state.sessions.filter(session => session.userId === user.id).map(session => session.createdAt).sort((a, b) => b - a)[0] ?? null, openTasks: state.tasks.filter(task => task.assigneeId === user.id && task.status !== "done").length, createdAt: user.createdAt })) };
+    },
+    async opsCreateAdmin({ token, deviceId, name, email, phone, role }) {
+      await wait();
+      const { user: ops } = requireSession(token, deviceId, ["ops"]);
+      const errors = {};
+      if (!String(name ?? "").trim() || String(name).trim().length < 2) errors.name = "Enter the person's name.";
+      const normalisedEmail = String(email ?? "").trim().toLowerCase();
+      if (!EMAIL_PATTERN.test(normalisedEmail)) errors.email = "Enter a valid email address.";
+      if (!PHONE_PATTERN.test(String(phone ?? "").replace(/[\s-]/g, ""))) errors.phone = "Enter a mobile number with country code.";
+      if (!ROLES[role]) errors.role = "Choose a role.";
+      if (findUser(user => user.email === normalisedEmail)) errors.email = "That email already has an account.";
+      if (Object.keys(errors).length) throw new ApiError("VALIDATION", Object.values(errors)[0], { fields: errors });
+      state.counters.adminSeq += 1;
+      const temporaryPassword = `${randomToken(4)}-${randomToken(4)}-${randomCode(2)}`;
+      const admin = blankUser({ type: "admin", role, adminId: `RV-ADM-${String(state.counters.adminSeq).padStart(3, "0")}`, name: String(name).trim().slice(0, 60), email: normalisedEmail, phone: String(phone).replace(/[\s-]/g, ""), status: "active", mustChangePassword: true, createdAt: now() });
+      await setPassword(admin, temporaryPassword);
+      state.users.push(admin);
+      send(admin, "email", "Your Rolevia admin access", `Hello ${admin.name}. Admin ID: ${admin.adminId}. Role: ${ROLES[role].label}. Temporary password: ${temporaryPassword}. Sign in at the admin console with a one-time code and set a new password on first sign-in.`);
+      audit(ops.id, "create_admin", { adminId: admin.adminId, role });
+      persist();
+      return { adminId: admin.adminId, previewTemporaryPassword: temporaryPassword, role: ROLES[role].label };
+    },
+    async opsResetAdmin({ token, deviceId, adminUserId }) {
+      await wait();
+      const { user: ops } = requireSession(token, deviceId, ["ops"]);
+      const admin = findUser(user => user.id === adminUserId && user.type === "admin");
+      if (!admin) throw new ApiError("NOT_FOUND", "Admin not found.");
+      const temporaryPassword = `${randomToken(4)}-${randomToken(4)}-${randomCode(2)}`;
+      await setPassword(admin, temporaryPassword);
+      admin.mustChangePassword = true;
+      for (const session of state.sessions) if (session.userId === admin.id && !session.revokedAt) { session.revokedAt = now(); session.revokedReason = "password_reset"; }
+      send(admin, "email", "Your Rolevia admin password was reset", `Admin ID: ${admin.adminId}. Temporary password: ${temporaryPassword}. Set a new password at first sign-in.`);
+      audit(ops.id, "reset_admin", { adminId: admin.adminId });
+      persist();
+      return { adminId: admin.adminId, previewTemporaryPassword: temporaryPassword };
+    },
+    async opsSetAdmin({ token, deviceId, adminUserId, status, role }) {
+      await wait();
+      const { user: ops } = requireSession(token, deviceId, ["ops"]);
+      const admin = findUser(user => user.id === adminUserId && user.type === "admin");
+      if (!admin) throw new ApiError("NOT_FOUND", "Admin not found.");
+      if (status) { if (!["active", "suspended"].includes(status)) throw new ApiError("VALIDATION", "Unknown status."); admin.status = status; if (status !== "active") for (const session of state.sessions) if (session.userId === admin.id && !session.revokedAt) { session.revokedAt = now(); session.revokedReason = "suspended"; } }
+      if (role) { if (!ROLES[role]) throw new ApiError("VALIDATION", "Unknown role."); admin.role = role; }
+      audit(ops.id, "update_admin", { adminId: admin.adminId, status, role });
+      persist();
+      return publicUser(admin);
     },
     async opsSaveNote({ token, deviceId, text }) {
       await wait();
@@ -725,15 +903,22 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
 }
 
 function blankUser(overrides = {}) {
-  return { id: crypto.randomUUID(), type: "student", studentId: null, name: "", email: "", phone: "", city: "", currency: "INR", passHash: null, salt: null, mustChangePassword: false, status: "pending_payment", modules: [], pendingModules: [], addons: [], completedLessons: [], avatar: null, bio: "", linkedin: "", notifications: [], deviceSwitches: 0, deviceHistory: [], failedLogins: 0, lockUntil: null, referralCode: null, referredBy: null, createdAt: Date.now(), verifiedAt: null, paidAt: null, kitNotifiedAt: null, ...overrides };
+  return { id: crypto.randomUUID(), type: "student", studentId: null, adminId: null, role: null, profile: null, contactVerifiedAt: null, name: "", email: "", phone: "", city: "", currency: "INR", passHash: null, salt: null, mustChangePassword: false, status: "pending_payment", modules: [], pendingModules: [], addons: [], completedLessons: [], avatar: null, bio: "", linkedin: "", notifications: [], deviceSwitches: 0, deviceHistory: [], failedLogins: 0, lockUntil: null, referralCode: null, referredBy: null, createdAt: Date.now(), verifiedAt: null, paidAt: null, kitNotifiedAt: null, ...overrides };
 }
 
 // Seed data is fictional preview content so every screen has something to show.
 async function seed(curriculum, assignmentBriefs, now) {
   const day = 24 * 60 * 60 * 1000;
-  const previewCredentials = { student: { id: "RV-26-0001", password: "Learn#2026" }, admin: { email: "admin@rolevia.demo", password: "Admin#2026" }, ops: { passphrase: "ROLEVIA-OPS-PREVIEW" } };
+  const previewCredentials = {
+    student: { id: "RV-26-0001", password: "Learn#2026" },
+    admins: [
+      { adminId: "RV-ADM-001", name: "Arindam Chatterjee", email: "arindam@rolevia.demo", phone: "+917001730528", role: "lead", password: "Lead-Arindam-2026" },
+      { adminId: "RV-ADM-002", name: "Ayush", email: "ayush@rolevia.demo", phone: "+910000000002", role: "content", password: "Content-Ayush-2026" },
+      { adminId: "RV-ADM-003", name: "Souvik", email: "souvik@rolevia.demo", phone: "+910000000003", role: "success", password: "Success-Souvik-2026" },
+    ],
+    ops: { passphrase: "ROLEVIA-OPS-PREVIEW" },
+  };
   const studentAuth = { salt: "seed-student", passHash: await sha256(`seed-student:${previewCredentials.student.password}`) };
-  const adminAuth = { salt: "seed-admin", passHash: await sha256(`seed-admin:${previewCredentials.admin.password}`) };
   const opsAuth = { salt: "seed-ops", passHash: await sha256(`seed-ops:${previewCredentials.ops.passphrase}`) };
   const people = [
     ["Ananya Iyer", "ananya@example.com", "+919800000001", "Bengaluru", ["spreadsheets", "dashboards", "business-ai", "canva", "budgeting"], 28],
@@ -745,7 +930,11 @@ async function seed(curriculum, assignmentBriefs, now) {
   ];
   const users = people.map(([name, email, phone, city, modules, daysAgo], index) => blankUser({ id: `u-student-${index + 1}`, studentId: `RV-26-${String(index + 1).padStart(4, "0")}`, name, email, phone, city, modules, status: "active", currency: city === "Lagos" ? "USD" : "INR", createdAt: now - daysAgo * day, verifiedAt: now - (daysAgo - 1) * day, paidAt: now - daysAgo * day, referralCode: `RV-REF-${String(index + 1).padStart(5, "0")}`, ...studentAuth }));
   users[0].bio = "MBA 2025. Learning reporting and AI habits for an operations role.";
-  users.push(blankUser({ id: "u-admin", type: "admin", name: "Programme Admin", email: "admin@rolevia.demo", phone: "+910000000000", status: "active", ...adminAuth }));
+  users[0].profile = { education: "mba", graduationYear: "2025", currentStatus: "fresher", preferredSlot: "weekend-morning", goal: "Move into an operations analyst role within six months." };
+  users.forEach(user => { user.contactVerifiedAt = user.createdAt; });
+  for (const [index, admin] of previewCredentials.admins.entries()) {
+    users.push(blankUser({ id: `u-admin-${index + 1}`, type: "admin", adminId: admin.adminId, role: admin.role, name: admin.name, email: admin.email, phone: admin.phone, status: "active", mustChangePassword: true, createdAt: now - 30 * day, salt: `seed-admin-${index + 1}`, passHash: await sha256(`seed-admin-${index + 1}:${admin.password}`) }));
+  }
   users.push(blankUser({ id: "u-ops", type: "ops", name: "Founder Operations", email: "ops@rolevia.demo", phone: "+910000000001", status: "active", ...opsAuth }));
   const lessons = {};
   for (const module of curriculum.modules) {
@@ -779,17 +968,24 @@ async function seed(curriculum, assignmentBriefs, now) {
       const assignment = assignments.find(item => item.moduleId === user.modules[0]);
       const graded = index < 2;
       const score = [88, 76][index] ?? null;
-      submissions.push({ id: crypto.randomUUID(), assignmentId: assignment.id, userId: user.id, text: "Submitted the final project workbook with a checks tab, summary and a short decision note using the fictional dataset.", link: "https://example.com/preview-submission", fileName: "final-project.xlsx", submittedAt: now - 2 * day, score: graded ? score : null, feedback: graded ? "Clear checks and a readable summary. Label the assumptions on the summary tab next time." : null, gradedAt: graded ? now - day : null, gradedBy: graded ? "u-admin" : null });
+      submissions.push({ id: crypto.randomUUID(), assignmentId: assignment.id, userId: user.id, text: "Submitted the final project workbook with a checks tab, summary and a short decision note using the fictional dataset.", link: "https://example.com/preview-submission", file: { name: "final-project.xlsx", size: 48213, type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", sha256: null, dataUrl: null, stored: false }, fileName: "final-project.xlsx", submittedAt: now - 2 * day, score: graded ? score : null, feedback: graded ? "Clear checks and a readable summary. Label the assumptions on the summary tab next time." : null, gradedAt: graded ? now - day : null, gradedBy: graded ? "u-admin-2" : null });
       if (graded) addEvent(user.id, score, "assignment", assignment.id, now - day);
     }
   });
+  const ungraded = submissions.find(item => !item.gradedAt);
+  const tasks = [
+    { id: crypto.randomUUID(), title: `Grade: ${assignments.find(item => item.id === ungraded.assignmentId).title} by ${users.find(user => user.id === ungraded.userId).name}`, type: "grade", role: "content", refId: ungraded.id, assigneeId: null, createdBy: "system", status: "open", createdAt: now - 2 * day, dueAt: now, completedAt: null, completedBy: null, link: "#/admin/grading", notes: "" },
+    { id: crypto.randomUUID(), title: "Upload week 1 recordings for Business Spreadsheets", type: "custom", role: "content", refId: null, assigneeId: "u-admin-2", createdBy: "u-admin-1", status: "in_progress", createdAt: now - day, dueAt: now + 3 * day, completedAt: null, completedBy: null, link: "#/admin/content", notes: "Recording exported; upload link pending." },
+    { id: crypto.randomUUID(), title: "Confirm live-session calendar for batch 1", type: "custom", role: "success", refId: null, assigneeId: "u-admin-3", createdBy: "u-admin-1", status: "open", createdAt: now - day, dueAt: now + 5 * day, completedAt: null, completedBy: null, link: "", notes: "" },
+  ];
   return {
-    version: 3,
+    version: 4,
     settings: { deviceSwitchThreshold: 5, previewCredentials },
+    tasks,
     users, payments: users.filter(user => user.type === "student").map(user => ({ id: `PAY-SEED${user.id.slice(-1)}`, userId: user.id, items: user.modules.map(id => ({ id, kind: "module", title: curriculum.modules.find(module => module.id === id).title, amount: curriculum.modules.find(module => module.id === id)[`price${user.currency}`] })), subtotal: user.modules.reduce((sum, id) => sum + curriculum.modules.find(module => module.id === id)[`price${user.currency}`], 0), currency: user.currency, method: "preview-card", status: "succeeded", at: user.paidAt, preview: true })),
     sessions: [], otps: [], outbox: [], deviceAlerts: [], badges: [], opsNotes: [{ id: crypto.randomUUID(), text: "Preview data only. Replace with the live backend before any real enrollment.", at: now }],
     content: { lessons, assignments, announcements: [{ id: "ann-1", title: "Welcome to the Rolevia preview", body: "Everything here uses fictional data. Try today's quiz, open a lab and check the leaderboard.", at: now - day }, { id: "ann-2", title: "Live workshop calendar", body: "Dates and time zones are confirmed by email before each two-week module starts.", at: now - 3 * day }] },
-    submissions, quizAttempts, labRuns, pointEvents, auditLog: [{ at: now, actor: "system", action: "seed", meta: {} }], counters: { studentSeq: 6 },
+    submissions, quizAttempts, labRuns, pointEvents, auditLog: [{ at: now, actor: "system", action: "seed", meta: {} }], counters: { studentSeq: 6, adminSeq: 3 },
   };
 }
 

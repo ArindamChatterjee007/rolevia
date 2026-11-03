@@ -1,4 +1,4 @@
-import { h, icon, money, field, formData, busy, toast } from "../ui.js";
+import { h, icon, money, field, formData, busy, toast, showFieldErrors, clearFieldErrors } from "../ui.js";
 import { ctx, setAuth } from "../context.js";
 import { publicShell, errorBox } from "./components.js";
 
@@ -29,21 +29,65 @@ export function registerPage(_, query) {
 
 function detailsStep(draft) {
   const error = h("div");
-  const form = h("form", { class: "form-grid", novalidate: true, onSubmit: (event) => {
+  let challenge = draft.contactChallengeId ? { challengeId: draft.contactChallengeId, channels: draft.contactChannels ?? [] } : null;
+  const wrapper = h("div");
+  const validate = (values) => {
+    const fields = {};
+    if (!values.name?.trim() || values.name.trim().length < 2) fields.name = "Enter your full name.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(values.email ?? "")) fields.email = "Enter a valid email address.";
+    if (!/^\+?[0-9\s-]{8,16}$/.test(values.phone ?? "")) fields.phone = "Enter a mobile number with country code, e.g. +91 98XXXXXXXX.";
+    if (!values.city?.trim()) fields.city = "Enter your city.";
+    if (!values.education) fields.education = "Choose your highest qualification.";
+    if (values.graduationYear && !(Number(values.graduationYear) >= 1990 && Number(values.graduationYear) <= 2030)) fields.graduationYear = "Enter a valid year.";
+    if (!values.currentStatus) fields.currentStatus = "Tell us your current situation.";
+    if (!values.preferredSlot) fields.preferredSlot = "Pick a live-session slot.";
+    if ((values.goal ?? "").trim().length < 10) fields.goal = "One sentence about your goal (at least 10 characters).";
+    return fields;
+  };
+  const form = h("form", { class: "form-grid two", novalidate: true, onSubmit: async (event) => {
     event.preventDefault();
     const values = formData(form);
-    if (!values.name?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(values.email) || !/^\+?[0-9\s-]{8,16}$/.test(values.phone)) { error.replaceChildren(errorBox(new Error("Enter your name, a valid email address and a mobile number with country code."))); return; }
-    saveDraft({ ...draft, ...values, moduleIds: draft.moduleIds ?? [] });
-    location.hash = "#/register?step=2";
+    const fields = validate(values);
+    if (showFieldErrors(form, fields)) { error.replaceChildren(errorBox(new Error("Please fix the highlighted fields."))); return; }
+    error.replaceChildren();
+    const button = form.querySelector("button[type=submit]");
+    busy(button, true, "Sending code");
+    try {
+      challenge = await ctx.api.requestContactCode({ email: values.email, phone: values.phone });
+      saveDraft({ ...draft, ...values, moduleIds: draft.moduleIds ?? [], contactChallengeId: challenge.challengeId, contactChannels: challenge.channels, contactCode: "" });
+      document.dispatchEvent(new CustomEvent("rolevia:inbox-refresh"));
+      renderCode(values);
+    } catch (apiError) { if (!showFieldErrors(form, apiError.extra?.field ? { [apiError.extra.field]: apiError.message } : apiError.extra?.fields ?? {})) error.replaceChildren(errorBox(apiError)); busy(button, false); }
   } },
     field({ label: "Full name", name: "name", value: draft.name ?? "", required: true, autocomplete: "name", placeholder: "As on your degree certificate" }),
+    field({ label: "City", name: "city", value: draft.city ?? "", required: true, autocomplete: "address-level2" }),
     field({ label: "Email", name: "email", type: "email", value: draft.email ?? "", required: true, autocomplete: "email", hint: "Your Student ID and one-time codes go here." }),
     field({ label: "Mobile number", name: "phone", type: "tel", value: draft.phone ?? "", required: true, autocomplete: "tel", placeholder: "+91 98XXXXXXXX", hint: "Used only for one-time codes." }),
-    field({ label: "City", name: "city", value: draft.city ?? "", autocomplete: "address-level2" }),
+    field({ label: "Highest qualification", name: "education", type: "select", value: draft.education ?? "", required: true, options: [{ value: "", label: "Choose" }, { value: "mba", label: "MBA" }, { value: "pgdm", label: "PGDM" }, { value: "graduate", label: "Graduate (any stream)" }, { value: "other", label: "Other" }] }),
+    field({ label: "Graduation year (optional)", name: "graduationYear", type: "number", value: draft.graduationYear ?? "", min: 1990, max: 2030, placeholder: "2025" }),
+    field({ label: "Current situation", name: "currentStatus", type: "select", value: draft.currentStatus ?? "", required: true, options: [{ value: "", label: "Choose" }, { value: "student", label: "Still studying" }, { value: "fresher", label: "Graduated, looking for a first role" }, { value: "working", label: "Working, want to upskill" }, { value: "switching", label: "Working, want to switch roles" }] }),
+    field({ label: "Preferred live-session slot", name: "preferredSlot", type: "select", value: draft.preferredSlot ?? "", required: true, options: [{ value: "", label: "Choose" }, { value: "weekday-evening", label: "Weekday evenings (IST)" }, { value: "weekend-morning", label: "Weekend mornings (IST)" }, { value: "weekend-evening", label: "Weekend evenings (IST)" }], hint: "Confirmed by email before each module starts." }),
+    field({ label: "What do you want this skill for?", name: "goal", type: "textarea", value: draft.goal ?? "", required: true, rows: 2, placeholder: "One sentence, e.g. move into an operations analyst role within six months." }),
     field({ label: "Referral code (optional)", name: "referralCode", value: draft.referralCode ?? "", placeholder: "RV-REF-XXXXX" }),
     error,
-    h("div", { class: "form-actions" }, h("button", { class: "button primary large", type: "submit" }, "Continue to skills", icon("arrow", 16))));
-  return authShell(h("div", {}, stepper(1), form), { eyebrow: "Student registration", title: "Tell us who is learning.", aside: registrationAside() });
+    h("div", { class: "form-actions" }, h("button", { class: "button primary large", type: "submit" }, "Send confirmation code", icon("mail", 16))));
+  const renderCode = (values) => {
+    const codeForm = h("form", { class: "form-grid", novalidate: true, onSubmit: (event) => {
+      event.preventDefault();
+      const code = formData(codeForm).contactCode?.trim() ?? "";
+      if (!/^\d{6}$/.test(code)) { showFieldErrors(codeForm, { contactCode: "Enter the 6-digit code." }); return; }
+      saveDraft({ ...loadDraft(), contactCode: code });
+      location.hash = "#/register?step=2";
+    } },
+      h("div", { class: "alert info" }, icon("mail", 16), h("span", {}, `We sent a 6-digit code to ${challenge.channels.join(" and ")}. Enter it to confirm your contact details.`)),
+      field({ label: "Confirmation code", name: "contactCode", inputmode: "numeric", required: true, autocomplete: "one-time-code" }),
+      h("div", { class: "form-actions between" }, h("button", { class: "link-button", type: "button", onClick: () => { challenge = null; wrapper.replaceChildren(form); } }, "Edit details"), h("button", { class: "button primary large", type: "submit" }, "Confirm and continue", icon("arrow", 16))),
+      h("p", { class: "tiny muted" }, "Preview: the code is in the preview inbox (bottom-right). Production sends it to your email and phone."));
+    wrapper.replaceChildren(codeForm);
+  };
+  wrapper.append(form);
+  if (challenge && draft.email) renderCode(draft);
+  return authShell(h("div", {}, stepper(1), wrapper), { eyebrow: "Student registration", title: "Tell us who is learning.", aside: registrationAside() });
 }
 
 function skillsStep(draft) {
@@ -62,16 +106,23 @@ function skillsStep(draft) {
     h("span", { class: "choice-check" }, icon("check", 14)), h("span", { class: "code" }, module.code), h("strong", {}, module.title), h("small", { class: "muted" }, module.tool), h("span", { class: "price" }, money(module.priceINR), h("small", {}, ` / ${money(module.priceUSD, "USD")}`)))));
   refresh();
   const error = h("div");
+  const terms = h("input", { type: "checkbox", name: "acceptedTerms", checked: true, required: true });
   const next = h("button", { class: "button primary large", type: "button", onClick: async (event) => {
     if (!selected.size) { error.replaceChildren(errorBox(new Error("Choose at least one skill module."))); return; }
+    if (!terms.checked) { error.replaceChildren(errorBox(new Error("Please accept the proposed terms to continue."))); return; }
+    if (!draft.contactChallengeId || !draft.contactCode) { location.hash = "#/register?step=1"; return; }
     busy(event.currentTarget, true, "Creating application");
     try {
-      const result = await ctx.api.register({ ...draft, moduleIds: [...selected], acceptedTerms: true });
+      const result = await ctx.api.register({ ...draft, moduleIds: [...selected], acceptedTerms: terms.checked });
       saveDraft({ ...draft, moduleIds: [...selected], applicationId: result.applicationId, reference: result.reference });
       location.hash = "#/register?step=3";
-    } catch (apiError) { error.replaceChildren(errorBox(apiError)); busy(event.currentTarget, false); }
+    } catch (apiError) {
+      if (["CONTACT_UNVERIFIED", "OTP_INVALID", "OTP_EXPIRED", "OTP_LOCKED"].includes(apiError.code)) { saveDraft({ ...draft, moduleIds: [...selected], contactChallengeId: null, contactCode: "" }); toast(apiError.message, "error", 6000); location.hash = "#/register?step=1"; return; }
+      if (apiError.extra?.fields) { saveDraft({ ...draft, moduleIds: [...selected] }); toast("Some details need a correction.", "error"); location.hash = "#/register?step=1"; return; }
+      error.replaceChildren(errorBox(apiError)); busy(event.currentTarget, false);
+    }
   } }, "Review and pay", icon("arrow", 16));
-  return authShell(h("div", {}, stepper(2), h("p", { class: "muted" }, "Choose one or more skill modules. You can add more later from the portal."), grid, progress, total, h("label", { class: "check" }, h("input", { type: "checkbox", checked: true, required: true }), h("span", { class: "small" }, "I accept the proposed terms: fees exclude applicable taxes, 7-day refund window from first access, one active device per account, fictional preview payment.")), error, h("div", { class: "form-actions" }, h("a", { class: "button ghost", href: "#/register?step=1" }, "Back"), next)), { eyebrow: "Student registration", title: "Choose your skills.", aside: registrationAside() });
+  return authShell(h("div", {}, stepper(2), h("p", { class: "muted" }, "Choose one or more skill modules. You can add more later from the portal."), grid, progress, total, h("label", { class: "check" }, terms, h("span", { class: "small" }, "I accept the proposed terms: fees exclude applicable taxes, 7-day refund window from first access, one active device per account, fictional preview payment.")), error, h("div", { class: "form-actions" }, h("a", { class: "button ghost", href: "#/register?step=1" }, "Back"), next)), { eyebrow: "Student registration", title: "Choose your skills.", aside: registrationAside() });
 }
 
 function paymentStep(draft) {
@@ -117,7 +168,7 @@ function verificationStep(draft) {
 }
 
 function registrationAside() {
-  return h("div", { class: "aside-card" }, h("h4", {}, "What happens next"), h("ol", { class: "mini-steps" }, h("li", {}, "Register and pay for your chosen skills."), h("li", {}, "We verify your registration (within 1 business day)."), h("li", {}, "Receive your Student ID and temporary password."), h("li", {}, "Sign in with a one-time code; one device at a time.")), h("hr"), h("p", { class: "small muted" }, "Buy any 5 skill modules, together or gradually, and the career kit (Interview Ready, resume review, resume writing) is included."));
+  return h("div", { class: "aside-card" }, h("h4", {}, "What happens next"), h("ol", { class: "mini-steps" }, h("li", {}, "Fill the form and confirm your email with a code."), h("li", {}, "Choose skills and pay."), h("li", {}, "We verify your registration (within 1 business day)."), h("li", {}, "Receive your Student ID and temporary password."), h("li", {}, "Sign in with a one-time code; one device at a time.")), h("hr"), h("p", { class: "small muted" }, "Buy any 5 skill modules, together or gradually, and the career kit (Interview Ready, resume review, resume writing) is included."));
 }
 
 // ---------- sign-in ----------
@@ -219,12 +270,12 @@ export function adminLoginPage() {
     const button = credentials.querySelector("button[type=submit]");
     busy(button, true, "Checking");
     try {
-      challenge = await ctx.api.login({ identifier: values.email, password: values.password, deviceId: ctx.device.id, deviceLabel: ctx.device.label });
+      challenge = await ctx.api.login({ identifier: values.identifier, password: values.password, deviceId: ctx.device.id, deviceLabel: ctx.device.label });
       if (challenge.accountType !== "admin") throw new Error("This sign-in is for programme administrators.");
       document.dispatchEvent(new CustomEvent("rolevia:inbox-refresh"));
       wrapper.replaceChildren(otpForm);
     } catch (apiError) { error.replaceChildren(errorBox(apiError)); busy(button, false); }
-  } }, field({ label: "Admin email", name: "email", type: "email", required: true, autocomplete: "username" }), field({ label: "Password", name: "password", type: "password", required: true, autocomplete: "current-password" }), error, h("div", { class: "form-actions" }, h("button", { class: "button primary", type: "submit" }, "Continue", icon("arrow", 16))));
+  } }, field({ label: "Admin ID or email", name: "identifier", required: true, autocomplete: "username", placeholder: "RV-ADM-001" }), field({ label: "Password", name: "password", type: "password", required: true, autocomplete: "current-password" }), error, h("div", { class: "form-actions" }, h("button", { class: "button primary", type: "submit" }, "Continue", icon("arrow", 16))));
   const otpForm = h("form", { class: "form-grid", novalidate: true, onSubmit: async (event) => {
     event.preventDefault();
     const button = otpForm.querySelector("button[type=submit]");
@@ -232,11 +283,12 @@ export function adminLoginPage() {
     try {
       const result = await ctx.api.verifyOtp({ challengeId: challenge.challengeId, code: formData(otpForm).code, deviceId: ctx.device.id, deviceLabel: ctx.device.label });
       setAuth({ token: result.token, type: "admin", user: result.user });
-      location.hash = "#/admin";
+      toast(`Signed in as ${result.user.roleLabel}.`, "success");
+      location.hash = result.mustChangePassword ? "#/admin/account?first=1" : "#/admin";
     } catch (apiError) { error.replaceChildren(errorBox(apiError)); busy(button, false); }
   } }, h("p", { class: "muted" }, "Enter the 6-digit code sent to the admin email."), field({ label: "One-time code", name: "code", inputmode: "numeric", required: true }), error, h("div", { class: "form-actions" }, h("button", { class: "button primary", type: "submit" }, "Open admin console", icon("lock", 16))));
   wrapper.append(credentials);
-  return authShell(wrapper, { eyebrow: "Admin console", title: "Programme administration.", aside: h("div", { class: "aside-card" }, h("h4", {}, "Admin responsibilities"), h("ul", { class: "ticks small" }, h("li", {}, icon("check", 14), "Verify registrations and issue credentials"), h("li", {}, icon("check", 14), "Upload lessons, assignments and announcements"), h("li", {}, icon("check", 14), "Grade submissions and review device alerts")), h("p", { class: "tiny muted" }, "Preview admin credentials are listed in the preview inbox panel.")) });
+  return authShell(wrapper, { eyebrow: "Admin console", title: "Programme administration.", aside: h("div", { class: "aside-card" }, h("h4", {}, "Admin responsibilities"), h("ul", { class: "ticks small" }, h("li", {}, icon("check", 14), "Verify registrations and issue credentials"), h("li", {}, icon("check", 14), "Upload lessons, assignments and announcements"), h("li", {}, icon("check", 14), "Grade submissions and review device alerts")), h("p", { class: "tiny muted" }, "Three role-based admin accounts exist: programme lead, learning & content manager, student success & verification. Preview credentials are listed in the preview inbox panel.")) });
 }
 
 export function opsLoginPage() {

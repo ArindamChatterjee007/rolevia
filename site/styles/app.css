@@ -82,6 +82,12 @@ input[type="range"] { width: 100%; accent-color: var(--lime); }
 input[type="file"].input { padding: 0.55rem; }
 .field { display: flex; flex-direction: column; gap: 0.4rem; }
 .field-label { font-size: 0.85rem; font-weight: 700; color: var(--ink-2); } .field-hint { font-size: 0.76rem; color: var(--muted); } .req { color: var(--coral); }
+.field-error { font-size: 0.78rem; color: var(--red); font-weight: 600; } .field.has-error .input, .input[aria-invalid="true"] { border-color: var(--red); box-shadow: 0 0 0 3px rgba(255, 123, 123, 0.15); }
+.file-drop { display: grid; gap: 0.4rem; padding: 1rem; border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); background: rgba(255, 255, 255, 0.02); } .file-drop input { font-size: 0.85rem; } .file-meta { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; font-size: 0.82rem; color: var(--ink-2); }
+.task-list { display: grid; gap: 0.6rem; } .task { display: flex; gap: 0.8rem; align-items: flex-start; padding: 0.85rem 1rem; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--sky); } .task.verify { border-left-color: var(--ochre); } .task.grade { border-left-color: var(--mint); } .task.alert { border-left-color: var(--coral); } .task.done { opacity: 0.6; border-left-color: var(--green); } .task.overdue { background: rgba(255, 123, 123, 0.06); } .task-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
+.role-pill { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; background: rgba(143, 179, 255, 0.16); color: var(--sky); } .role-pill.content { background: rgba(159, 216, 195, 0.16); color: var(--mint); } .role-pill.success { background: rgba(246, 196, 103, 0.16); color: var(--ochre); }
+.stage { display: inline-flex; gap: 0.3rem; align-items: center; } .stage-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); } .stage.pending_verification .stage-dot { background: var(--ochre); } .stage.active .stage-dot { background: var(--green); } .stage.pending_payment .stage-dot { background: var(--sky); } .stage.suspended .stage-dot { background: var(--red); }
+.progress-cell { display: grid; gap: 0.25rem; min-width: 110px; font-size: 0.78rem; }
 .form-grid { display: grid; gap: 1rem; } .form-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); } .form-grid.two .field:has(textarea), .form-grid.two .form-actions { grid-column: 1 / -1; }
 .form-actions { display: flex; gap: 0.75rem; align-items: center; justify-content: flex-end; flex-wrap: wrap; } .form-actions.between { justify-content: space-between; }
 .check { display: flex; gap: 0.6rem; align-items: flex-start; margin-top: 1rem; } .check input { margin-top: 0.3rem; accent-color: var(--lime); }
@@ -267,7 +273,7 @@ input[type="file"].input { padding: 0.55rem; }
 .grade-form { display: grid; grid-template-columns: 140px 1fr auto; gap: 0.8rem; align-items: end; margin-top: 1rem; }
 .card.graded { opacity: 0.75; } .warn-card { border-color: rgba(255, 143, 122, 0.5); }
 .cohort-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; } .cohort { display: grid; gap: 0.4rem; } .cohort-head { display: flex; justify-content: space-between; gap: 1rem; }
-.ops .stat-grid { margin: 1.25rem 0; } .ops h1 { margin-bottom: 1rem; }
+.ops .stat-grid { margin: 1.25rem 0; } .ops h1 { margin-bottom: 1rem; } .ops .grid-2 { margin-top: 1rem; } .panel-mini { padding: 0.9rem 1rem; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); display: grid; gap: 0.4rem; justify-items: start; }
 
 /* ---------- preview drawer ---------- */
 .inbox-fab { position: fixed; right: 1rem; bottom: 1rem; z-index: 70; display: inline-flex; gap: 0.5rem; align-items: center; padding: 0.75rem 1.1rem; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--ink); font-weight: 800; cursor: pointer; box-shadow: var(--shadow); transition: transform var(--fast); } .inbox-fab:hover { transform: translateY(-2px); }

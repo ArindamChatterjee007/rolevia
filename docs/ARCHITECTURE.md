@@ -18,12 +18,12 @@ the pages need.
 
 | Method | Purpose | Notes |
 | --- | --- | --- |
-| `register`, `quote`, `pay`, `applicationStatus` | Registration before credentials | Payment is required before verification; a human approves |
+| `requestContactCode`, `register`, `quote`, `pay`, `applicationStatus` | Registration before credentials | Email/phone confirmed by code, full profile fields validated server-side, payment required before verification; a human approves |
 | `adminVerify`, `adminSetStatus` | Issue Student ID + temporary password; suspend/reject | ID format `RV-YY-0001`; temporary password sent to the learner only |
 | `login`, `verifyOtp`, `me`, `logout`, `changePassword`, `requestReset`, `resetPassword` | Authentication | 6-digit OTP, 5-minute expiry, 5 attempts, password lockout after 5 failures |
 | `dashboard`, `lessons`, `completeLesson`, `dailyQuiz`, `submitQuiz`, `completeLab`, `assignments`, `submitAssignment`, `leaderboard`, `badge`, `updateProfile`, `purchase`, `notifications`, `referralStatus` | Student portal | Points: 10 per correct answer, streak bonus, labs up to 50, graded scores, 5 per lesson |
-| `adminOverview`, `adminStudents`, `adminContent`, `adminUpsertLesson`, `adminDeleteLesson`, `adminUpsertAssignment`, `adminSubmissions`, `adminGrade`, `adminAnnounce`, `adminDeviceAlerts`, `adminResolveAlert`, `adminPayments`, `adminAudit` | Admin console | Every mutation is audit-logged |
-| `opsLogin`, `opsSummary`, `opsSaveNote` | Unlisted operations | Separate role; production uses server-side allow-list |
+| `adminOverview`, `adminTracker`, `adminCreateTask`, `adminUpdateTask`, `adminStudents`, `adminContent`, `adminUpsertLesson`, `adminDeleteLesson`, `adminUpsertAssignment`, `adminSubmissions`, `adminGrade`, `adminAnnounce`, `adminDeviceAlerts`, `adminResolveAlert`, `adminPayments`, `adminAudit` | Admin console | Permission-checked per role (`ROLES` in `store.js`); every mutation is audit-logged; tasks auto-open and auto-complete |
+| `opsLogin`, `opsSummary`, `opsTeam`, `opsCreateAdmin`, `opsResetAdmin`, `opsSetAdmin`, `opsSaveNote` | Unlisted operations | Separate role; manages admin accounts; production uses server-side allow-list |
 
 Preview-only helpers (`previewInbox`, `previewForeignLogin`, `previewReset`, `previewCredentials`)
 must not exist in the production API.

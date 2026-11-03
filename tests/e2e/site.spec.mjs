@@ -10,7 +10,7 @@ async function open(page, route = "/") {
   await page.waitForSelector("#splash", { state: "detached" });
 }
 const latestCode = (page) => page.evaluate(() => {
-  const state = JSON.parse(localStorage.getItem("rolevia.preview.v3"));
+  const state = JSON.parse(localStorage.getItem("rolevia.preview.v4"));
   return state.outbox.find(message => message.channel === "email" && /Code \d{6}/.test(message.body)).body.match(/Code (\d{6})/)[1];
 });
 async function enterOtpBoxes(page) {
@@ -26,14 +26,21 @@ async function studentLogin(page, identifier = "RV-26-0001", password = "Learn#2
   await expect(page.locator(".otp-box").first()).toBeVisible();
   await enterOtpBoxes(page);
 }
-async function adminLogin(page) {
+const ADMINS = { lead: ["RV-ADM-001", "Lead-Arindam-2026"], content: ["RV-ADM-002", "Content-Ayush-2026"], success: ["RV-ADM-003", "Success-Souvik-2026"] };
+async function adminLogin(page, role = "lead") {
+  const [adminId, password] = ADMINS[role];
   await open(page, "/admin/login");
-  await page.fill("input[name=email]", "admin@rolevia.demo");
-  await page.fill("input[name=password]", "Admin#2026");
+  await page.fill("input[name=identifier]", adminId);
+  await page.fill("input[name=password]", password);
   await page.click("button[type=submit]");
   await expect(page.locator("input[name=code]")).toBeVisible();
   await page.fill("input[name=code]", await latestCode(page));
   await page.click("button[type=submit]");
+  await expect(page).toHaveURL(/#\/admin\/account\?first=1/);
+  await page.fill("input[name=current]", password);
+  await page.fill("input[name=password]", `${password}-new`);
+  await page.fill("input[name=confirm]", `${password}-new`);
+  await page.getByRole("button", { name: "Change password" }).click();
   await expect(page.locator("h1")).toHaveText("Overview");
 }
 
@@ -66,11 +73,22 @@ test("public site renders the animated hero, company marquee, eight skills and s
 
 test("registration pays first, a human verifies, credentials arrive by message, OTP sign-in forces a password change", async ({ page }) => {
   await open(page, "/register");
+  await page.click("button[type=submit]");
+  await expect(page.locator(".field-error").first()).toBeVisible();
   await page.fill("input[name=name]", "Test Learner");
   await page.fill("input[name=email]", "test.learner@example.com");
   await page.fill("input[name=phone]", "+919800012345");
   await page.fill("input[name=city]", "Mumbai");
+  await page.selectOption("select[name=education]", "mba");
+  await page.fill("input[name=graduationYear]", "2025");
+  await page.selectOption("select[name=currentStatus]", "fresher");
+  await page.selectOption("select[name=preferredSlot]", "weekend-morning");
+  await page.fill("textarea[name=goal]", "Move into an operations analyst role within six months.");
   await page.click("button[type=submit]");
+  await expect(page.locator("input[name=contactCode]")).toBeVisible();
+  await shot(page, "03a-register-contact-code");
+  await page.fill("input[name=contactCode]", await latestCode(page));
+  await page.getByRole("button", { name: "Confirm and continue" }).click();
   await expect(page.locator("h1")).toHaveText("Choose your skills.");
   await page.click(".choice[data-id=spreadsheets]");
   await page.click(".choice[data-id=budgeting]");
@@ -83,7 +101,11 @@ test("registration pays first, a human verifies, credentials arrive by message, 
   await expect(page.locator(".status-badge")).toContainText("Awaiting human verification");
   await shot(page, "04-register-verification");
 
-  await adminLogin(page);
+  await adminLogin(page, "success");
+  await open(page, "/admin/tracker");
+  await expect(page.locator(".task", { hasText: "Verify registration: Test Learner" })).toBeVisible();
+  await expect(page.locator(".stage.pending_verification")).toHaveCount(1);
+  await shot(page, "05a-admin-tracker");
   await open(page, "/admin/students");
   await expect(page.locator(".queue-row")).toHaveCount(1);
   await page.getByRole("button", { name: "Verify and issue ID" }).click();
@@ -94,6 +116,8 @@ test("registration pays first, a human verifies, credentials arrive by message, 
   const temporaryPassword = text.match(/temporary password (\S+)\./)[1];
   await page.getByRole("button", { name: "Done" }).click();
   await shot(page, "05-admin-students");
+  await open(page, "/admin/tracker?view=done");
+  await expect(page.locator(".task.done", { hasText: "Verify registration: Test Learner" })).toBeVisible();
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/#\/$/);
 
@@ -142,7 +166,13 @@ test("a student completes an interactive lab, a daily quiz, sees the leaderboard
   const badgeCode = decodeURIComponent(badgeHref).match(/#\/badge\/([A-Z0-9-]+)/)[1];
 
   await open(page, "/portal/assignments");
-  await expect(page.locator(".assignment").first()).toBeVisible();
+  const openAssignment = page.locator(".assignment", { hasText: "Canva" });
+  await openAssignment.locator("textarea[name=text]").fill("Five-slide pitch with a checked chart, consistent style and a one-page brief for the fictional idea.");
+  await openAssignment.locator("input[type=file]").setInputFiles({ name: "pitch.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 fictional pitch deck") });
+  await expect(openAssignment.locator(".file-meta")).toContainText("will be stored");
+  await openAssignment.getByRole("button", { name: "Submit" }).click();
+  await expect(page.locator(".toast", { hasText: "Submitted." })).toBeVisible();
+  await expect(openAssignment.locator("summary .tag")).toHaveText("Submitted");
   await open(page, "/portal/addons");
   await expect(page.locator(".kit-card")).toContainText("Your career kit is included");
 
@@ -160,17 +190,25 @@ test("a student completes an interactive lab, a daily quiz, sees the leaderboard
   await shot(page, "11-badge-public");
 });
 
-test("admin uploads a lesson, grades a submission, announces; the unlisted operations view needs its passphrase", async ({ page }) => {
-  await adminLogin(page);
+test("content manager uploads a lesson with a file, grades a submission, announces; the unlisted operations view needs its passphrase", async ({ page }) => {
+  await adminLogin(page, "content");
+  await expect(page.locator(".role-pill")).toContainText("Learning & content manager");
+  await expect(page.locator(".portal-nav")).not.toContainText("Students & verification");
+  await expect(page.locator(".task", { hasText: "Upload week 1 recordings" })).toBeVisible();
   await shot(page, "12-admin-overview");
+  await open(page, "/admin/students");
+  await expect(page.locator(".alert.error")).toContainText("does not include students");
   await open(page, "/admin/content");
   const addLesson = page.locator(".edit-row.new", { hasText: "Add a lesson" });
   await addLesson.locator("summary").click();
   await addLesson.locator("input[name=title]").fill("Week 1 / Recording: cleaning a register");
   await addLesson.locator("input[name=url]").fill("https://videos.example.com/spreadsheets-week-1");
+  await addLesson.locator("input[type=file]").setInputFiles({ name: "week-1-slides.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 preview slides for week one") });
+  await expect(addLesson.locator(".file-meta")).toContainText("will be stored");
   await addLesson.getByRole("button", { name: "Add lesson" }).click();
   await expect(page.locator(".toast", { hasText: "Lesson saved." })).toBeVisible();
   await expect(page.locator(".card", { hasText: "Lessons · Business Spreadsheets" })).toContainText("Recording: cleaning a register");
+  await expect(page.locator(".card", { hasText: "Lessons · Business Spreadsheets" })).toContainText("week-1-slides.pdf");
   await open(page, "/admin/grading");
   const ungraded = page.locator(".card", { hasText: "Ungraded" }).first();
   await ungraded.locator("input[name=score]").fill("82");
@@ -182,8 +220,10 @@ test("admin uploads a lesson, grades a submission, announces; the unlisted opera
   await page.fill("textarea[name=body]", "Saturday 10:00 IST. Link arrives by email.");
   await page.getByRole("button", { name: "Publish" }).click();
   await expect(page.locator(".toast", { hasText: "Announcement published" })).toBeVisible();
-  await open(page, "/admin/alerts");
-  await expect(page.locator("h1")).toHaveText("Device alerts");
+  await open(page, "/admin/tracker");
+  await expect(page.locator(".task.done", { hasText: "Grade:" })).toHaveCount(0);
+  await page.getByRole("button", { name: "All open" }).click();
+  await expect(page.locator(".task").first()).toBeVisible();
   await page.getByRole("button", { name: "Sign out" }).click();
 
   await open(page, "/ops");
@@ -196,6 +236,16 @@ test("admin uploads a lesson, grades a submission, announces; the unlisted opera
   await expect(page.locator("h1")).toHaveText("Operations snapshot");
   await expect(page.locator(".cohort")).toHaveCount(8);
   await expect(page.locator(".ops")).toContainText("Career-kit reserve to ring-fence");
+  await expect(page.locator(".ops table").first()).toContainText("RV-ADM-003");
+  const createAdmin = page.locator(".edit-row.new", { hasText: "Create an admin account" });
+  await createAdmin.locator("summary").click();
+  await createAdmin.locator("input[name=name]").fill("Fourth Teammate");
+  await createAdmin.locator("input[name=email]").fill("fourth@rolevia.demo");
+  await createAdmin.locator("input[name=phone]").fill("+919800000444");
+  await createAdmin.locator("select[name=role]").selectOption("success");
+  await createAdmin.getByRole("button", { name: "Create admin" }).click();
+  await expect(page.locator(".modal")).toContainText("Admin ID RV-ADM-004");
+  await page.getByRole("button", { name: "Done" }).click();
   await shot(page, "13-ops-snapshot");
 });
 

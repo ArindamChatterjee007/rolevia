@@ -8,7 +8,7 @@ import { previewDrawer, sessionLostOverlay } from "./pages/components.js";
 import { homePage, skillsPage, skillDetailPage, pricingPage, demoPage, publicLeaderboardPage, faqPage, badgePage, notFoundPage } from "./pages/public.js";
 import { registerPage, loginPage, resetPage, adminLoginPage, opsLoginPage } from "./pages/auth.js";
 import { guard, dashboardPage, mySkillsPage, learnPage, labsPage, labPage, quizPage, assignmentsPage, leaderboardPage, addonsPage, profilePage, notificationsPage } from "./pages/portal.js";
-import { adminGuard, adminOverviewPage, adminStudentsPage, adminContentPage, adminGradingPage, adminAlertsPage, adminPaymentsPage, adminAnnouncePage, adminAuditPage } from "./pages/admin.js";
+import { adminGuard, adminOverviewPage, adminStudentsPage, adminContentPage, adminGradingPage, adminAlertsPage, adminPaymentsPage, adminAnnouncePage, adminAuditPage, adminTrackerPage, adminAccountPage } from "./pages/admin.js";
 import { opsGuard, opsPage } from "./pages/ops.js";
 
 const outlet = document.getElementById("app");
@@ -22,7 +22,7 @@ async function boot() {
   ctx.curriculum = await response.json();
   ctx.quizBank = QUIZ_BANK;
   const testMode = new URLSearchParams(location.search).has("fast");
-  ctx.api = await createMockServer({ storage: browserStorage("rolevia.preview.v3", localStorage), curriculum: ctx.curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, latency: () => (testMode ? 0 : 220 + Math.random() * 320) });
+  ctx.api = await createMockServer({ storage: browserStorage("rolevia.preview.v4", localStorage), curriculum: ctx.curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, latency: () => (testMode ? 0 : 220 + Math.random() * 320) });
 
   const router = createRouter([
     { path: "/", render: homePage },
@@ -56,6 +56,8 @@ async function boot() {
     { path: "/admin/payments", render: guarded(adminGuard, adminPaymentsPage) },
     { path: "/admin/announce", render: guarded(adminGuard, adminAnnouncePage) },
     { path: "/admin/audit", render: guarded(adminGuard, adminAuditPage) },
+    { path: "/admin/tracker", render: guarded(adminGuard, adminTrackerPage) },
+    { path: "/admin/account", render: guarded(adminGuard, adminAccountPage) },
     { path: "/ops/login", render: (params, query) => (ctx.auth.type === "ops" ? "/ops" : opsLoginPage(params, query)) },
     { path: "/ops", render: guarded(opsGuard, opsPage) },
     { path: "*", render: notFoundPage },
