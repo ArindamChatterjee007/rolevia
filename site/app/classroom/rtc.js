@@ -14,7 +14,7 @@ export function createRoom({ transport, self, iceServers = [], media = true, hea
   const presence = () => ({ name: self.name, role: self.role, avatar: self.avatar ?? null, state: localState, media, screenStreamId: screenStream?.id ?? null, cameraStreamId: localStream?.id ?? null });
   const addPeer = (id, info) => {
     let peer = peers.get(id);
-    if (!peer) { peer = { id, streams: new Map(), pc: null, makingOffer: false, ignoreOffer: false, lastSeen: Date.now(), state: {} }; peers.set(id, peer); }
+    if (!peer) { peer = { id, streams: new Map(), pc: null, makingOffer: false, ignoreOffer: false, pendingCandidates: [], queue: Promise.resolve(), lastSeen: Date.now(), state: {} }; peers.set(id, peer); }
     Object.assign(peer, { name: info.name, role: info.role, avatar: info.avatar, state: info.state ?? peer.state, media: info.media !== false, screenStreamId: info.screenStreamId ?? null, cameraStreamId: info.cameraStreamId ?? null, lastSeen: Date.now() });
     return peer;
   };
@@ -54,8 +54,10 @@ export function createRoom({ transport, self, iceServers = [], media = true, hea
         peer.ignoreOffer = !polite(peer.id) && offerCollision;
         if (peer.ignoreOffer) return;
         await pc.setRemoteDescription(description);
+        for (const pending of peer.pendingCandidates.splice(0)) await pc.addIceCandidate(pending).catch(() => {});
         if (description.type === "offer") { await pc.setLocalDescription(); transport.send("signal", { description: pc.localDescription }, peer.id); }
       } else if (candidate) {
+        if (!pc.remoteDescription) { peer.pendingCandidates.push(candidate); return; }
         try { await pc.addIceCandidate(candidate); } catch (error) { if (!peer.ignoreOffer) throw error; }
       }
     } catch (error) { log("signal error", error); }
@@ -71,7 +73,7 @@ export function createRoom({ transport, self, iceServers = [], media = true, hea
     if (type === "peer-left") { dropPeer(payload?.peerId ?? from, "left"); return; }
     if (!peer) return;
     peer.lastSeen = Date.now();
-    if (type === "signal") { await handleSignal(peer, payload); return; }
+    if (type === "signal") { peer.queue = peer.queue.then(() => handleSignal(peer, payload)).catch(() => {}); return; }
     if (type === "state") { peer.state = payload.state; peer.screenStreamId = payload.screenStreamId ?? null; peer.cameraStreamId = payload.cameraStreamId ?? peer.cameraStreamId; emit("state", peer); emit("stream", peer); return; }
     if (type === "bye") { dropPeer(from, "left"); return; }
     emit("message", { from: peer, type, payload, at: message.at });
