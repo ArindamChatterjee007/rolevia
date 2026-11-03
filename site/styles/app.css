@@ -509,3 +509,6 @@ a.lesson { text-decoration: none; color: inherit; } a.lesson:hover { border-colo
 .span-2 { grid-column: 1 / -1; } .form-grid.three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; } .permission-box { padding: 0.8rem; border-radius: 10px; border: 1px dashed var(--line-strong); } .check.inline { display: inline-flex; gap: 0.3rem; align-items: center; }
 
 @media (max-width: 1080px) { .sheet-layout { grid-template-columns: 1fr; } .form-grid.three { grid-template-columns: 1fr; } }
+
+/* Wide sheets (many columns) put the task panel underneath so the grid gets the full width */
+.sheet-layout.wide { grid-template-columns: 1fr; } .sheet-layout.wide .sheet-tasks { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }

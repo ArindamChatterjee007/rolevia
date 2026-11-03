@@ -80,7 +80,7 @@ export function sheetLab({ labId, title, brief, cells, tasks, columns = 8, rows 
   root.append(
     h("p", { class: "lab-brief" }, brief),
     h("div", { class: "sheet-toolbar" }, cellLabel, formulaInput, h("span", { class: "tiny muted sheet-help" }, "Enter commits · arrows move · Delete clears")),
-    h("div", { class: "sheet-layout" }, h("div", { class: "sheet-grid-wrap" }, grid), h("aside", { class: "sheet-side" }, h("h4", {}, icon("clipboard", 16), "Tasks"), taskList, scoreBox, googleBox)));
+    h("div", { class: `sheet-layout ${columns > 8 ? "wide" : ""}` }, h("div", { class: "sheet-grid-wrap" }, grid), h("aside", { class: "sheet-side" }, h("h4", {}, icon("clipboard", 16), "Tasks"), taskList, scoreBox, googleBox)));
   render(); report(); renderGoogle();
   return root;
 }
