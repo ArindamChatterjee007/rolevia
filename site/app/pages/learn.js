@@ -41,7 +41,7 @@ function lessonReader(data, moduleId, lesson, all) {
       lesson.sections.map(renderSection),
       lesson.practice && lab ? h("section", { class: "reader-section practice", id: "practice" }, h("h3", {}, h("span", { class: "reader-index" }, icon("lab", 16)), "Practice in the lab"), h("div", { class: "practice-card" }, illustration("labs", { class: "practice-art" }), h("div", {}, h("strong", {}, lab.title), h("p", {}, lesson.practice.instruction), h("a", { class: "button primary small", href: `#/portal/labs/${lab.id}` }, icon("lab", 14), "Open the lab")))) : null,
       h("section", { class: "reader-section", id: "checkpoint" }, h("h3", {}, h("span", { class: "reader-index" }, icon("quiz", 16)), "Checkpoint"), h("p", { class: "small muted" }, "Answer in your own words first, then open the model answer."), lesson.checkpoint.map(item => h("details", { class: "checkpoint" }, h("summary", {}, item.question), h("p", {}, item.answer)))),
-      h("div", { class: "reader-actions" }, previous ? h("a", { class: "button ghost small", href: `#/portal/learn/${moduleId}?lesson=${previous.id}` }, icon("arrow", 14), "Previous") : h("span"), complete, next ? h("a", { class: "button ghost small", href: `#/portal/learn/${moduleId}?lesson=${next.id}` }, "Next lesson", icon("arrow", 14)) : h("span")))));
+      h("div", { class: "reader-actions" }, previous ? h("a", { class: "button ghost small", href: `#/portal/learn/${moduleId}?lesson=${previous.id}` }, h("span", { class: "icon-flip" }, icon("arrow", 14)), "Previous") : h("span"), complete, next ? h("a", { class: "button ghost small", href: `#/portal/learn/${moduleId}?lesson=${next.id}` }, "Next lesson", icon("arrow", 14)) : h("span")))));
 }
 
 function materialViewer(material) {

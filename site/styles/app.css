@@ -472,3 +472,10 @@ a.lesson { text-decoration: none; color: inherit; } a.lesson:hover { border-colo
 @media (max-width: 1080px) { .editor-grid { grid-template-columns: 1fr; } .reader-grid { grid-template-columns: 1fr; } .reader-toc { position: static; } .week-grid, .star-grid { grid-template-columns: 1fr; } .slide-options { grid-template-columns: 1fr; } }
 @media (max-width: 820px) { .slide-title-layout, .slide-split.with-art { grid-template-columns: 1fr; } .slide-art { display: none; } .learn-art, .hero-art { width: 160px; } .glossary { grid-template-columns: 1fr; } .glossary dd { margin-bottom: 0.6rem; } }
 @media print { .deck-viewer, .reader-body, .material-view, .stage-slide { display: none !important; } .portal-main::before { content: "Course material is view-only inside Rolevia and is not printed."; color: #000; } }
+
+/* ---------- polish: narrow previews, arrow direction, week labels ---------- */
+.deck-preview .slide-title-layout, .deck-preview .slide-split.with-art { grid-template-columns: 1fr; } .deck-preview .slide-art { display: none; }
+.deck-preview .slide h2, .deck-preview .slide-title-copy h2 { font-size: clamp(0.85rem, 5cqw, 1.6rem); } .deck-preview .slide-bullets, .deck-preview .slide-steps, .deck-preview .slide-prompt { font-size: clamp(0.65rem, 2.6cqw, 1rem); } .deck-preview .slide-option { font-size: clamp(0.6rem, 2.2cqw, 0.9rem); }
+.slide-eyebrow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.icon-flip { display: inline-flex; transform: rotate(180deg); }
+.week .eyebrow { display: block; margin-bottom: 0.25rem; } .week > strong { display: block; }
