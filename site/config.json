@@ -1,0 +1,7 @@
+{
+  "apiBase": "",
+  "signalUrl": "",
+  "googleClientId": "",
+  "iceServers": [{ "urls": ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }],
+  "notes": "Leave apiBase empty for the in-browser preview. Point apiBase at the Node API (server/api.mjs) to use GitHub as the database; set signalUrl to its wss:///ws endpoint for cross-device classes. googleClientId enables direct recording uploads to the host's Google Drive."
+}

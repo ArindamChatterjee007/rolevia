@@ -4,11 +4,12 @@
 
 | Concern | Preview (this repository) | Production (next phase) |
 | --- | --- | --- |
-| Hosting | GitHub Pages, static `site/` | Static front end on any CDN; API on a small Node/edge service with a database |
-| Data | `localStorage` key `rolevia.preview.v5` seeded with fictional learners (placeholder contacts; no internal economics) | PostgreSQL/SQLite with migrations; encrypted backups; retention and deletion schedule |
+| Hosting | GitHub Pages, static `site/` | `server/api.mjs` on any Node host (serves the site, API and `/ws`), or static site + API with `ROLEVIA_ALLOW_ORIGIN` |
+| Data | `localStorage` key `rolevia.preview.v6` seeded with fictional learners (placeholder contacts; no internal economics) | `fileStorage` JSON or `githubStorage` (private repo file) now; a relational database later if volume grows |
 | Messages | Preview inbox panel | Transactional email (e.g. SES/Postmark) and SMS provider for one-time codes; templates in `store.js` wording |
 | Payments | Simulated success/declined | Payment provider checkout (Razorpay/Stripe), server-side order creation, signed webhooks, reconciliation before verification |
-| Secrets | None; demo credentials are published on purpose | Environment variables only; never in the repository |
+| Secrets | None; demo credentials are published on purpose | Environment variables only (`GITHUB_TOKEN`, `ROLEVIA_OPS_PASSPHRASE`, webhook URL); never in the repository |
+| Recordings / course files | Downloaded `.webm`; links pasted | Google Drive (restricted sharing) or GitHub Releases via links; direct Drive upload with the host's OAuth consent |
 
 `site/app/store.js` implements every rule the API must keep. The front end calls it through
 `ctx.api.<method>(payload)`; swapping in an HTTP client with the same method names is the only change
@@ -37,6 +38,18 @@ must not exist in the production API.
 - Accounts with a temporary password receive `PASSWORD_CHANGE_REQUIRED` from every method except `me`, `changePassword` and `logout` until a new password is set.
 - Device alerts and review tasks are raised for students; staff accounts still follow the one-active-device rule and receive the security notice.
 - Production should additionally bind the device identity to a secure, httpOnly cookie, rate-limit by IP and account, and log sign-ins with coarse geolocation.
+
+## Live classes
+
+- Scheduling, attendance, live quizzes and recordings are domain data (`state.classes`) with API methods `classes`, `classAccess`, `joinClass`, `leaveClass`, `classQuizAnswer`, `classQuizStatus`, `adminClasses`, `adminClassDetail`, `adminUpsertClass`, `adminSetClassStatus`, `adminPushQuiz`, `adminCloseQuiz`, `adminAddRecording`, `adminNoteChat`.
+- Real-time traffic uses a transport interface (`site/app/classroom/transport.js`): `createLocalTransport` (BroadcastChannel, preview) or `createSocketTransport` (WebSocket to `server/signal.mjs`). Envelope: `{ room, from, to?, type, payload, at }`. The relay authorises every socket through `classAccess` and announces `peer-left`.
+- Media is a WebRTC mesh (`site/app/classroom/rtc.js`) using perfect negotiation per pair; screen share is a second stream identified by stream id in presence messages. Default ICE is public STUN; add TURN through `iceServers` for restrictive networks.
+- Live quiz: host `adminPushQuiz` → broadcast `quiz` (answer key stripped) → learner `classQuizAnswer` → broadcast `answered` → host `classQuizStatus` → host `adminCloseQuiz` → broadcast `quiz-close` → learner `classQuizStatus` for own points. Closing a class closes open quizzes and attendance and completes the host task.
+- Recording (`site/app/classroom/recorder.js`): canvas composite + Web Audio mix → MediaRecorder → IndexedDB chunks → `.webm` download, optional resumable upload to Google Drive (`drive.js`, OAuth implicit flow, scope `drive.file`) → `adminAddRecording` link.
+
+## Server and storage
+
+`server/api.mjs` hosts the same core (`createMockServer` with `seedMode: "empty"`) behind `POST /api/<method>`, blocks preview-only methods, maps `ApiError` codes to HTTP statuses, serves `site/` and `/config.json`, relays `/ws`, and forwards outgoing messages to `ROLEVIA_NOTIFY_WEBHOOK`. Storage adapters (`server/storage.mjs`): `fileStorage` (JSON on disk) and `githubStorage` (private repository file via the contents API with blob-SHA concurrency, debounced writes, conflict retry). State carries a `rev` counter so browser tabs and the server detect staleness cheaply.
 
 ## Content pipeline
 

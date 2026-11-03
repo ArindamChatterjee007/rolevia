@@ -7,6 +7,8 @@ export const ctx = {
   curriculum: null,
   quizBank: null,
   mode: "preview",
+  config: { apiBase: "", signalUrl: "", googleClientId: "", iceServers: null },
+  testMode: false,
   device: null,
   auth: { token: null, type: null, user: null },
   navigate: null,
@@ -26,14 +28,17 @@ export function loadDevice() {
   return ctx.device;
 }
 
+// Sessions are per browser tab (sessionStorage) so a host and a learner can be demonstrated side by side
+// in one browser. Production replaces this with an httpOnly session cookie issued by the API.
 export function loadAuth() {
-  try { ctx.auth = JSON.parse(localStorage.getItem(AUTH_KEY)) ?? { token: null, type: null, user: null }; } catch { ctx.auth = { token: null, type: null, user: null }; }
+  try { ctx.auth = JSON.parse(sessionStorage.getItem(AUTH_KEY)) ?? { token: null, type: null, user: null }; } catch { ctx.auth = { token: null, type: null, user: null }; }
+  localStorage.removeItem(AUTH_KEY);
   return ctx.auth;
 }
 
 export function setAuth(auth) {
   ctx.auth = { token: null, type: null, user: null, ...auth };
-  if (ctx.auth.token) localStorage.setItem(AUTH_KEY, JSON.stringify(ctx.auth)); else localStorage.removeItem(AUTH_KEY);
+  if (ctx.auth.token) sessionStorage.setItem(AUTH_KEY, JSON.stringify(ctx.auth)); else sessionStorage.removeItem(AUTH_KEY);
   for (const listener of ctx.listeners) listener(ctx.auth);
 }
 

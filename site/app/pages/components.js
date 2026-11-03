@@ -33,7 +33,8 @@ export function footer() {
 }
 
 export function previewBanner() {
-  return h("div", { class: "preview-banner", role: "note" }, icon("info", 14), h("span", {}, h("strong", {}, "Preview mode."), " Fictional data, no real payments, OTP codes appear in the preview inbox. "), h("button", { class: "link-button", type: "button", onClick: () => document.dispatchEvent(new CustomEvent("rolevia:inbox")) }, "Open preview inbox"));
+  if (ctx.mode !== "preview") return h("div", { hidden: true });
+  return h("div", { class: "preview-banner", role: "note" }, icon("info", 14), h("span", {}, h("strong", {}, "Preview mode."), " Fictional data, no real payments, OTP codes appear in the preview inbox. Sessions are per tab: open another tab to join as a second person. "), h("button", { class: "link-button", type: "button", onClick: () => document.dispatchEvent(new CustomEvent("rolevia:inbox")) }, "Open preview inbox"));
 }
 
 export function orbit(modules) {

@@ -10,7 +10,7 @@ async function open(page, route = "/") {
   await page.waitForSelector("#splash", { state: "detached" });
 }
 const latestCode = (page) => page.evaluate(() => {
-  const state = JSON.parse(localStorage.getItem("rolevia.preview.v5"));
+  const state = JSON.parse(localStorage.getItem("rolevia.preview.v6"));
   return state.outbox.find(message => message.channel === "email" && /Code \d{6}/.test(message.body)).body.match(/Code (\d{6})/)[1];
 });
 async function enterOtpBoxes(page) {
@@ -263,4 +263,88 @@ test("protected areas redirect anonymous visitors to the right sign-in", async (
   await expect(page).toHaveURL(/#\/ops\/login/);
   await open(page, "/does-not-exist");
   await expect(page.locator("h1")).toContainText("That page is not here");
+});
+
+test("live class: host starts, learner joins with video, screen share, live quiz, chat, recording and attendance are saved", async ({ context }) => {
+  test.setTimeout(240_000);
+  const hostPage = await context.newPage();
+  await adminLogin(hostPage, "content");
+  await open(hostPage, "/admin/classes");
+  const hostCard = hostPage.locator(".class-card", { hasText: "Week 1 live workshop" });
+  await expect(hostCard).toBeVisible();
+  await hostCard.getByRole("button", { name: "Start class" }).click();
+  await expect(hostPage.locator(".gate-card h1")).toContainText("Week 1 live workshop");
+  const hostJoin = hostPage.getByRole("button", { name: "Join class" });
+  await expect(hostJoin).toBeEnabled({ timeout: 20_000 });
+  await hostJoin.click();
+  await expect(hostPage.locator(".room")).toBeVisible();
+  await expect(hostPage.locator(".tile")).toHaveCount(1);
+
+  const studentPage = await context.newPage();
+  await studentLogin(studentPage);
+  await open(studentPage, "/portal/classes");
+  const studentCard = studentPage.locator(".class-card", { hasText: "Week 1 live workshop" });
+  await expect(studentCard).toContainText("Live now");
+  await studentCard.getByRole("link", { name: "Join now" }).click();
+  const studentJoin = studentPage.getByRole("button", { name: "Join class" });
+  await expect(studentJoin).toBeEnabled({ timeout: 20_000 });
+  await studentJoin.click();
+  await expect(studentPage.locator(".room")).toBeVisible();
+
+  await expect(hostPage.locator(".tile")).toHaveCount(2, { timeout: 20_000 });
+  await expect(studentPage.locator(".tile")).toHaveCount(2, { timeout: 20_000 });
+  await expect.poll(() => studentPage.evaluate(() => document.querySelector('.tile[data-peer="u-admin-2"] video')?.videoWidth ?? 0), { timeout: 30_000, message: "host video should play on the learner's tile" }).toBeGreaterThan(0);
+  await expect.poll(() => hostPage.evaluate(() => document.querySelector('.tile[data-peer="u-student-1"] video')?.videoWidth ?? 0), { timeout: 30_000, message: "learner video should play on the host's tile" }).toBeGreaterThan(0);
+  await expect(hostPage.locator(".roster")).toContainText("Ananya Iyer");
+
+  await hostPage.locator('[data-control="share"]').click();
+  await expect(hostPage.locator('[data-control="share"]')).toHaveClass(/on/, { timeout: 15_000 });
+  await expect(studentPage.locator(".stage-label")).toContainText("screen", { timeout: 20_000 });
+  await expect.poll(() => studentPage.evaluate(() => document.querySelector(".stage-frame video")?.videoWidth ?? 0), { timeout: 20_000 }).toBeGreaterThan(0);
+
+  await hostPage.locator('[data-control="quiz"]').click();
+  await hostPage.locator('select[aria-label="Question from the module bank"]').selectOption({ index: 1 });
+  await hostPage.getByRole("button", { name: "Send to class" }).click();
+  await expect(studentPage.locator(".quiz-card h3")).toBeVisible({ timeout: 15_000 });
+  const answerIndex = await studentPage.evaluate(() => { const state = JSON.parse(localStorage.getItem("rolevia.preview.v6")); return state.classes.find(item => item.id === "cls-demo-live").quizzes.at(-1).answerIndex; });
+  await studentPage.locator(".quiz-option").nth(answerIndex).click();
+  await expect(studentPage.locator(".quiz-card")).toContainText("Answer recorded");
+  await expect(hostPage.locator(".result-bars")).toContainText("1 of 1 answered", { timeout: 15_000 });
+  await hostPage.getByRole("button", { name: "Close and reveal answer" }).click();
+  await expect(studentPage.locator(".quiz-card")).toContainText("+10 points", { timeout: 15_000 });
+  await shot(studentPage, "15-classroom-student-quiz-result", false);
+  await studentPage.getByRole("button", { name: "Continue" }).click();
+
+  await studentPage.locator('[data-control="chat"]').click();
+  await studentPage.locator(".chat-form input").fill("Hello from the learner");
+  await studentPage.locator(".chat-form button").click();
+  await hostPage.locator('[data-control="chat"]').click();
+  await expect(hostPage.locator(".chat-list")).toContainText("Hello from the learner", { timeout: 10_000 });
+
+  await hostPage.locator('[data-control="record"]').click();
+  await hostPage.locator(".modal").getByRole("button", { name: "Start recording" }).click();
+  await expect(hostPage.locator(".rec-badge")).toBeVisible({ timeout: 15_000 });
+  await expect(studentPage.locator(".rec-badge")).toBeVisible({ timeout: 10_000 });
+  await shot(hostPage, "14-classroom-host-recording", false);
+  await hostPage.waitForTimeout(6_000);
+  await hostPage.locator('[data-control="record"]').click();
+  const saveDialog = hostPage.locator(".modal", { hasText: "Recording saved on this device" });
+  await expect(saveDialog).toBeVisible({ timeout: 30_000 });
+  await expect(saveDialog.getByRole("link", { name: "Download .webm" })).toHaveAttribute("href", /^blob:/);
+  const sizeLine = await saveDialog.locator("p.small").first().innerText();
+  expect(sizeLine).not.toMatch(/^0 B/);
+  await saveDialog.getByRole("button", { name: "Note: kept locally" }).click();
+  await expect(hostPage.locator(".toast", { hasText: "kept on your device" })).toBeVisible();
+  await saveDialog.locator(".modal-head .icon-button").click();
+
+  await hostPage.locator(".room-top").getByRole("button", { name: "End class" }).click();
+  await hostPage.locator(".modal").getByRole("button", { name: "End class" }).click();
+  await expect(studentPage.locator(".gate-card h1")).toHaveText("Class ended", { timeout: 15_000 });
+  await expect(hostPage.locator("h1")).toHaveText("Class details", { timeout: 15_000 });
+  await expect(hostPage.locator(".card", { hasText: "Attendance" })).toContainText("Ananya Iyer");
+  await expect(hostPage.locator(".card", { hasText: "Live questions" })).toContainText("1 answered · 1 correct");
+  await expect(hostPage.locator(".card", { hasText: "Recordings" })).toContainText("kept on the host's device");
+  await shot(hostPage, "16-admin-class-detail");
+  await open(studentPage, "/portal/classes");
+  await expect(studentPage.locator(".class-card", { hasText: "Week 1 live workshop" })).toContainText("You attended · 1/1 correct");
 });

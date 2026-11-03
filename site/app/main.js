@@ -1,4 +1,6 @@
 import { createMockServer, browserStorage } from "./store.js";
+import { createHttpApi } from "./http-api.js";
+import { consumeDriveRedirect } from "./classroom/drive.js";
 import { createRouter } from "./router.js";
 import { ctx, loadDevice, loadAuth, setAuth, withSession } from "./context.js";
 import { h } from "./ui.js";
@@ -10,19 +12,30 @@ import { registerPage, loginPage, resetPage, adminLoginPage, opsLoginPage } from
 import { guard, dashboardPage, mySkillsPage, learnPage, labsPage, labPage, quizPage, assignmentsPage, leaderboardPage, addonsPage, profilePage, notificationsPage } from "./pages/portal.js";
 import { adminGuard, adminOverviewPage, adminStudentsPage, adminContentPage, adminGradingPage, adminAlertsPage, adminPaymentsPage, adminAnnouncePage, adminAuditPage, adminTrackerPage, adminAccountPage } from "./pages/admin.js";
 import { opsGuard, opsPage } from "./pages/ops.js";
+import { studentClassesPage, adminClassesPage, adminClassDetailPage } from "./pages/classes.js";
+import { classroomGuard, classroomPage } from "./pages/classroom.js";
 
 const outlet = document.getElementById("app");
 const splash = document.getElementById("splash");
 const guarded = (check, render) => async (params, query, path) => check() ?? render(params, query, path);
 
+const STORAGE_KEY = "rolevia.preview.v6";
+
 async function boot() {
+  consumeDriveRedirect();
   loadDevice();
   loadAuth();
-  const response = await fetch("data/curriculum.json", { cache: "no-store" });
-  ctx.curriculum = await response.json();
+  const params = new URLSearchParams(location.search);
+  const [curriculumResponse, configResponse] = await Promise.all([fetch("data/curriculum.json", { cache: "no-store" }), fetch("config.json", { cache: "no-store" }).catch(() => null)]);
+  ctx.curriculum = await curriculumResponse.json();
+  ctx.config = { ...ctx.config, ...(configResponse?.ok ? await configResponse.json().catch(() => ({})) : {}) };
+  if (params.get("api")) ctx.config.apiBase = params.get("api");
+  if (params.get("signal")) ctx.config.signalUrl = params.get("signal");
   ctx.quizBank = QUIZ_BANK;
-  const testMode = new URLSearchParams(location.search).has("fast");
-  ctx.api = await createMockServer({ storage: browserStorage("rolevia.preview.v5", localStorage), curriculum: ctx.curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, latency: () => (testMode ? 0 : 220 + Math.random() * 320) });
+  const testMode = params.has("fast");
+  ctx.testMode = testMode;
+  if (ctx.config.apiBase) { ctx.mode = "live"; ctx.api = createHttpApi(ctx.config.apiBase); document.body.dataset.mode = "live"; }
+  else ctx.api = await createMockServer({ storage: browserStorage(STORAGE_KEY, localStorage), curriculum: ctx.curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, latency: () => (testMode ? 0 : 220 + Math.random() * 320) });
 
   const router = createRouter([
     { path: "/", render: homePage },
@@ -47,6 +60,8 @@ async function boot() {
     { path: "/portal/addons", render: guarded(guard, addonsPage) },
     { path: "/portal/profile", render: guarded(guard, profilePage) },
     { path: "/portal/notifications", render: guarded(guard, notificationsPage) },
+    { path: "/portal/classes", render: guarded(guard, studentClassesPage) },
+    { path: "/classroom/:id", render: guarded(classroomGuard, classroomPage) },
     { path: "/admin/login", render: (params, query) => (ctx.auth.type === "admin" ? "/admin" : adminLoginPage(params, query)) },
     { path: "/admin", render: guarded(adminGuard, adminOverviewPage) },
     { path: "/admin/students", render: guarded(adminGuard, adminStudentsPage) },
@@ -58,16 +73,18 @@ async function boot() {
     { path: "/admin/audit", render: guarded(adminGuard, adminAuditPage) },
     { path: "/admin/tracker", render: guarded(adminGuard, adminTrackerPage) },
     { path: "/admin/account", render: guarded(adminGuard, adminAccountPage) },
+    { path: "/admin/classes", render: guarded(adminGuard, adminClassesPage) },
+    { path: "/admin/classes/:id", render: guarded(adminGuard, adminClassDetailPage) },
     { path: "/ops/login", render: (params, query) => (ctx.auth.type === "ops" ? "/ops" : opsLoginPage(params, query)) },
     { path: "/ops", render: guarded(opsGuard, opsPage) },
     { path: "*", render: notFoundPage },
-  ], { outlet, onNavigate: ({ path }) => { document.title = `${titleFor(path)} · Rolevia`; document.body.dataset.area = path.startsWith("/portal") ? "portal" : path.startsWith("/admin") ? "admin" : path.startsWith("/ops") ? "ops" : "public"; } });
+  ], { outlet, onNavigate: ({ path }) => { document.title = `${titleFor(path)} · Rolevia`; document.body.dataset.area = path.startsWith("/classroom") ? "classroom" : path.startsWith("/portal") ? "portal" : path.startsWith("/admin") ? "admin" : path.startsWith("/ops") ? "ops" : "public"; } });
   ctx.navigate = router.navigate;
 
-  document.body.append(previewDrawer());
+  if (ctx.mode === "preview") document.body.append(previewDrawer());
   let overlayShown = false;
   const sessionLost = (error) => { setAuth({}); if (overlayShown) return; overlayShown = true; document.body.append(sessionLostOverlay(error?.extra?.reason ?? error?.code, () => { overlayShown = false; })); };
-  window.addEventListener("storage", (event) => { if (event.key === "rolevia.preview.v5") ctx.api.reloadFromStorage(); });
+  window.addEventListener("storage", (event) => { if (event.key === `${STORAGE_KEY}:rev`) ctx.api.reloadFromStorage(); });
   document.addEventListener("rolevia:session-lost", (event) => sessionLost(event.detail));
   const checkSession = async () => {
     if (!ctx.auth.token || ctx.auth.type === "ops") return;
@@ -86,7 +103,7 @@ async function boot() {
 function titleFor(path) {
   if (path === "/") return "Business Skills Studio";
   const [, first, second] = path.split("/");
-  const names = { skills: "Skills", pricing: "Pricing", demo: "Free demo", leaderboard: "Leaderboard", faq: "Before you enroll", register: "Register", login: "Sign in", reset: "Reset password", portal: second ? `Portal · ${second}` : "Student portal", admin: second ? `Admin · ${second}` : "Admin console", ops: "Operations", badge: "Badge" };
+  const names = { skills: "Skills", pricing: "Pricing", demo: "Free demo", leaderboard: "Leaderboard", faq: "Before you enroll", register: "Register", login: "Sign in", reset: "Reset password", portal: second ? `Portal · ${second}` : "Student portal", admin: second ? `Admin · ${second}` : "Admin console", ops: "Operations", badge: "Badge", classroom: "Live class" };
   return names[first] ?? "Rolevia";
 }
 

@@ -8,7 +8,9 @@
   "scripts": {
     "test:unit": "node --test \"tests/unit/*.test.mjs\"",
     "test:e2e": "playwright test",
-    "serve": "node tests/serve.mjs"
+    "serve": "node tests/serve.mjs",
+    "start": "node server/api.mjs"
   },
+  "dependencies": { "ws": "8.18.0" },
   "devDependencies": { "@playwright/test": "1.63.0" }
 }

@@ -21,16 +21,19 @@ const LOCK_MS = 15 * 60 * 1000;
 const SAFE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
 
 export const SERVICE_IDS = ["resume-audit", "resume-writing", "linkedin", "cover-letter", "mock", "career-pack"];
-export const PERMISSIONS = ["students", "verify", "alerts", "payments", "content", "grading", "announce", "audit", "tasks"];
+export const PERMISSIONS = ["students", "verify", "alerts", "payments", "content", "grading", "announce", "audit", "tasks", "classes"];
 export const ROLES = {
-  lead: { label: "Programme lead", permissions: PERMISSIONS, summary: "Owns the whole admin console: verification, payments, content, grading, alerts, audit and task assignment." },
-  content: { label: "Learning & content manager", permissions: ["content", "grading", "announce", "tasks"], summary: "Uploads lessons and assignments, grades submissions, publishes announcements." },
+  lead: { label: "Programme lead", permissions: PERMISSIONS, summary: "Owns the whole admin console: verification, payments, content, grading, classes, alerts, audit and task assignment." },
+  content: { label: "Learning & content manager", permissions: ["content", "grading", "announce", "tasks", "classes"], summary: "Uploads lessons and assignments, schedules and hosts live classes, grades submissions, publishes announcements." },
   success: { label: "Student success & verification", permissions: ["students", "verify", "alerts", "payments", "tasks"], summary: "Verifies paid registrations, issues credentials, reviews device alerts and payments." },
 };
 export const MAX_ATTACHMENT_BYTES = 400 * 1024;
 export const MAX_TOTAL_ATTACHMENT_BYTES = 2 * 1024 * 1024;
 export const KIT_SERVICE_IDS = ["interview", "resume-audit", "resume-writing"];
 export const LAB_IDS = ["spreadsheets", "dashboards", "business-ai", "canva", "crm", "hr-tracker", "trello", "budgeting"];
+export const LIVE_QUIZ_POINTS = { correct: 10, participation: 2 };
+export const CLASS_JOIN_WINDOW_MS = 15 * 60 * 1000;
+export const DEFAULT_ICE_SERVERS = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }];
 
 export async function sha256(text) {
   const digest = await crypto.subtle.digest("SHA-256", encoder.encode(text));
@@ -80,34 +83,39 @@ const maskPhone = (phone) => phone.replace(/.(?=.{2})/g, "•");
 
 export function memoryStorage(initial = null) {
   let value = initial;
-  return { get: () => value, set: (next) => { value = next; } };
+  return { get: () => value, set: (next) => { value = next; }, revision: () => value?.rev ?? 0 };
 }
 
+// Browser adapter: whole state in one key plus a tiny revision key so other tabs can detect staleness cheaply.
 export function browserStorage(key, localStorage) {
   return {
     get: () => {
       try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch { return null; }
     },
-    set: (state) => localStorage.setItem(key, JSON.stringify(state)),
+    set: (state) => { localStorage.setItem(key, JSON.stringify(state)); localStorage.setItem(`${key}:rev`, String(state.rev ?? 0)); },
+    revision: () => Number(localStorage.getItem(`${key}:rev`) ?? 0),
   };
 }
 
-export async function createMockServer({ storage, curriculum, quizBank = {}, assignmentBriefs = {}, now = () => Date.now(), latency = () => 0 }) {
+export async function createMockServer({ storage, curriculum, quizBank = {}, assignmentBriefs = {}, now = () => Date.now(), latency = () => 0, deliver = null, seedMode = "demo", opsPassphrase = null, iceServers = DEFAULT_ICE_SERVERS }) {
   const modulesById = new Map(curriculum.modules.map(module => [module.id, module]));
   const servicesById = new Map(curriculum.services.map(service => [service.id, service]));
   const interview = curriculum.interviewCourse;
   let state = storage.get();
-  if (!state || state.version !== 5) {
-    state = await seed(curriculum, assignmentBriefs, now());
+  if (!state || state.version !== 6) {
+    state = seedMode === "empty" ? await emptySeed(now(), opsPassphrase) : await seed(curriculum, assignmentBriefs, now());
     storage.set(state);
   }
 
-  const persist = () => storage.set(state);
-  const wait = () => new Promise(resolve => setTimeout(resolve, latency()));
+  const persist = () => { state.rev = (state.rev ?? 0) + 1; storage.set(state); };
+  const reloadIfStale = () => { if (storage.revision && storage.revision() !== (state.rev ?? 0)) { const fresh = storage.get(); if (fresh && fresh.version === state.version) state = fresh; } };
+  const wait = () => new Promise(resolve => setTimeout(() => { reloadIfStale(); resolve(); }, latency()));
   const audit = (actor, action, meta = {}) => { state.auditLog.unshift({ at: now(), actor, action, meta }); state.auditLog = state.auditLog.slice(0, 500); };
   const send = (user, channel, subject, body) => {
-    state.outbox.unshift({ id: crypto.randomUUID(), to: channel === "sms" ? user.phone : user.email, channel, subject, body, at: now() });
+    const message = { id: crypto.randomUUID(), to: channel === "sms" ? user.phone : user.email, channel, subject, body, at: now() };
+    state.outbox.unshift(message);
     state.outbox = state.outbox.slice(0, 60);
+    try { deliver?.(message); } catch { /* delivery hooks must never break the request */ }
   };
   const notify = (user, kind, title, body) => {
     user.notifications.unshift({ id: crypto.randomUUID(), kind, title, body, at: now(), read: false });
@@ -250,7 +258,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     const rows = state.users.filter(user => user.type === "student" && user.status === "active").map(user => {
       const events = state.pointEvents.filter(event => event.userId === user.id && event.at >= since);
       const sum = (type) => events.filter(event => event.type === type).reduce((total, event) => total + event.points, 0);
-      return { userId: user.id, studentId: user.studentId, name: user.name, avatar: user.avatar, city: user.city, modules: user.modules.length, points: events.reduce((total, event) => total + event.points, 0), quiz: sum("quiz") + sum("streak"), labs: sum("lab"), assignments: sum("assignment"), lessons: sum("lesson"), firstEventAt: events[0]?.at ?? Number.MAX_SAFE_INTEGER };
+      return { userId: user.id, studentId: user.studentId, name: user.name, avatar: user.avatar, city: user.city, modules: user.modules.length, points: events.reduce((total, event) => total + event.points, 0), quiz: sum("quiz") + sum("streak"), labs: sum("lab"), assignments: sum("assignment"), lessons: sum("lesson"), live: sum("live"), firstEventAt: events[0]?.at ?? Number.MAX_SAFE_INTEGER };
     }).sort((a, b) => b.points - a.points || a.firstEventAt - b.firstEventAt);
     rows.forEach((row, index) => { row.rank = index + 1; });
     return rows;
@@ -270,6 +278,40 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     }
     return badge;
   }
+
+  function requireClass(classId) {
+    const item = state.classes.find(entry => entry.id === classId);
+    if (!item) throw new ApiError("NOT_FOUND", "Class not found.");
+    return item;
+  }
+  function closeAttendance(item, userId) {
+    for (const entry of item.attendance) if (entry.userId === userId && !entry.leftAt) { entry.leftAt = now(); entry.seconds += Math.round((entry.leftAt - entry.joinedAt) / 1000); }
+  }
+  function closeQuiz(item, quiz) {
+    quiz.closedAt = now();
+    const counts = quiz.options.map((_, index) => Object.values(quiz.responses).filter(response => response.answerIndex === index).length);
+    const correct = counts[quiz.answerIndex] ?? 0;
+    quiz.results = { counts, correct, total: Object.keys(quiz.responses).length };
+    for (const [userId, response] of Object.entries(quiz.responses)) {
+      const points = response.answerIndex === quiz.answerIndex ? LIVE_QUIZ_POINTS.correct : LIVE_QUIZ_POINTS.participation;
+      addPoints(userId, points, "live", `${item.id}:${quiz.id}`);
+    }
+  }
+  const quizView = (quiz, user, item) => {
+    const open = !quiz.closedAt && quiz.sentAt + quiz.seconds * 1000 > now();
+    const mine = quiz.responses[user.id] ?? null;
+    const isHost = user.type === "admin";
+    return { id: quiz.id, classId: item.id, question: quiz.question, options: quiz.options, seconds: quiz.seconds, sentAt: quiz.sentAt, closesAt: quiz.sentAt + quiz.seconds * 1000, closedAt: quiz.closedAt, open, answered: Object.keys(quiz.responses).length, counts: isHost || quiz.closedAt ? quiz.options.map((_, index) => Object.values(quiz.responses).filter(response => response.answerIndex === index).length) : null, answerIndex: isHost || quiz.closedAt ? quiz.answerIndex : null, explanation: isHost || quiz.closedAt ? quiz.explanation : null, myAnswer: mine?.answerIndex ?? null, myPoints: quiz.closedAt && mine ? (mine.answerIndex === quiz.answerIndex ? LIVE_QUIZ_POINTS.correct : LIVE_QUIZ_POINTS.participation) : null, results: quiz.results };
+  };
+  const openQuizFor = (item, user) => { const quiz = item.quizzes.find(entry => !entry.closedAt && entry.sentAt + entry.seconds * 1000 > now()); return quiz ? quizView(quiz, user, item) : null; };
+  const classView = (item, user) => {
+    const module = modulesById.get(item.moduleId);
+    const attended = user.type === "student" ? item.attendance.some(entry => entry.userId === user.id) : null;
+    const myQuizzes = user.type === "student" ? item.quizzes.filter(quiz => quiz.responses[user.id]) : [];
+    const myCorrect = myQuizzes.filter(quiz => quiz.responses[user.id].answerIndex === quiz.answerIndex).length;
+    const canJoin = item.status === "live" || (item.status === "scheduled" && item.startsAt - now() <= CLASS_JOIN_WINDOW_MS && user.type === "student") || (user.type === "admin" && item.status === "scheduled");
+    return { id: item.id, moduleId: item.moduleId, moduleTitle: module?.title ?? item.moduleId, title: item.title, description: item.description, startsAt: item.startsAt, durationMinutes: item.durationMinutes, mode: item.mode, externalUrl: item.externalUrl, hostId: item.hostId, hostName: item.hostName, status: item.status, startedAt: item.startedAt, endedAt: item.endedAt, recordingUrl: item.recordingUrl, recordingCount: item.recordings.length, attendanceCount: new Set(item.attendance.map(entry => entry.userId)).size, quizCount: item.quizzes.length, chatCount: item.chatCount, attended, myQuizzes: myQuizzes.length, myCorrect, canJoin, isHost: user.type === "admin" && item.hostId === user.id };
+  };
 
   const api = {
     // ---------- public ----------
@@ -759,7 +801,8 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
         const graded = state.submissions.filter(item => item.userId === user.id && item.gradedAt).length;
         const submitted = state.submissions.filter(item => item.userId === user.id).length;
         const lastEvent = Math.max(user.verifiedAt ?? 0, ...state.pointEvents.filter(event => event.userId === user.id).map(event => event.at), ...state.sessions.filter(session => session.userId === user.id).map(session => session.lastSeen));
-        return { id: user.id, name: user.name, studentId: user.studentId, modules: user.modules.length, lessonsDone: done, lessonsTotal: lessons.length, quizDays: new Set(state.quizAttempts.filter(item => item.userId === user.id).map(item => item.date)).size, labs: state.labRuns.filter(run => run.userId === user.id).length, labsTotal: user.modules.length, assignmentsGraded: graded, assignmentsSubmitted: submitted, assignmentsTotal: assignments.length, points: totalPoints(user.id), weekPoints: totalPoints(user.id, now() - 7 * 24 * 60 * 60 * 1000), lastActive: lastEvent || null, deviceSwitches: user.deviceSwitches, kitUnlocked: kitUnlocked(user) };
+        const attended = state.classes.filter(item => item.status === "ended" && item.attendance.some(entry => entry.userId === user.id)).length;
+        return { id: user.id, name: user.name, studentId: user.studentId, modules: user.modules.length, lessonsDone: done, lessonsTotal: lessons.length, quizDays: new Set(state.quizAttempts.filter(item => item.userId === user.id).map(item => item.date)).size, labs: state.labRuns.filter(run => run.userId === user.id).length, labsTotal: user.modules.length, assignmentsGraded: graded, assignmentsSubmitted: submitted, assignmentsTotal: assignments.length, classesAttended: attended, classesHeld: state.classes.filter(item => item.status === "ended" && user.modules.includes(item.moduleId)).length, livePoints: state.pointEvents.filter(event => event.userId === user.id && event.type === "live").reduce((sum, event) => sum + event.points, 0), points: totalPoints(user.id), weekPoints: totalPoints(user.id, now() - 7 * 24 * 60 * 60 * 1000), lastActive: lastEvent || null, deviceSwitches: user.deviceSwitches, kitUnlocked: kitUnlocked(user) };
       }).sort((a, b) => b.points - a.points);
       const tasks = state.tasks.map(task => ({ ...task, assignee: admins.find(item => item.id === task.assigneeId)?.name ?? null, mine: task.assigneeId === admin.id || (!task.assigneeId && (hasPermission(admin, task.role === "content" ? "grading" : task.role === "success" ? "verify" : "tasks") || task.role === admin.role)), overdue: task.status !== "done" && task.dueAt < now() }));
       return { me: publicUser(admin), admins, roles: ROLES, pipeline, progress, tasks, summary: { openTasks: tasks.filter(task => task.status !== "done").length, overdue: tasks.filter(task => task.overdue).length, awaitingVerification: pipeline.filter(row => row.status === "pending_verification").length, unpaid: pipeline.filter(row => row.status === "pending_payment").length, active: progress.length } };
@@ -795,6 +838,178 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       audit(admin.id, `task_${action}`, { taskId });
       persist();
       return task;
+    },
+
+    // ---------- live classes ----------
+    async classes({ token, deviceId }) {
+      await wait();
+      const { user } = requireSession(token, deviceId, ["student", "admin"]);
+      const visible = state.classes.filter(item => item.status !== "cancelled" && (user.type === "admin" || user.modules.includes(item.moduleId)));
+      return visible.map(item => classView(item, user)).sort((a, b) => a.startsAt - b.startsAt);
+    },
+    async classAccess({ token, deviceId, classId }) {
+      await wait();
+      const { user } = requireSession(token, deviceId, ["student", "admin"]);
+      const item = requireClass(classId);
+      const host = user.type === "admin" && (item.hostId === user.id || hasPermission(user, "classes"));
+      if (user.type === "student" && !user.modules.includes(item.moduleId)) throw new ApiError("NOT_ENROLLED", "This class belongs to a module that is not in your plan.");
+      if (!host && item.status !== "live" && !(item.status === "scheduled" && item.startsAt - now() <= CLASS_JOIN_WINDOW_MS)) throw new ApiError("NOT_OPEN", item.status === "ended" ? "This class has ended." : "The class room opens 15 minutes before the start time.");
+      return { room: { id: item.id, peerId: user.id, name: user.name, role: host ? "host" : "participant", avatar: user.avatar, iceServers }, class: classView(item, user), openQuiz: openQuizFor(item, user) };
+    },
+    async joinClass({ token, deviceId, classId }) {
+      await wait();
+      const access = await api.classAccess({ token, deviceId, classId });
+      const item = requireClass(classId);
+      const { user } = requireSession(token, deviceId, ["student", "admin"]);
+      if (user.type === "student") {
+        const open = item.attendance.find(entry => entry.userId === user.id && !entry.leftAt);
+        if (!open) item.attendance.push({ userId: user.id, name: user.name, joinedAt: now(), leftAt: null, seconds: 0 });
+      }
+      audit(user.id, "join_class", { classId });
+      persist();
+      return access;
+    },
+    async leaveClass({ token, deviceId, classId }) {
+      await wait();
+      const { user } = requireSession(token, deviceId, ["student", "admin"]);
+      const item = requireClass(classId);
+      closeAttendance(item, user.id);
+      persist();
+      return { ok: true };
+    },
+    async classQuizAnswer({ token, deviceId, classId, quizId, answerIndex }) {
+      await wait();
+      const { user } = requireSession(token, deviceId);
+      const item = requireClass(classId);
+      if (!user.modules.includes(item.moduleId)) throw new ApiError("NOT_ENROLLED", "This class is not in your plan.");
+      const quiz = item.quizzes.find(entry => entry.id === quizId);
+      if (!quiz) throw new ApiError("NOT_FOUND", "Quiz not found.");
+      if (quiz.closedAt || quiz.sentAt + quiz.seconds * 1000 < now()) throw new ApiError("QUIZ_CLOSED", "This question is closed.");
+      if (quiz.responses[user.id]) throw new ApiError("ALREADY_DONE", "You already answered this question.");
+      const index = Number(answerIndex);
+      if (!Number.isInteger(index) || index < 0 || index >= quiz.options.length) throw new ApiError("VALIDATION", "Choose one of the options.");
+      quiz.responses[user.id] = { answerIndex: index, at: now(), name: user.name };
+      persist();
+      return { ok: true, answered: Object.keys(quiz.responses).length };
+    },
+    async classQuizStatus({ token, deviceId, classId, quizId }) {
+      await wait();
+      const { user } = requireSession(token, deviceId, ["student", "admin"]);
+      const item = requireClass(classId);
+      const quiz = item.quizzes.find(entry => entry.id === quizId);
+      if (!quiz) throw new ApiError("NOT_FOUND", "Quiz not found.");
+      return quizView(quiz, user, item);
+    },
+    async adminClasses({ token, deviceId }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "classes");
+      return { classes: state.classes.map(item => classView(item, admin)).sort((a, b) => b.startsAt - a.startsAt), hosts: state.users.filter(user => user.type === "admin" && user.status === "active" && hasPermission(user, "classes")).map(user => ({ id: user.id, name: user.name, roleLabel: ROLES[user.role]?.label })), questionBank: Object.fromEntries(curriculum.modules.map(module => [module.id, (quizBank[module.id] ?? []).map(({ id, question }) => ({ id, question }))])) };
+    },
+    async adminClassDetail({ token, deviceId, classId }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "classes");
+      const item = requireClass(classId);
+      return { ...classView(item, admin), attendance: item.attendance.map(entry => ({ ...entry, seconds: entry.leftAt ? entry.seconds : Math.round((now() - entry.joinedAt) / 1000) })), quizzes: item.quizzes.map(quiz => ({ ...quizView(quiz, admin, item), responses: Object.entries(quiz.responses).map(([userId, response]) => ({ userId, name: response.name, answerIndex: response.answerIndex, correct: response.answerIndex === quiz.answerIndex, at: response.at })) })), recordings: item.recordings };
+    },
+    async adminUpsertClass({ token, deviceId, cls }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "classes");
+      const errors = {};
+      if (!modulesById.has(cls?.moduleId)) errors.moduleId = "Choose the skill module.";
+      if (!cls?.title || String(cls.title).trim().length < 4) errors.title = "Give the class a clear title.";
+      const startsAt = Number(cls?.startsAt);
+      if (!Number.isFinite(startsAt) || startsAt <= 0) errors.startsAt = "Pick a start date and time.";
+      const duration = Number(cls?.durationMinutes) || 60;
+      if (duration < 15 || duration > 240) errors.durationMinutes = "Between 15 and 240 minutes.";
+      const mode = cls?.mode === "external" ? "external" : "builtin";
+      if (mode === "external" && !/^https:\/\/[^\s]+$/i.test(cls?.externalUrl ?? "")) errors.externalUrl = "Paste the https:// meeting link.";
+      const host = cls?.hostId ? findUser(user => user.id === cls.hostId && user.type === "admin") : admin;
+      if (!host) errors.hostId = "Choose a host from the admin team.";
+      if (Object.keys(errors).length) throw new ApiError("VALIDATION", Object.values(errors)[0], { fields: errors });
+      const existing = state.classes.find(item => item.id === cls.id);
+      if (existing && ["ended", "cancelled"].includes(existing.status)) throw new ApiError("INVALID_STATE", "Ended or cancelled classes cannot be edited.");
+      const record = existing ?? { id: `cls-${randomToken(8).toLowerCase()}`, status: "scheduled", createdBy: admin.id, createdAt: now(), startedAt: null, endedAt: null, attendance: [], quizzes: [], recordings: [], recordingUrl: "", chatCount: 0 };
+      Object.assign(record, { moduleId: cls.moduleId, title: String(cls.title).trim().slice(0, 120), description: String(cls.description ?? "").slice(0, 600), startsAt, durationMinutes: duration, mode, externalUrl: mode === "external" ? cls.externalUrl : "", hostId: host.id, hostName: host.name, updatedAt: now() });
+      if (!existing) {
+        state.classes.unshift(record);
+        createTask({ title: `Host live class: ${record.title}`, type: "class", role: "content", refId: record.id, assigneeId: host.id, createdBy: admin.id, dueAt: startsAt, link: `#/admin/classes/${record.id}` });
+        for (const student of state.users) if (student.type === "student" && student.status === "active" && student.modules.includes(record.moduleId)) notify(student, "class", `Live class scheduled: ${record.title}`, `${modulesById.get(record.moduleId).title} · ${new Date(startsAt).toUTCString()} (${duration} min). Join from Live classes.`);
+      } else {
+        const task = state.tasks.find(entry => entry.type === "class" && entry.refId === record.id && entry.status !== "done");
+        if (task) { task.dueAt = startsAt; task.assigneeId = host.id; task.title = `Host live class: ${record.title}`; }
+      }
+      audit(admin.id, existing ? "update_class" : "create_class", { classId: record.id });
+      persist();
+      return classView(record, admin);
+    },
+    async adminSetClassStatus({ token, deviceId, classId, status }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "classes");
+      const item = requireClass(classId);
+      if (!["live", "ended", "cancelled"].includes(status)) throw new ApiError("VALIDATION", "Unknown class status.");
+      if (status === "live") { if (item.status !== "scheduled") throw new ApiError("INVALID_STATE", "Only scheduled classes can start."); item.status = "live"; item.startedAt = now(); for (const student of state.users) if (student.type === "student" && student.status === "active" && student.modules.includes(item.moduleId)) notify(student, "class", `Live now: ${item.title}`, "Your class has started. Join from Live classes."); }
+      if (status === "ended") { if (item.status !== "live") throw new ApiError("INVALID_STATE", "Only live classes can end."); item.status = "ended"; item.endedAt = now(); for (const entry of item.attendance) if (!entry.leftAt) closeAttendance(item, entry.userId); for (const quiz of item.quizzes) if (!quiz.closedAt) closeQuiz(item, quiz); completeTasks("class", item.id, admin.id); }
+      if (status === "cancelled") { if (item.status === "ended") throw new ApiError("INVALID_STATE", "Ended classes cannot be cancelled."); item.status = "cancelled"; completeTasks("class", item.id, admin.id); }
+      audit(admin.id, `class_${status}`, { classId });
+      persist();
+      return classView(item, admin);
+    },
+    async adminPushQuiz({ token, deviceId, classId, questionId = null, question = "", options = [], answerIndex = 0, seconds = 45 }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "classes");
+      const item = requireClass(classId);
+      if (item.status !== "live") throw new ApiError("INVALID_STATE", "Start the class before sending a live question.");
+      if (item.quizzes.some(quiz => !quiz.closedAt && quiz.sentAt + quiz.seconds * 1000 > now())) throw new ApiError("INVALID_STATE", "Close the current question before sending another.");
+      let record;
+      if (questionId) {
+        const bankQuestion = (quizBank[item.moduleId] ?? []).find(entry => entry.id === questionId);
+        if (!bankQuestion) throw new ApiError("NOT_FOUND", "Question not found in this module's bank.");
+        record = { question: bankQuestion.question, options: bankQuestion.options, answerIndex: bankQuestion.answerIndex, explanation: bankQuestion.explanation, source: questionId };
+      } else {
+        const cleanOptions = (Array.isArray(options) ? options : []).map(option => String(option).trim()).filter(Boolean).slice(0, 6);
+        if (String(question).trim().length < 5) throw new ApiError("VALIDATION", "Write the question.", { fields: { question: "At least 5 characters." } });
+        if (cleanOptions.length < 2) throw new ApiError("VALIDATION", "Give at least two options.", { fields: { options: "Two to six options, one per line." } });
+        const index = Number(answerIndex);
+        if (!Number.isInteger(index) || index < 0 || index >= cleanOptions.length) throw new ApiError("VALIDATION", "Mark which option is correct.", { fields: { answerIndex: "Choose the correct option." } });
+        record = { question: String(question).trim().slice(0, 300), options: cleanOptions, answerIndex: index, explanation: "", source: "custom" };
+      }
+      const quiz = { id: `lq-${randomToken(6).toLowerCase()}`, ...record, seconds: Math.max(10, Math.min(300, Number(seconds) || 45)), sentAt: now(), sentBy: admin.id, closedAt: null, responses: {}, results: null };
+      item.quizzes.push(quiz);
+      audit(admin.id, "push_quiz", { classId, quizId: quiz.id });
+      persist();
+      return quizView(quiz, admin, item);
+    },
+    async adminCloseQuiz({ token, deviceId, classId, quizId }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "classes");
+      const item = requireClass(classId);
+      const quiz = item.quizzes.find(entry => entry.id === quizId);
+      if (!quiz) throw new ApiError("NOT_FOUND", "Quiz not found.");
+      if (!quiz.closedAt) closeQuiz(item, quiz);
+      audit(admin.id, "close_quiz", { classId, quizId });
+      persist();
+      return quizView(quiz, admin, item);
+    },
+    async adminAddRecording({ token, deviceId, classId, url = "", name = "", size = 0, durationSeconds = 0, storage: where = "link" }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "classes");
+      const item = requireClass(classId);
+      if (url && !/^https:\/\/[^\s]+$/i.test(url)) throw new ApiError("VALIDATION", "Recording links must start with https://", { fields: { url: "Use an https:// link (Google Drive, GitHub release, etc.)." } });
+      if (!url && !name) throw new ApiError("VALIDATION", "Add a link or a file name.");
+      const recording = { id: crypto.randomUUID(), url, name: String(name).slice(0, 120), size: Number(size) || 0, durationSeconds: Math.round(Number(durationSeconds) || 0), storage: ["drive", "github", "local", "link"].includes(where) ? where : "link", at: now(), addedBy: admin.id };
+      item.recordings.push(recording);
+      if (url) item.recordingUrl = url;
+      audit(admin.id, "add_recording", { classId, storage: recording.storage });
+      persist();
+      return recording;
+    },
+    async adminNoteChat({ token, deviceId, classId, count }) {
+      await wait();
+      requireAdmin(token, deviceId, "classes");
+      const item = requireClass(classId);
+      item.chatCount = Math.max(item.chatCount, Number(count) || 0);
+      persist();
+      return { ok: true };
     },
 
     // ---------- operations (unlisted) ----------
@@ -902,7 +1117,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     },
     async previewReset() { state = await seed(curriculum, assignmentBriefs, now()); persist(); return { ok: true }; },
     previewCredentials() { return state.settings.previewCredentials; },
-    reloadFromStorage() { const fresh = storage.get(); if (fresh && fresh.version === state.version) state = fresh; },
+    reloadFromStorage() { reloadIfStale(); },
     _state: () => state,
   };
 
@@ -994,10 +1209,18 @@ async function seed(curriculum, assignmentBriefs, now) {
     { id: crypto.randomUUID(), title: "Upload week 1 recordings for Business Spreadsheets", type: "custom", role: "content", refId: null, assigneeId: "u-admin-2", createdBy: "u-admin-1", status: "in_progress", createdAt: now - day, dueAt: now + 3 * day, completedAt: null, completedBy: null, link: "#/admin/content", notes: "Recording exported; upload link pending." },
     { id: crypto.randomUUID(), title: "Confirm live-session calendar for batch 1", type: "custom", role: "success", refId: null, assigneeId: "u-admin-3", createdBy: "u-admin-1", status: "open", createdAt: now - day, dueAt: now + 5 * day, completedAt: null, completedBy: null, link: "", notes: "" },
   ];
+  const classes = [
+    { id: "cls-demo-live", moduleId: "spreadsheets", title: "Week 1 live workshop: cleaning a sales register", description: "Bring the practice file. We clean the register together, then run two live questions.", startsAt: now + 10 * 60 * 1000, durationMinutes: 60, mode: "builtin", externalUrl: "", hostId: "u-admin-2", hostName: "Ayush", status: "scheduled", createdBy: "u-admin-1", createdAt: now - day, updatedAt: now - day, startedAt: null, endedAt: null, attendance: [], quizzes: [], recordings: [], recordingUrl: "", chatCount: 0 },
+    { id: "cls-demo-past", moduleId: "business-ai", title: "Kick-off: briefing an AI assistant well", description: "Introductory session with a live poll and two checked examples.", startsAt: now - 3 * day, durationMinutes: 60, mode: "builtin", externalUrl: "", hostId: "u-admin-2", hostName: "Ayush", status: "ended", createdBy: "u-admin-1", createdAt: now - 5 * day, updatedAt: now - 3 * day, startedAt: now - 3 * day, endedAt: now - 3 * day + 55 * 60 * 1000, attendance: [{ userId: "u-student-1", name: "Ananya Iyer", joinedAt: now - 3 * day, leftAt: now - 3 * day + 54 * 60 * 1000, seconds: 3240 }, { userId: "u-student-2", name: "Rohit Menon", joinedAt: now - 3 * day + 2 * 60 * 1000, leftAt: now - 3 * day + 50 * 60 * 1000, seconds: 2880 }], quizzes: [{ id: "lq-demo1", question: "Which element makes an AI brief checkable?", options: ["A confident tone", "Acceptance criteria with sources", "Longer paragraphs", "A request to impress"], answerIndex: 1, explanation: "Acceptance criteria tell you how to verify the answer.", source: "custom", seconds: 45, sentAt: now - 3 * day + 20 * 60 * 1000, sentBy: "u-admin-2", closedAt: now - 3 * day + 21 * 60 * 1000, responses: { "u-student-1": { answerIndex: 1, at: now - 3 * day + 20 * 60 * 1000 + 15000, name: "Ananya Iyer" }, "u-student-2": { answerIndex: 0, at: now - 3 * day + 20 * 60 * 1000 + 22000, name: "Rohit Menon" } }, results: { counts: [1, 1, 0, 0], correct: 1, total: 2 } }], recordings: [{ id: "rec-demo", url: "https://example.com/preview-recording", name: "kickoff-recording.webm", size: 182000000, durationSeconds: 3300, storage: "link", at: now - 3 * day + 60 * 60 * 1000, addedBy: "u-admin-2" }], recordingUrl: "https://example.com/preview-recording", chatCount: 14 },
+  ];
+  addEvent("u-student-1", 10, "live", "cls-demo-past:lq-demo1", now - 3 * day + 21 * 60 * 1000);
+  addEvent("u-student-2", 2, "live", "cls-demo-past:lq-demo1", now - 3 * day + 21 * 60 * 1000);
+  tasks.push({ id: crypto.randomUUID(), title: "Host live class: Week 1 live workshop: cleaning a sales register", type: "class", role: "content", refId: "cls-demo-live", assigneeId: "u-admin-2", createdBy: "u-admin-1", status: "open", createdAt: now - day, dueAt: now + 10 * 60 * 1000, completedAt: null, completedBy: null, link: "#/admin/classes/cls-demo-live", notes: "" });
   return {
-    version: 5,
+    version: 6,
+    rev: 0,
     settings: { deviceSwitchThreshold: 5, previewCredentials },
-    tasks,
+    tasks, classes,
     users, payments: users.filter(user => user.type === "student").map(user => ({ id: `PAY-SEED${user.id.slice(-1)}`, userId: user.id, items: user.modules.map(id => ({ id, kind: "module", title: curriculum.modules.find(module => module.id === id).title, amount: curriculum.modules.find(module => module.id === id)[`price${user.currency}`] })), subtotal: user.modules.reduce((sum, id) => sum + curriculum.modules.find(module => module.id === id)[`price${user.currency}`], 0), currency: user.currency, method: "preview-card", status: "succeeded", at: user.paidAt, preview: true })),
     sessions: [], otps: [], outbox: [], deviceAlerts: [], badges: [], opsNotes: [{ id: crypto.randomUUID(), text: "Preview data only. Replace with the live backend before any real enrollment.", at: now }],
     content: { lessons, assignments, announcements: [{ id: "ann-1", title: "Welcome to the Rolevia preview", body: "Everything here uses fictional data. Try today's quiz, open a lab and check the leaderboard.", at: now - day }, { id: "ann-2", title: "Live workshop calendar", body: "Dates and time zones are confirmed by email before each two-week module starts.", at: now - 3 * day }] },
@@ -1005,3 +1228,11 @@ async function seed(curriculum, assignmentBriefs, now) {
   };
 }
 
+
+// Production seed: no fictional people. Admin accounts are created from the operations view.
+async function emptySeed(now, opsPassphrase) {
+  if (!opsPassphrase || String(opsPassphrase).length < 12) throw new Error("An operations passphrase of at least 12 characters is required to start with an empty database.");
+  const ops = blankUser({ id: "u-ops", type: "ops", name: "Founder Operations", email: "ops@rolevia.local", phone: "+910000000000", status: "active", salt: randomToken(16) });
+  ops.passHash = await sha256(`${ops.salt}:${opsPassphrase}`);
+  return { version: 6, rev: 0, settings: { deviceSwitchThreshold: 5, previewCredentials: null }, tasks: [], classes: [], users: [ops], payments: [], sessions: [], otps: [], outbox: [], deviceAlerts: [], badges: [], opsNotes: [], content: { lessons: {}, assignments: [], announcements: [] }, submissions: [], quizAttempts: [], labRuns: [], pointEvents: [], auditLog: [{ at: now, actor: "system", action: "init", meta: {} }], counters: { studentSeq: 0, adminSeq: 0 } };
+}

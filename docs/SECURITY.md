@@ -17,6 +17,13 @@
 - Passwords are hashed with salted SHA-256 in preview; production must use Argon2id or bcrypt on the server.
 - Content Security Policy is strict (`default-src 'none'`, same-origin scripts, no inline scripts). Inline styles are allowed only for dynamic layout values.
 
+## Live classes and recordings
+
+- Media is peer-to-peer and encrypted by WebRTC (DTLS-SRTP); the signalling relay sees connection messages only and authorises each socket with the learner's session.
+- Hosts must announce recording; the room shows a recording badge to every participant and the pre-join screen states that the host may record.
+- Recordings are created on the host's device. Uploading to Google Drive uses the host's own Google account (OAuth scope limited to files the app creates). Share recordings only with enrolled students; prefer restricted sharing over "anyone with the link".
+- Learners never receive the answer key of an open live question; scoring happens when the host closes it.
+
 ## Production checklist
 
 1. Server-side sessions in httpOnly, Secure, SameSite cookies bound to the device identity.

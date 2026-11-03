@@ -322,3 +322,98 @@ test("referral codes are validated and reset tokens revoke every session", async
   await rejects(api.me({ token: session.token, deviceId: "device-laptop" }), "SESSION_REVOKED");
   assert.ok((await api.login({ identifier: "RV-26-0001", password: "Fresh-2026-pass", ...device("laptop") })).challengeId);
 });
+
+test("live classes: scheduling, access window, attendance, live quiz scoring, recordings and role gating", async () => {
+  const { api, latestCode, tick } = await server();
+  const success = await adminToken(api, latestCode, "success");
+  await rejects(api.adminClasses({ token: success, deviceId: "device-admin-laptop" }), "FORBIDDEN");
+  const host = await adminToken(api, latestCode, "content");
+  const hostAuth = { token: host, deviceId: "device-admin-laptop" };
+  await rejects(api.adminUpsertClass({ ...hostAuth, cls: { moduleId: "crm", title: "x", startsAt: null } }), "VALIDATION");
+  await rejects(api.adminUpsertClass({ ...hostAuth, cls: { moduleId: "crm", title: "External session", startsAt: Date.UTC(2026, 10, 10, 9), mode: "external", externalUrl: "http://insecure" } }), "VALIDATION");
+  const startsAt = Date.UTC(2026, 10, 3, 12);
+  const scheduled = await api.adminUpsertClass({ ...hostAuth, cls: { moduleId: "crm", title: "CRM pipeline clinic", description: "Bring your pipeline.", startsAt, durationMinutes: 45, mode: "builtin" } });
+  assert.equal(scheduled.status, "scheduled");
+  assert.equal(scheduled.hostId, "u-admin-2");
+  const list = await api.adminClasses(hostAuth);
+  assert.ok(list.hosts.some(item => item.id === "u-admin-2") && !list.hosts.some(item => item.id === "u-admin-3"), "only roles with the classes permission can host");
+  assert.equal(list.questionBank.crm.length, 8);
+  const tracker = await api.adminTracker(hostAuth);
+  assert.ok(tracker.tasks.some(task => task.type === "class" && task.refId === scheduled.id && task.assigneeId === "u-admin-2"));
+
+  const rohit = await signIn(api, "RV-26-0002", "Learn#2026", device("rohit"), latestCode); // crm + spreadsheets + business-ai
+  const priya = await signIn(api, "RV-26-0003", "Learn#2026", device("priya"), latestCode); // hr-tracker + spreadsheets
+  const rohitAuth = { token: rohit.token, deviceId: "device-rohit" };
+  const priyaAuth = { token: priya.token, deviceId: "device-priya" };
+  assert.ok((await api.classes(rohitAuth)).some(item => item.id === scheduled.id));
+  assert.ok(!(await api.classes(priyaAuth)).some(item => item.id === scheduled.id), "classes are visible only to enrolled learners");
+  assert.ok((await api.notifications(rohitAuth)).some(item => item.kind === "class" && item.title.includes("CRM pipeline clinic")));
+  await rejects(api.classAccess({ ...rohitAuth, classId: scheduled.id }), "NOT_OPEN");
+  await rejects(api.classAccess({ ...priyaAuth, classId: scheduled.id }), "NOT_ENROLLED");
+  tick(2 * 60 * 60 * 1000 + 50 * 60 * 1000); // 10 minutes before start
+  const waiting = await api.classAccess({ ...rohitAuth, classId: scheduled.id });
+  assert.equal(waiting.room.role, "participant");
+  assert.equal((await api.classAccess({ ...hostAuth, classId: scheduled.id })).room.role, "host");
+  await rejects(api.adminPushQuiz({ ...hostAuth, classId: scheduled.id, questionId: "crm-q1" }), "INVALID_STATE");
+  await api.adminSetClassStatus({ ...hostAuth, classId: scheduled.id, status: "live" });
+  const joined = await api.joinClass({ ...rohitAuth, classId: scheduled.id });
+  assert.equal(joined.class.status, "live");
+  await api.joinClass({ ...rohitAuth, classId: scheduled.id });
+  assert.equal((await api.adminClassDetail({ ...hostAuth, classId: scheduled.id })).attendance.length, 1, "re-joining does not duplicate attendance");
+
+  await rejects(api.adminPushQuiz({ ...hostAuth, classId: scheduled.id, question: "Poll?", options: ["Only one"], answerIndex: 0 }), "VALIDATION");
+  const quiz = await api.adminPushQuiz({ ...hostAuth, classId: scheduled.id, questionId: "crm-q4", seconds: 60 });
+  assert.equal(quiz.answerIndex, 3, "the host sees the answer key");
+  const asStudent = await api.classQuizStatus({ ...rohitAuth, classId: scheduled.id, quizId: quiz.id });
+  assert.equal(asStudent.answerIndex, null, "learners never receive the answer key while open");
+  await rejects(api.adminPushQuiz({ ...hostAuth, classId: scheduled.id, questionId: "crm-q5" }), "INVALID_STATE");
+  await rejects(api.classQuizAnswer({ ...priyaAuth, classId: scheduled.id, quizId: quiz.id, answerIndex: 3 }), "NOT_ENROLLED");
+  await rejects(api.classQuizAnswer({ ...rohitAuth, classId: scheduled.id, quizId: quiz.id, answerIndex: 9 }), "VALIDATION");
+  const before = (await api.dashboard(rohitAuth)).points;
+  await api.classQuizAnswer({ ...rohitAuth, classId: scheduled.id, quizId: quiz.id, answerIndex: 3 });
+  await rejects(api.classQuizAnswer({ ...rohitAuth, classId: scheduled.id, quizId: quiz.id, answerIndex: 1 }), "ALREADY_DONE");
+  assert.equal((await api.classQuizStatus({ ...hostAuth, classId: scheduled.id, quizId: quiz.id })).counts[3], 1);
+  const closed = await api.adminCloseQuiz({ ...hostAuth, classId: scheduled.id, quizId: quiz.id });
+  assert.deepEqual(closed.results, { counts: [0, 0, 0, 1], correct: 1, total: 1 });
+  assert.equal((await api.dashboard(rohitAuth)).points, before + 10);
+  await api.adminCloseQuiz({ ...hostAuth, classId: scheduled.id, quizId: quiz.id });
+  assert.equal((await api.dashboard(rohitAuth)).points, before + 10, "closing twice never awards twice");
+  await rejects(api.classQuizAnswer({ ...rohitAuth, classId: scheduled.id, quizId: quiz.id, answerIndex: 3 }), "QUIZ_CLOSED");
+  const poll = await api.adminPushQuiz({ ...hostAuth, classId: scheduled.id, question: "Which stage needs the most attention?", options: ["Lead", "Qualified", "Proposal"], answerIndex: 2, seconds: 30 });
+  await api.classQuizAnswer({ ...rohitAuth, classId: scheduled.id, quizId: poll.id, answerIndex: 0 });
+  tick(31 * 1000);
+  await rejects(api.classQuizAnswer({ ...rohitAuth, classId: scheduled.id, quizId: poll.id, answerIndex: 2 }), "QUIZ_CLOSED");
+
+  await rejects(api.adminAddRecording({ ...hostAuth, classId: scheduled.id, url: "http://insecure/video" }), "VALIDATION");
+  await api.adminAddRecording({ ...hostAuth, classId: scheduled.id, url: "https://drive.google.com/file/d/abc/view", name: "clinic.webm", size: 120000, durationSeconds: 2700, storage: "drive" });
+  const leaderboard = await api.leaderboard({ ...rohitAuth, period: "all" });
+  assert.equal(leaderboard.me.live, 10, "live points appear as their own leaderboard column before the open poll closes");
+  const ended = await api.adminSetClassStatus({ ...hostAuth, classId: scheduled.id, status: "ended" });
+  assert.equal(ended.status, "ended");
+  assert.equal((await api.dashboard(rohitAuth)).points, before + 12, "ending the class closes the open poll and awards participation points");
+  const detail = await api.adminClassDetail({ ...hostAuth, classId: scheduled.id });
+  assert.ok(detail.attendance.every(entry => entry.leftAt), "ending the class closes attendance");
+  assert.equal(detail.recordings.length, 1);
+  assert.equal(detail.recordingUrl, "https://drive.google.com/file/d/abc/view");
+  assert.equal((await api.adminTracker(hostAuth)).tasks.find(task => task.type === "class" && task.refId === scheduled.id).status, "done");
+  const mine = (await api.classes(rohitAuth)).find(item => item.id === scheduled.id);
+  assert.equal(mine.attended, true);
+  assert.equal(mine.myQuizzes, 2);
+  assert.equal(mine.myCorrect, 1);
+  await rejects(api.classAccess({ ...rohitAuth, classId: scheduled.id }), "NOT_OPEN");
+  await rejects(api.adminUpsertClass({ ...hostAuth, cls: { ...scheduled, title: "Renamed after ending" } }), "INVALID_STATE");
+  const progress = (await api.adminTracker(hostAuth)).progress.find(row => row.id === "u-student-2");
+  assert.equal(progress.classesAttended, 2);
+  assert.equal(progress.livePoints, 14);
+});
+
+test("empty production seed has no fictional people and needs a strong operations passphrase", async () => {
+  await assert.rejects(createMockServer({ storage: memoryStorage(), curriculum, seedMode: "empty", opsPassphrase: "short" }));
+  const api = await createMockServer({ storage: memoryStorage(), curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, seedMode: "empty", opsPassphrase: "a-long-founder-passphrase" });
+  assert.equal(api._state().users.length, 1);
+  assert.equal(api.previewCredentials(), null);
+  assert.equal((await api.publicLeaderboard()).length, 0);
+  const ops = await api.opsLogin({ passphrase: "a-long-founder-passphrase", ...device("founder") });
+  const created = await api.opsCreateAdmin({ token: ops.token, deviceId: "device-founder", name: "First Admin", email: "first@rolevia.example", phone: "+910000000099", role: "lead" });
+  assert.equal(created.adminId, "RV-ADM-001");
+});
