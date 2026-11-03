@@ -72,7 +72,9 @@ export async function homePage() {
 
   const demoSection = h("section", { class: "container section" }, h("div", { class: "cta-panel reveal" }, h("div", {}, h("p", { class: "eyebrow" }, "Free demo"), h("h2", {}, demo.title, h("span", { class: "serif" }, " Then decide.")), h("p", { class: "deck" }, `A ${demo.minutes}-minute session: choose a business question, watch a tool workflow, try a short task and see the rubric, workload and fee.`)), h("a", { class: "button primary large", href: "#/demo" }, "See the demo plan", icon("arrow", 18))));
 
-  const page = publicShell(h("div", {}, hero, stats, marquee(COMPANY_NAMES), how, skills, kit, labs, board, quotes, demoSection), { active: "home" });
+  const companiesHost = marquee(COMPANY_NAMES);
+  ctx.api.companies?.().then(list => { if (Array.isArray(list) && list.length) companiesHost.replaceWith(marquee(list)); }).catch(() => {});
+  const page = publicShell(h("div", {}, hero, stats, companiesHost, how, skills, kit, labs, board, quotes, demoSection), { active: "home" });
   queueMicrotask(() => { observeReveals(page); page.querySelectorAll(".stat-value").forEach(element => { const text = element.textContent; const number = Number.parseFloat(text); if (!Number.isNaN(number) && /^\d/.test(text)) countUp(element, number, { suffix: text.replace(/^[\d.]+/, ""), decimals: 0 }); }); });
   return page;
 }

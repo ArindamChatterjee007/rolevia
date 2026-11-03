@@ -24,6 +24,7 @@ export function driveAuthUrl({ clientId, state }) {
 export function consumeDriveRedirect() {
   if (!/^#(.*&)?access_token=/.test(location.hash)) return null;
   const params = new URLSearchParams(location.hash.slice(1));
+  if ((params.get("state") ?? "").startsWith("sheets:")) return null; // belongs to the labs' Google Sheets flow
   const token = params.get("access_token");
   const expiresIn = Number(params.get("expires_in") ?? 3600);
   const [nonce = "", classId = ""] = (params.get("state") ?? "").split(":");

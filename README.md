@@ -71,6 +71,32 @@ class so the host can present it from the room; when a class ends with an unpubl
 slides" task is queued for the host. The eight workshop decks are seeded with the course material
 (published in the preview except the demo class deck, drafts in production).
 
+### Interactive labs: Rolevia's own tools, the learner's own accounts
+
+Labs are applications, not quizzes:
+
+- **Rolevia Sheets** (`site/app/labs/sheet-engine.js`): an in-browser spreadsheet engine with real formulas
+  (arithmetic, `SUM`, `SUMIFS`, `COUNTIFS`, `IF`, `VLOOKUP`/`XLOOKUP`/`INDEX`/`MATCH`, `SUMPRODUCT`,
+  `ROUNDUP`, `TRIM`/`UPPER`/`VALUE`/`TEXT`, errors `#DIV/0!`, `#NAME?`, `#REF!`, `#N/A`, `#VALUE!`, circular
+  references) behind a grid with a formula bar and keyboard navigation. Labs are data: a dataset, locked
+  source cells, numbered tasks with live checks (right value, right function, cell references rather than
+  typed numbers) and a reference solution that the unit tests prove passes. Used by Business Spreadsheets,
+  Hiring Tracker and Budgeting.
+- **Google Sheets route** (`site/app/labs/google-sheets.js`): when the founder adds a Google OAuth client ID
+  to `site/config.json` (free; the same one used for Drive recording uploads), a learner can "Continue with
+  Google"; Rolevia creates the lab workbook in the learner's own Drive through the Sheets API and "Check my
+  Google Sheet" reads the cells back and runs the same task checks. Rolevia stores nothing from Google; the
+  token lives in the learner's browser session.
+- **AI workbench** (`site/app/labs/ai-lab.js`): Rolevia is the front end, the assistant is the learner's own.
+  Three providers: *Paste from my assistant* (works today with any assistant, including free plans), *My own
+  API key* (any OpenAI-compatible endpoint; the key stays in the browser session and is sent only to that
+  endpoint; the learner pays their provider for tokens), and *Continue with ChatGPT* (OpenAI's "Sign in with
+  ChatGPT" lets Plus/Pro users spend their own plan inside partner apps, but for a hosted website it is a
+  limited trial granted to selected partners; the button explains this until OpenAI approves an application
+  and `openaiClientId` is configured). Points come from the brief's completeness and the line-by-line
+  verification, which is the skill the module teaches.
+- The dashboards, Canva, CRM and Trello labs remain the interactive simulations from the first release.
+
 ### Live classes
 
 Admins with the `classes` permission (programme lead, learning & content manager) schedule classes per
@@ -161,7 +187,7 @@ npm run test:e2e
 - Preview payments, OTP delivery, credentials and messages are simulated in the browser. Nothing is charged or sent by the site itself; the LinkedIn buttons open LinkedIn after a confirmation that explains preview badge links only resolve in your own browser.
 - Classroom media never passes through Rolevia servers (peer-to-peer WebRTC); the preview room only reaches tabs in the same browser. Recording happens on the host's device; Google Drive upload uses the host's own account and consent.
 - The preview keeps all data in the visitor's browser (single browser, synced across tabs on reload); demo accounts use placeholder emails and phone numbers, and the public data file contains no internal cost or margin figures.
-- Company names are research targets from public career portals, shown as text chips with a neutral monogram; no partnership, endorsement or placement is implied and no third-party logos are embedded (logos are trademarks and appear only with the owner's written permission).
+- Company names are research targets from public career portals, shown as text chips with a neutral monogram and, optionally, a link to the company's public careers page (nominative use). Logos are trademarks: the founder's operations view can attach a logo file **only together with a record of the owner's written permission** (who granted it, a reference, the date); the public API publishes a logo only while that record exists and the page says so. No third-party logo is bundled in this repository.
 - Course material is view-only inside Rolevia (API-only delivery, watermark, no download links, no print). It deters casual copying; it cannot stop screenshots or retyping.
 - Fees, dates, terms and the brand name are proposals until confirmed in writing. No job, salary or interview outcome is guaranteed.
 - Unlisted routes are not security. Production must put the admin and operations areas behind server-side authorisation.

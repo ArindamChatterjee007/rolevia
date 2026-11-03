@@ -1,5 +1,6 @@
 import { createHttpApi } from "./http-api.js";
 import { consumeDriveRedirect } from "./classroom/drive.js";
+import { consumeSheetsRedirect } from "./labs/google-sheets.js";
 import { createRouter } from "./router.js";
 import { ctx, loadDevice, loadAuth, setAuth, withSession } from "./context.js";
 import { h } from "./ui.js";
@@ -18,10 +19,11 @@ const outlet = document.getElementById("app");
 const splash = document.getElementById("splash");
 const guarded = (check, render) => async (params, query, path) => check() ?? render(params, query, path);
 
-const STORAGE_KEY = "rolevia.preview.v7";
+const STORAGE_KEY = "rolevia.preview.v8";
 
 async function boot() {
-  consumeDriveRedirect();
+  // Google OAuth returns tokens in the hash; each consumer only acts on its own `state` prefix.
+  if (!consumeSheetsRedirect()) consumeDriveRedirect();
   loadDevice();
   loadAuth();
   const params = new URLSearchParams(location.search);

@@ -56,9 +56,17 @@ export function orbit(modules) {
   return wrapper;
 }
 
+// items: strings (names) or { name, careersUrl, logo } records from the public companies API. A logo renders only
+// when the API supplied one (which it does only with a recorded permission); otherwise a neutral monogram chip.
 export function marquee(items, { label = "Research targets: the kinds of companies where these skills are used", reverse = false } = {}) {
-  const track = h("div", { class: `marquee-track ${reverse ? "reverse" : ""}` }, [...items, ...items].map((name, index) => h("span", { class: `wordmark tint-${COMPANY_TINTS[index % COMPANY_TINTS.length]}` }, h("span", { class: "monogram", "aria-hidden": "true" }, monogram(name)), name)));
-  return h("div", { class: "marquee-wrap" }, h("p", { class: "eyebrow center" }, label), h("div", { class: "marquee", "aria-hidden": "true" }, track), h("p", { class: "small muted center" }, "Illustrative company names only. Rolevia has no partnership with, endorsement from or placement arrangement with any of them; logos appear only with written permission."));
+  const records = items.map(item => (typeof item === "string" ? { name: item } : item));
+  const chip = (company, index) => {
+    const inner = [company.logo ? h("img", { class: "company-logo", src: company.logo, alt: `${company.name} logo`, draggable: false }) : h("span", { class: "monogram", "aria-hidden": "true" }, monogram(company.name)), company.name];
+    return company.careersUrl ? h("a", { class: `wordmark tint-${COMPANY_TINTS[index % COMPANY_TINTS.length]}`, href: company.careersUrl, target: "_blank", rel: "noopener noreferrer nofollow" }, ...inner) : h("span", { class: `wordmark tint-${COMPANY_TINTS[index % COMPANY_TINTS.length]}` }, ...inner);
+  };
+  const track = h("div", { class: `marquee-track ${reverse ? "reverse" : ""}` }, [...records, ...records].map(chip));
+  const withLogos = records.some(company => company.logo);
+  return h("div", { class: "marquee-wrap" }, h("p", { class: "eyebrow center" }, label), h("div", { class: "marquee", "aria-hidden": "true" }, track), h("p", { class: "small muted center" }, withLogos ? "Company names and, where shown, logos appear with the owner's written permission. Rolevia has no partnership with, endorsement from or placement arrangement with any of them." : "Illustrative company names only. Rolevia has no partnership with, endorsement from or placement arrangement with any of them; logos appear only with written permission."));
 }
 
 export function quotesTicker(quotes) {

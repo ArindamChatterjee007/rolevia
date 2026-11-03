@@ -16,7 +16,12 @@ export class ApiError extends Error {
 import { validateSlide } from "./content/modules/validate.mjs";
 
 const encoder = new TextEncoder();
-export const STATE_VERSION = 7;
+export const STATE_VERSION = 8;
+// Company names shown on the public site as research targets (nominative use). Logos are trademarks: one can be
+// attached only together with a record of the owner's written permission, which the public API then exposes.
+export const DEFAULT_COMPANIES = ["Accenture", "Genpact", "Amazon", "Freshworks", "HubSpot", "Unilever", "Deloitte", "Infosys", "Zoho", "Swiggy", "Razorpay", "Tata Consultancy Services", "Wipro", "HCLTech", "Capgemini", "Cognizant", "Flipkart", "Zomato", "PhonePe", "ICICI Bank", "HDFC Bank", "Mahindra", "EY", "KPMG", "Nykaa", "Meesho", "Urban Company", "Tech Mahindra"];
+export const MAX_LOGO_BYTES = 60 * 1024;
+export const seedCompanies = (now) => DEFAULT_COMPANIES.map((name, index) => ({ id: `co-${index + 1}`, name, careersUrl: "", logo: null, permission: null, visible: true, order: index + 1, updatedAt: now }));
 export const MAX_DECK_SLIDES = 40;
 const OTP_TTL_MS = 5 * 60 * 1000;
 const SESSION_IDLE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -416,6 +421,11 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
   const api = {
     // ---------- public ----------
     async catalogue() { await wait(); return curriculum; },
+    // Public: names always; a logo only when a permission record exists (the UI falls back to a monogram chip).
+    async companies() {
+      await wait();
+      return (state.companies ?? []).filter(company => company.visible).sort((a, b) => a.order - b.order).map(company => ({ id: company.id, name: company.name, careersUrl: company.careersUrl || null, logo: company.logo && company.permission ? company.logo.dataUrl : null, permissionNote: company.permission ? `Logo shown with permission (${company.permission.reference})` : null }));
+    },
     async quote({ moduleIds = [], serviceIds = [], currency = "INR" }) { await wait(); return quoteFor(moduleIds, serviceIds, currency); },
     async publicLeaderboard() {
       await wait();
@@ -1274,6 +1284,57 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       const cohorts = curriculum.modules.map(module => ({ id: module.id, title: module.title, enrolled: students.filter(user => user.status === "active" && user.modules.includes(module.id)).length, limit: curriculum.skillFormat.proposedCohortLimit }));
       return { funnel, byCurrency, cohorts, openAlerts: state.deviceAlerts.filter(alert => alert.status === "open").length, ungraded: state.submissions.filter(item => !item.gradedAt).length, notes: state.opsNotes, generatedAt: now() };
     },
+    async opsCompanies({ token, deviceId }) {
+      await wait();
+      requireSession(token, deviceId, ["ops"]);
+      return (state.companies ?? []).sort((a, b) => a.order - b.order).map(company => ({ ...company, logo: company.logo ? { name: company.logo.name, size: company.logo.size, type: company.logo.type, dataUrl: company.logo.dataUrl } : null }));
+    },
+    async opsUpsertCompany({ token, deviceId, company }) {
+      await wait();
+      const { user } = requireSession(token, deviceId, ["ops"]);
+      const errors = {};
+      const name = String(company?.name ?? "").trim();
+      if (name.length < 2 || name.length > 60) errors.name = "Company name: 2 to 60 characters.";
+      if (company?.careersUrl && !/^https:\/\/[^\s]+$/i.test(company.careersUrl)) errors.careersUrl = "Careers link must start with https://";
+      const existing = company?.id ? (state.companies ?? []).find(item => item.id === company.id) : null;
+      if (company?.id && !existing) throw new ApiError("NOT_FOUND", "Company not found.");
+      let logo = existing?.logo ?? null;
+      if (company?.logo === null) logo = null;
+      else if (company?.logo?.dataUrl) {
+        const file = normaliseFile(company.logo);
+        if (!file?.dataUrl || !/^data:image\/(png|jpeg|svg\+xml|webp);base64,/.test(file.dataUrl)) errors.logo = "Upload a PNG, JPG, SVG or WebP file.";
+        else if (file.size > MAX_LOGO_BYTES) errors.logo = "Logo files must be 60 KB or smaller.";
+        else logo = file;
+      }
+      let permission = existing?.permission ?? null;
+      if (company?.permission === null) permission = null;
+      else if (company?.permission) {
+        const grantedBy = String(company.permission.grantedBy ?? "").trim();
+        const reference = String(company.permission.reference ?? "").trim();
+        const date = String(company.permission.date ?? "").trim();
+        if (grantedBy.length < 3 || reference.length < 3 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) errors.permission = "Record who granted permission, a reference (email subject, letter or licence id) and the date.";
+        else permission = { grantedBy: grantedBy.slice(0, 120), reference: reference.slice(0, 160), date, recordedBy: user.id, recordedAt: now() };
+      }
+      // A logo without a permission record is kept privately but never published.
+      if (Object.keys(errors).length) throw new ApiError("VALIDATION", Object.values(errors)[0], { fields: errors });
+      state.companies ??= [];
+      const record = existing ?? { id: `co-${randomToken(6).toLowerCase()}`, order: state.companies.length + 1, visible: true };
+      Object.assign(record, { name, careersUrl: company?.careersUrl ? String(company.careersUrl).trim() : "", logo, permission, visible: company?.visible !== false, updatedAt: now() });
+      if (!existing) state.companies.push(record);
+      audit(user.id, existing ? "update_company" : "create_company", { companyId: record.id, logo: Boolean(logo), permission: Boolean(permission) });
+      persist();
+      return record;
+    },
+    async opsDeleteCompany({ token, deviceId, companyId }) {
+      await wait();
+      const { user } = requireSession(token, deviceId, ["ops"]);
+      const before = (state.companies ?? []).length;
+      state.companies = (state.companies ?? []).filter(item => item.id !== companyId);
+      if (state.companies.length === before) throw new ApiError("NOT_FOUND", "Company not found.");
+      audit(user.id, "delete_company", { companyId });
+      persist();
+      return { ok: true };
+    },
     async opsTeam({ token, deviceId }) {
       await wait();
       requireSession(token, deviceId, ["ops"]);
@@ -1389,6 +1450,10 @@ export function migrateState(state, { courseContent = {}, now = Date.now() } = {
     next.classes = (next.classes ?? []).map(item => ({ deckId: null, ...item }));
     next.version = 7;
   }
+  if (next.version < 8) {
+    next.companies = next.companies ?? seedCompanies(now);
+    next.version = 8;
+  }
   return next;
 }
 
@@ -1481,7 +1546,7 @@ async function seed(curriculum, assignmentBriefs, now, courseContent = {}) {
     version: STATE_VERSION,
     rev: 0,
     settings: { deviceSwitchThreshold: 5, previewCredentials },
-    tasks, classes, decks,
+    tasks, classes, decks, companies: seedCompanies(now),
     users, payments: users.filter(user => user.type === "student").map(user => ({ id: `PAY-SEED${user.id.slice(-1)}`, userId: user.id, items: user.modules.map(id => ({ id, kind: "module", title: curriculum.modules.find(module => module.id === id).title, amount: curriculum.modules.find(module => module.id === id)[`price${user.currency}`] })), subtotal: user.modules.reduce((sum, id) => sum + curriculum.modules.find(module => module.id === id)[`price${user.currency}`], 0), currency: user.currency, method: "preview-card", status: "succeeded", at: user.paidAt, preview: true })),
     sessions: [], otps: [], outbox: [], deviceAlerts: [], badges: [], opsNotes: [{ id: crypto.randomUUID(), text: "Preview data only. Replace with the live backend before any real enrollment.", at: now }],
     content: { lessons, assignments, announcements: [{ id: "ann-1", title: "Welcome to the Rolevia preview", body: "Everything here uses fictional data. Try today's quiz, open a lab and check the leaderboard.", at: now - day }, { id: "ann-2", title: "Live workshop calendar", body: "Dates and time zones are confirmed by email before each two-week module starts.", at: now - 3 * day }] },
@@ -1495,5 +1560,5 @@ async function emptySeed(now, opsPassphrase, curriculum, courseContent = {}) {
   if (!opsPassphrase || String(opsPassphrase).length < 12) throw new Error("An operations passphrase of at least 12 characters is required to start with an empty database.");
   const ops = blankUser({ id: "u-ops", type: "ops", name: "Founder Operations", email: "ops@rolevia.local", phone: "+910000000000", status: "active", salt: randomToken(16) });
   ops.passHash = await sha256(`${ops.salt}:${opsPassphrase}`);
-  return { version: STATE_VERSION, rev: 0, settings: { deviceSwitchThreshold: 5, previewCredentials: null }, tasks: [], classes: [], decks: seedDecks(curriculum, courseContent, now), users: [ops], payments: [], sessions: [], otps: [], outbox: [], deviceAlerts: [], badges: [], opsNotes: [], content: { lessons: {}, assignments: [], announcements: [] }, submissions: [], quizAttempts: [], labRuns: [], pointEvents: [], auditLog: [{ at: now, actor: "system", action: "init", meta: {} }], counters: { studentSeq: 0, adminSeq: 0 } };
+  return { version: STATE_VERSION, rev: 0, settings: { deviceSwitchThreshold: 5, previewCredentials: null }, tasks: [], classes: [], decks: seedDecks(curriculum, courseContent, now), companies: seedCompanies(now), users: [ops], payments: [], sessions: [], otps: [], outbox: [], deviceAlerts: [], badges: [], opsNotes: [], content: { lessons: {}, assignments: [], announcements: [] }, submissions: [], quizAttempts: [], labRuns: [], pointEvents: [], auditLog: [{ at: now, actor: "system", action: "init", meta: {} }], counters: { studentSeq: 0, adminSeq: 0 } };
 }

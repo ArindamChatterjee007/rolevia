@@ -479,3 +479,33 @@ a.lesson { text-decoration: none; color: inherit; } a.lesson:hover { border-colo
 .slide-eyebrow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .icon-flip { display: inline-flex; transform: rotate(180deg); }
 .week .eyebrow { display: block; margin-bottom: 0.25rem; } .week > strong { display: block; }
+
+/* ---------- Rolevia Sheets lab ---------- */
+.sheet-lab { display: grid; gap: 0.9rem; }
+.sheet-toolbar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; } .sheet-cell-name { min-width: 48px; padding: 0.5rem 0.6rem; border-radius: 8px; background: var(--surface-3); font-weight: 800; font-variant-numeric: tabular-nums; text-align: center; } .sheet-formula { flex: 1; min-width: 240px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92rem; } .sheet-help { white-space: nowrap; }
+.sheet-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 1rem; align-items: start; }
+.sheet-grid-wrap { overflow: auto; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: #0e1b19; max-height: 62vh; }
+.sheet-grid { display: grid; width: max-content; min-width: 100%; outline: none; font-size: 0.86rem; font-variant-numeric: tabular-nums; } .sheet-grid:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.sheet-row { display: flex; } .sheet-head { position: sticky; top: 0; z-index: 2; }
+.sheet-corner, .sheet-col, .sheet-rownum { flex: none; background: var(--surface-2); color: var(--muted); font-weight: 700; font-size: 0.72rem; text-align: center; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.sheet-corner { width: 40px; } .sheet-col { width: 104px; padding: 0.35rem 0; } .sheet-rownum { width: 40px; padding: 0.42rem 0; position: sticky; left: 0; z-index: 1; }
+.sheet-cell { flex: none; width: 104px; padding: 0.42rem 0.5rem; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); cursor: cell; background: var(--bg-2); }
+.sheet-cell.number { text-align: right; } .sheet-cell.bool { color: var(--sky); text-align: center; } .sheet-cell.locked { background: #12201e; color: var(--ink-2); } .sheet-cell.formula { color: var(--lime); } .sheet-cell.error { color: var(--red); font-weight: 700; } .sheet-cell.selected { outline: 2px solid var(--accent); outline-offset: -2px; background: rgba(223, 237, 157, 0.08); }
+.sheet-side { display: grid; gap: 0.8rem; padding: 1rem; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--line); } .sheet-side h4 { margin: 0; display: flex; align-items: center; gap: 0.4rem; }
+.sheet-tasks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; } .sheet-task { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.6rem 0.7rem; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); } .sheet-task.done { border-color: rgba(111, 211, 163, 0.5); } .sheet-task strong { font-size: 0.86rem; line-height: 1.25; display: block; } .sheet-task .detail { color: var(--coral); margin: 0.2rem 0 0; } .sheet-task p { margin: 0.2rem 0 0; }
+.sheet-task-index { flex: none; width: 22px; height: 22px; display: inline-grid; place-items: center; border-radius: 50%; background: var(--surface-3); font-size: 0.72rem; font-weight: 800; } .sheet-task.done .sheet-task-index { background: var(--green); color: #0b1413; }
+.sheet-score strong { font-size: 1.3rem; } .sheet-google-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+
+/* ---------- AI workbench lab ---------- */
+.ai-lab { display: grid; gap: 1rem; } .lab-step { padding: 1.1rem; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--line); display: grid; gap: 0.8rem; } .lab-step h4 { margin: 0; display: flex; align-items: center; gap: 0.6rem; } .step-num { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #132220; font-size: 0.8rem; font-weight: 800; }
+.ticks.compact { gap: 0.25rem; font-size: 0.85rem; } .ticks li.half .icon { color: var(--ochre); } .ticks li.miss .icon { color: var(--faint); }
+.ai-prompt { white-space: pre-wrap; font-size: 0.8rem; color: var(--ink-2); background: var(--surface-2); border-radius: 10px; padding: 0.8rem 1rem; margin: 0; max-height: 220px; overflow: auto; } .ai-prompt:empty { display: none; }
+.verify-lines { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.5rem; } .verify-lines li { padding: 0.5rem 0.6rem; border-radius: 10px; background: var(--surface-2); border-left: 3px solid var(--line-strong); } .verify-lines li.supported { border-left-color: var(--green); } .verify-lines li.unsupported { border-left-color: var(--red); } .verify-lines li.evidence { border-left-color: var(--ochre); } .verify-text { display: block; font-size: 0.9rem; color: var(--ink-2); margin-bottom: 0.4rem; } .verify-marks { display: flex; gap: 0.3rem; flex-wrap: wrap; } .mini.on { background: var(--accent); color: #132220; border-color: var(--accent); }
+.ai-total strong { font-size: 1.3rem; }
+
+/* ---------- companies ---------- */
+.company-logo { height: 26px; width: auto; max-width: 110px; object-fit: contain; border-radius: 4px; background: #fff; padding: 2px 4px; }
+.company-rows { display: grid; gap: 0.4rem; } .company-row { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2); } .company-row summary { cursor: pointer; display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 0.9rem; list-style: none; } .company-row summary::-webkit-details-marker { display: none; } .company-row .monogram { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 0.68rem; font-weight: 800; background: var(--surface-3); } .company-row .company-form { padding: 0 0.9rem 0.9rem; } .company-row.add summary { color: var(--accent); }
+.span-2 { grid-column: 1 / -1; } .form-grid.three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; } .permission-box { padding: 0.8rem; border-radius: 10px; border: 1px dashed var(--line-strong); } .check.inline { display: inline-flex; gap: 0.3rem; align-items: center; }
+
+@media (max-width: 1080px) { .sheet-layout { grid-template-columns: 1fr; } .form-grid.three { grid-template-columns: 1fr; } }

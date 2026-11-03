@@ -1,4 +1,4 @@
-import { h, icon, money, skeleton, toast, busy, formatTime, field, formData, modal, showFieldErrors, relative } from "../ui.js";
+import { h, icon, money, skeleton, toast, busy, formatTime, field, formData, modal, showFieldErrors, relative, readFileRecord } from "../ui.js";
 import { ctx, setAuth, withSession } from "../context.js";
 import { brand, errorBox } from "./components.js";
 
@@ -32,6 +32,7 @@ export async function opsPage() {
         h("div", { class: "grid-2" }, data.byCurrency.map(row => h("div", { class: "card" }, h("h3", {}, `${row.currency} collections (preview)`), [["Gross module and service collections", money(row.gross, row.currency)], ["Module sales counted", row.moduleSales], ["Service sales counted", row.serviceSales], ["Active learners billed in this currency", row.learners], ["Career kits unlocked", row.kitsUnlocked]].map(([label, value]) => h("div", { class: "order-line" }, h("span", {}, label), h("strong", {}, value))), h("p", { class: "tiny muted" }, "Fictional preview collections. Reserve rates, fulfilment costs and margins stay in the private business model and the production backend; they are not published in this public preview.")))),
         h("div", { class: "card" }, h("h3", {}, "Cohort fill against the proposed 12-learner cap"), h("div", { class: "cohort-grid" }, data.cohorts.map(cohort => h("div", { class: "cohort" }, h("div", { class: "cohort-head" }, h("strong", {}, cohort.title), h("span", { class: "small muted" }, `${cohort.enrolled}/${cohort.limit}`)), h("div", { class: "bar" }, h("div", { class: `bar-fill ${cohort.enrolled >= cohort.limit ? "over" : ""}`, style: { width: `${Math.min(100, (cohort.enrolled / cohort.limit) * 100)}%` } })))))),
         h("div", { class: "card" }, h("div", { class: "card-head" }, h("h3", {}, icon("user", 18), "Admin team and roles"), h("span", { class: "tiny muted" }, "No CEO/CTO titles: three working roles")), h("p", { class: "small muted" }, "Create admin accounts here, share the Admin ID and temporary password privately, and assign work from the admin tracker. Each person sets their own password at first sign-in."), teamHost),
+        companiesCard(),
         h("div", { class: "card" }, h("h3", {}, "Founder notes"), noteForm, notesList),
         h("p", { class: "tiny muted" }, "Preview data is fictional. Launch gates, pricing authority and spending limits remain as recorded in the private business model PDF."));
     } catch (error) {
@@ -40,4 +41,46 @@ export async function opsPage() {
     }
   })();
   return page;
+}
+
+
+// Hiring-company list shown on the public site. A logo is published only with a recorded written permission;
+// without it the site keeps showing the neutral monogram chip. Names are nominative use and need no permission.
+function companiesCard() {
+  const host = h("div", { class: "stack" }, skeleton(3));
+  const render = async () => {
+    const companies = await ctx.api.opsCompanies(withSession());
+    const form = (company = {}) => {
+      const logoInput = h("input", { type: "file", accept: "image/png,image/jpeg,image/svg+xml,image/webp", class: "input" });
+      let logoRecord;
+      logoInput.addEventListener("change", async () => { const file = logoInput.files[0]; logoRecord = file ? await readFileRecord(file, { maxStoredBytes: 60 * 1024 }) : undefined; if (file && !logoRecord.dataUrl) toast("Logo files must be 60 KB or smaller.", "error"); });
+      const element = h("form", { class: "form-grid two company-form", novalidate: true, onSubmit: async (event) => {
+        event.preventDefault();
+        const values = formData(element);
+        const button = element.querySelector("button[type=submit]");
+        busy(button, true, "Saving");
+        try {
+          const permission = values.grantedBy || values.reference || values.date ? { grantedBy: values.grantedBy, reference: values.reference, date: values.date } : (company.permission && values.keepPermission ? undefined : null);
+          await ctx.api.opsUpsertCompany(withSession({ company: { id: company.id, name: values.name, careersUrl: values.careersUrl, visible: values.visible === "on", logo: logoRecord?.dataUrl ? logoRecord : values.removeLogo === "on" ? null : undefined, permission } }));
+          toast(company.id ? "Company updated." : "Company added.", "success");
+          render();
+        } catch (error) { if (!showFieldErrors(element, error.extra?.fields ?? {})) toast(error.message, "error"); busy(button, false); }
+      } },
+        field({ label: "Company name", name: "name", value: company.name ?? "", required: true }),
+        field({ label: "Public careers page (https, optional)", name: "careersUrl", type: "url", value: company.careersUrl ?? "", placeholder: "https://…/careers" }),
+        h("label", { class: "field" }, h("span", { class: "field-label" }, "Logo file (PNG, JPG, SVG or WebP, up to 60 KB)"), logoInput, h("span", { class: "field-hint" }, company.logo ? `Current: ${company.logo.name}` : "No logo on file. Use the file the company's brand team supplied.")),
+        h("div", { class: "field" }, h("span", { class: "field-label" }, "Publication"), h("label", { class: "check" }, h("input", { type: "checkbox", name: "visible", checked: company.visible !== false }), h("span", { class: "small" }, "Show this company on the public site")), company.logo ? h("label", { class: "check" }, h("input", { type: "checkbox", name: "removeLogo" }), h("span", { class: "small" }, "Remove the logo")) : null),
+        h("div", { class: "field span-2 permission-box" }, h("span", { class: "field-label" }, "Written permission to show the logo (required before a logo is published)"), company.permission ? h("p", { class: "tiny" }, `On file: ${company.permission.grantedBy}, ${company.permission.reference}, ${company.permission.date}. `, h("label", { class: "check inline" }, h("input", { type: "checkbox", name: "keepPermission", checked: true }), h("span", { class: "small" }, "keep"))) : null,
+          h("div", { class: "form-grid three" }, field({ label: "Granted by (name, role, company)", name: "grantedBy", value: "" }), field({ label: "Reference (email subject, letter, licence id)", name: "reference", value: "" }), field({ label: "Date", name: "date", type: "date", value: "" })),
+          h("p", { class: "tiny muted" }, "Company logos are trademarks. Rolevia publishes a logo only when the owner has given written permission for this use; the record above is what the public page cites. Until then the site shows a neutral monogram chip with the company name.")),
+        h("div", { class: "form-actions span-2" }, company.id ? h("button", { class: "link-button danger", type: "button", onClick: () => modal({ title: `Remove ${company.name}?`, body: h("p", {}, "The company disappears from the public marquee."), actions: [{ label: "Remove", variant: "danger", onClick: async () => { await ctx.api.opsDeleteCompany(withSession({ companyId: company.id })); render(); } }] }) }, "Remove") : null, h("button", { class: "button primary small", type: "submit" }, company.id ? "Save" : "Add company")));
+      return element;
+    };
+    host.replaceChildren(
+      h("p", { class: "small muted" }, `${companies.length} companies listed · ${companies.filter(company => company.logo && company.permission).length} with a permitted logo · ${companies.filter(company => company.logo && !company.permission).length} with a logo on file but no permission record (not published).`),
+      h("div", { class: "company-rows" }, companies.map(company => h("details", { class: "company-row" }, h("summary", {}, company.logo && company.permission ? h("img", { class: "company-logo", src: company.logo.dataUrl, alt: "" }) : h("span", { class: "monogram" }, company.name.split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase()), h("strong", {}, company.name), h("span", { class: `tag ${company.logo && company.permission ? "good" : company.logo ? "pending" : ""}` }, company.logo && company.permission ? "logo published" : company.logo ? "logo held, no permission" : "name only"), company.visible === false ? h("span", { class: "tag bad" }, "hidden") : null), form(company)))),
+      h("details", { class: "company-row add" }, h("summary", {}, icon("spark", 14), h("strong", {}, "Add a company")), form()));
+  };
+  render().catch(error => host.replaceChildren(errorBox(error)));
+  return h("div", { class: "card" }, h("div", { class: "card-head" }, h("h3", {}, icon("star", 18), "Hiring companies on the public site"), h("span", { class: "tiny muted" }, "Names: nominative use · Logos: permission required")), host);
 }

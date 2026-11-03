@@ -609,3 +609,34 @@ test("course material and slide decks: lessons via the API only, drafts for admi
   assert.ok(migrated._state().decks.every(deck => deck.status === "draft"));
   tick(1);
 });
+
+test("hiring companies: names are public, a logo is published only with a recorded written permission, and the record migrates in", async () => {
+  const { api } = await server();
+  const names = await api.companies();
+  assert.ok(names.length >= 20);
+  assert.ok(names.every(company => company.logo === null), "no logo is published without permission");
+  const ops = await api.opsLogin({ passphrase: "ROLEVIA-OPS-PREVIEW", ...device("founder") });
+  const opsAuth = { token: ops.token, deviceId: "device-founder" };
+  const first = (await api.opsCompanies(opsAuth))[0];
+  const png = { name: "logo.png", size: 12, type: "image/png", dataUrl: `data:image/png;base64,${Buffer.from("fake-logo-png").toString("base64")}` };
+  const held = await api.opsUpsertCompany({ ...opsAuth, company: { id: first.id, name: first.name, logo: png } });
+  assert.ok(held.logo && !held.permission);
+  assert.equal((await api.companies()).find(company => company.id === first.id).logo, null, "a logo without a permission record stays private");
+  await rejects(api.opsUpsertCompany({ ...opsAuth, company: { id: first.id, name: first.name, permission: { grantedBy: "x", reference: "", date: "soon" } } }), "VALIDATION");
+  await rejects(api.opsUpsertCompany({ ...opsAuth, company: { id: first.id, name: first.name, logo: { name: "big.png", size: 70 * 1024, type: "image/png", dataUrl: `data:image/png;base64,${"A".repeat(90 * 1024)}` } } }), "VALIDATION");
+  await rejects(api.opsUpsertCompany({ ...opsAuth, company: { id: first.id, name: first.name, logo: { name: "doc.pdf", size: 10, type: "application/pdf", dataUrl: `data:application/pdf;base64,${Buffer.from("x").toString("base64")}` } } }), "VALIDATION");
+  const permitted = await api.opsUpsertCompany({ ...opsAuth, company: { id: first.id, name: first.name, careersUrl: "https://example.com/careers", permission: { grantedBy: "Brand team lead, Example Co", reference: "Email: Logo use approval for Rolevia", date: "2026-11-04" } } });
+  assert.ok(permitted.permission.recordedAt);
+  const published = (await api.companies()).find(company => company.id === first.id);
+  assert.equal(published.logo, png.dataUrl, "with permission on record the public API returns the logo");
+  assert.match(published.permissionNote, /shown with permission/);
+  assert.equal(published.careersUrl, "https://example.com/careers");
+  await api.opsUpsertCompany({ ...opsAuth, company: { id: first.id, name: first.name, permission: null } });
+  assert.equal((await api.companies()).find(company => company.id === first.id).logo, null, "withdrawing the permission record unpublishes the logo");
+  const student = await signIn(api, "RV-26-0001", "Learn#2026", device("ananya"), () => api._state().outbox.find(message => message.channel === "email" && message.body.includes("Code"))?.body.match(/Code (\d{6})/)?.[1]);
+  await rejects(api.opsCompanies({ token: student.token, deviceId: "device-ananya" }), "FORBIDDEN");
+  const old = { ...api._state(), version: 7 }; delete old.companies;
+  const migrated = await createMockServer({ storage: memoryStorage(old), curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, courseContent: COURSE_CONTENT, interviewBank: INTERVIEW_GENERAL });
+  assert.equal(migrated._state().version, 8);
+  assert.ok(migrated._state().companies.length >= 20);
+});

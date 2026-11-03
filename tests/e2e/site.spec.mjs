@@ -24,7 +24,7 @@ async function open(page, route = "/") {
   await page.waitForSelector("#splash", { state: "detached" });
 }
 const latestCode = (page) => page.evaluate(() => {
-  const state = JSON.parse(localStorage.getItem("rolevia.preview.v7"));
+  const state = JSON.parse(localStorage.getItem("rolevia.preview.v8"));
   return state.outbox.find(message => message.channel === "email" && /Code \d{6}/.test(message.body)).body.match(/Code (\d{6})/)[1];
 });
 async function enterOtpBoxes(page) {
@@ -288,15 +288,55 @@ test("a student completes an interactive lab, a daily quiz, sees the leaderboard
   await expect(page.locator(".dash-hero h2")).toContainText("Good to see you, Ananya");
   await shot(page, "06-portal-dashboard");
 
-  await open(page, "/portal/labs/business-ai");
-  for (const label of ["Task: compare three CRM plans", "Audience: a non-technical founder", "Constraints: use only official pricing pages", "Acceptance: a table with source links"]) await page.locator(".choice-line", { hasText: label }).click();
-  await page.getByRole("button", { name: "Send brief and read the answer" }).click();
-  await page.locator(".ai-line", { hasText: "Plan B is 20% cheaper" }).click();
-  await page.locator(".ai-line", { hasText: "2019 blog post" }).click();
-  await page.getByRole("button", { name: "Check my review" }).click();
-  await expect(page.locator(".lab-score strong")).toHaveText("100");
+  // Rolevia Sheets lab: type real formulas through the formula bar; checks run live and the best score is saved.
+  await open(page, "/portal/labs/spreadsheets");
+  await expect(page.locator(".sheet-grid")).toBeVisible();
+  await expect(page.locator(".sheet-task")).toHaveCount(6);
+  await expect(page.locator(".sheet-score strong")).toHaveText("0 / 6");
+  const enter = async (ref, formula) => { await page.locator(`.sheet-cell[data-ref="${ref}"]`).click(); await page.fill(".sheet-formula", formula); await page.keyboard.press("Enter"); };
+  await enter("F2", "=TRIM(UPPER(C2))");
+  await expect(page.locator('.sheet-cell[data-ref="F2"]')).toHaveText("NORTH");
+  await expect(page.locator('.sheet-cell[data-ref="F2"]')).toHaveClass(/formula/);
+  await enter("K1", "=SUM(E2:E9)");
+  await expect(page.locator(".sheet-task").nth(2)).toContainText("expected 11100");
+  await enter("K1", "=1/0");
+  await expect(page.locator('.sheet-cell[data-ref="K1"]')).toHaveText("#DIV/0!");
+  for (let row = 3; row <= 9; row += 1) await enter(`F${row}`, `=TRIM(UPPER(C${row}))`);
+  for (let row = 2; row <= 9; row += 1) await enter(`G${row}`, `=VALUE(E${row})`);
+  for (let row = 2; row <= 9; row += 1) await enter(`H${row}`, `=IF(G${row}>=1500,"Review","Routine")`);
+  await enter("K1", "=SUM(G2:G9)");
+  await enter("K2", '=SUMIFS(G2:G9,F2:F9,"North")');
+  await enter("K3", '=COUNTIFS(G2:G9,">=1500")');
+  await expect(page.locator('.sheet-cell[data-ref="K1"]')).toHaveText("11100");
+  await expect(page.locator('.sheet-cell[data-ref="K2"]')).toHaveText("6600");
+  await expect(page.locator(".sheet-score strong")).toHaveText("6 / 6");
   await expect(page.locator(".lab-status")).toContainText("best 100/100 · +50 points");
-  await shot(page, "07-lab-business-ai");
+  await expect(page.locator(".sheet-google")).toContainText("Prefer real Google Sheets");
+  await shot(page, "07-lab-spreadsheets");
+
+  // AI workbench: brief completeness and verification are scored; the assistant itself is the learner's own.
+  await open(page, "/portal/labs/business-ai");
+  await page.getByRole("button", { name: "Insert the fictional sample data" }).click();
+  await page.fill('[data-field="role"]', "You are an operations analyst for a small stationery retailer.");
+  await page.fill('[data-field="goal"]', "Summarise sales by region so the owner can decide where to add stock.");
+  await page.fill('[data-field="constraints"]', "Use only the data given; say unknown when a figure is missing; do not convert currency.");
+  await page.fill('[data-field="format"]', "A table with Region, Orders and Sales (INR), then a paragraph of three sentences.");
+  await page.fill('[data-field="acceptance"]', "Totals must match my SUM; every claim must cite a row; no figure may be invented.");
+  await expect(page.locator(".ai-total")).toContainText("brief 40/40");
+  await page.locator(".chip", { hasText: "My own API key" }).click();
+  await expect(page.locator(".ai-lab")).toContainText("stored in this tab's session only");
+  await page.locator(".chip", { hasText: "Continue with ChatGPT" }).click();
+  await expect(page.locator(".ai-lab")).toContainText("limited trial");
+  await page.locator(".chip", { hasText: "Paste from my assistant" }).click();
+  await page.fill('textarea[aria-label="Assistant reply"]', "North: 4 orders, INR 6,600.\nSouth: 4 orders, INR 4,900.\nRecommendation: add stock in the North first.");
+  await expect(page.locator(".verify-lines li")).toHaveCount(3);
+  await page.locator(".verify-lines li").nth(0).getByRole("button", { name: "Supported" }).click();
+  await page.locator(".verify-lines li").nth(1).getByRole("button", { name: "Unsupported" }).click();
+  await page.locator(".verify-lines li").nth(2).getByRole("button", { name: "Needs evidence" }).click();
+  await page.fill('textarea[placeholder^="How you checked"]', "Recalculated both regional totals with SUM against the eight rows; South is 4,500 not 4,900, so line 2 is unsupported.");
+  await expect(page.locator(".ai-total strong")).toHaveText("100 / 100");
+  await expect(page.locator(".lab-status")).toContainText("best 100/100");
+  await shot(page, "07a-lab-ai-workbench");
 
   await open(page, "/portal/quiz?module=canva");
   await expect(page.locator(".question")).toHaveCount(5);
@@ -398,7 +438,22 @@ test("content manager uploads a lesson with a file, grades a submission, announc
   await createAdmin.getByRole("button", { name: "Create admin" }).click();
   await expect(page.locator(".modal")).toContainText("Admin ID RV-ADM-004");
   await page.getByRole("button", { name: "Done" }).click();
+  // Hiring companies: a logo needs a permission record before it is published; names show as monogram chips.
+  const companies = page.locator(".card", { has: page.locator("h3", { hasText: "Hiring companies" }) });
+  await expect(companies).toContainText("0 with a permitted logo");
+  const firstCompany = companies.locator(".company-row").first();
+  await firstCompany.locator("summary").click();
+  await firstCompany.locator("input[name=careersUrl]").fill("https://example.com/careers");
+  await firstCompany.locator("input[name=grantedBy]").fill("Brand team lead, Example Co");
+  await firstCompany.locator("input[name=reference]").fill("Email: logo approval for Rolevia, 4 Nov 2026");
+  await firstCompany.locator("input[name=date]").fill("2026-11-04");
+  await firstCompany.getByRole("button", { name: "Save" }).click();
+  await expect(page.locator(".toast", { hasText: "Company updated" })).toBeVisible();
+  await expect(companies).toContainText("0 with a permitted logo", { timeout: 10_000 }); // permission recorded, but no logo file yet: nothing published
   await shot(page, "13-ops-snapshot");
+  await open(page, "/");
+  await expect(page.locator(".marquee .wordmark").first()).toBeVisible();
+  expect(await page.locator(".marquee img.company-logo").count()).toBe(0);
 });
 
 test("protected areas redirect anonymous visitors to the right sign-in", async ({ page }) => {
@@ -488,7 +543,7 @@ test("live class: host starts, learner joins with video, screen share, live quiz
   await hostPage.locator('select[aria-label="Question from the module bank"]').selectOption({ index: 1 });
   await hostPage.getByRole("button", { name: "Send to class" }).click();
   await expect(studentPage.locator(".quiz-card h3")).toBeVisible({ timeout: 15_000 });
-  const answerIndex = await studentPage.evaluate(() => { const state = JSON.parse(localStorage.getItem("rolevia.preview.v7")); return state.classes.find(item => item.id === "cls-demo-live").quizzes.at(-1).answerIndex; });
+  const answerIndex = await studentPage.evaluate(() => { const state = JSON.parse(localStorage.getItem("rolevia.preview.v8")); return state.classes.find(item => item.id === "cls-demo-live").quizzes.at(-1).answerIndex; });
   await studentPage.locator(".quiz-option").nth(answerIndex).click();
   await expect(studentPage.locator(".quiz-card")).toContainText("Answer recorded");
   await expect(hostPage.locator(".result-bars")).toContainText("1 of 1 answered", { timeout: 15_000 });

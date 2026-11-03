@@ -35,6 +35,13 @@
 - View-only means: watermark with the learner's name and ID, no download links, no print styles, non-draggable images, context menu disabled on slides. It does not and cannot prevent screenshots or retyping; the watermark makes leaks attributable.
 - Admin-uploaded images on slides are validated as `image/*` data URLs up to 400 KB; hosts only.
 
+## Labs and third-party accounts
+
+- Rolevia Sheets runs entirely in the browser; lab answers are checked locally and only the score reaches the API.
+- Google Sheets route: OAuth implicit flow with a one-time nonce in `state`, scopes `spreadsheets` and `drive.file` (files the app creates), token kept in the learner's session storage, never sent to Rolevia. Requires the founder's Google OAuth client ID; absent, the route is hidden.
+- AI workbench: a learner's API key is stored in session storage and sent only to the endpoint the learner typed; Rolevia never proxies or logs prompts or replies. The brief builder blocks obvious confidential data (passwords, ID numbers, salaries, phone numbers) and the module teaches never to paste confidential data. "Continue with ChatGPT" is not enabled until OpenAI approves Rolevia as a partner and a client ID is configured.
+- Company logos: trademarks. A logo is accepted only as an image file up to 60 KB, is held privately until a written-permission record (grantor, reference, date, recorded by, recorded at) exists, and is unpublished the moment that record is removed. Names are shown as nominative use with a no-endorsement notice.
+
 ## Production checklist
 
 1. Server-side sessions in httpOnly, Secure, SameSite cookies bound to the device identity.
