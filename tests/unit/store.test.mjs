@@ -525,7 +525,8 @@ test("course material and slide decks: lessons via the API only, drafts for admi
   assert.ok(material.course.weeks[0].lessons[0].sections.length >= 2, "lessons carry their sections");
   assert.ok(material.course.interview.questions.length >= 8);
   assert.equal(material.decks.length, 0, "a draft deck is not listed for learners");
-  assert.equal(material.progress.done, 0);
+  const doneBefore = material.progress.done; // seeded instructor materials already count towards progress
+  assert.equal(material.progress.total, 4 + material.materials.length, "structured lessons and instructor materials both count");
   await rejects(api.lessons({ ...priyaAuth, moduleId: "canva" }), "NOT_ENROLLED");
 
   const firstLesson = material.course.weeks[0].lessons[0];
@@ -534,7 +535,7 @@ test("course material and slide decks: lessons via the API only, drafts for admi
   assert.equal((await api.dashboard(ananyaAuth)).points, before + 5, "structured lessons award five points once");
   await api.completeLesson({ ...ananyaAuth, lessonId: firstLesson.id });
   assert.equal((await api.dashboard(ananyaAuth)).points, before + 5);
-  assert.equal((await api.lessons({ ...ananyaAuth, moduleId: "spreadsheets" })).progress.done, 1);
+  assert.equal((await api.lessons({ ...ananyaAuth, moduleId: "spreadsheets" })).progress.done, doneBefore + 1);
   await rejects(api.completeLesson({ ...priyaAuth, lessonId: "canva-w1-l1" }), "NOT_ENROLLED");
 
   await rejects(api.deck({ ...ananyaAuth, deckId: "deck-spreadsheets-workshop" }), "NOT_PUBLISHED");
