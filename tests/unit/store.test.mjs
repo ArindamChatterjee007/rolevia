@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { createMockServer, memoryStorage, ApiError } from "../../site/app/store.js";
+import { createMockServer, memoryStorage, ApiError, STATE_VERSION } from "../../site/app/store.js";
 import { QUIZ_BANK } from "../../site/app/content/quiz-bank.js";
 import { ASSIGNMENT_BRIEFS } from "../../site/app/content/assignments.js";
 import { COURSE_CONTENT, INTERVIEW_GENERAL } from "../../site/app/content/modules/index.js";
@@ -603,7 +603,7 @@ test("course material and slide decks: lessons via the API only, drafts for admi
   const old = { ...api._state(), version: 6 };
   delete old.decks;
   const migrated = await createMockServer({ storage: memoryStorage(old), curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, courseContent: COURSE_CONTENT, interviewBank: INTERVIEW_GENERAL });
-  assert.equal(migrated._state().version, 7);
+  assert.equal(migrated._state().version, STATE_VERSION);
   assert.equal(migrated._state().users.length, old.users.length, "no re-seed on upgrade");
   assert.equal(migrated._state().decks.length, 8);
   assert.ok(migrated._state().decks.every(deck => deck.status === "draft"));
