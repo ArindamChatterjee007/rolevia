@@ -72,10 +72,12 @@ test("public site renders the animated hero, company marquee, eight skills and s
     let collisions = 0;
     for (let i = 0; i < chips.length; i += 1) for (let j = i + 1; j < chips.length; j += 1) if (overlaps(chips[i], chips[j])) collisions += 1;
     const clipped = chips.filter((chip, index) => document.querySelectorAll(".orbit-chip-inner")[index].scrollWidth > chip.width + 1).length;
-    return { width: Math.round(box.width), outside, onCore, collisions, clipped };
+    // A label may wrap between words but never inside a word: line boxes must not exceed the word count.
+    const brokenWords = [...document.querySelectorAll(".orbit-chip-inner strong")].filter(label => label.getClientRects().length > label.textContent.trim().split(/\s+/).length).map(label => label.textContent);
+    return { width: Math.round(box.width), outside, onCore, collisions, clipped, brokenWords };
   });
   const desktopOrbit = await orbitReport();
-  expect(desktopOrbit, JSON.stringify(desktopOrbit)).toMatchObject({ outside: 0, onCore: 0, collisions: 0, clipped: 0 });
+  expect(desktopOrbit, JSON.stringify(desktopOrbit)).toMatchObject({ outside: 0, onCore: 0, collisions: 0, clipped: 0, brokenWords: [] });
   expect(desktopOrbit.width).toBeGreaterThanOrEqual(480);
   await shot(page, "01a-hero-desktop", false);
   expect(await page.locator(".marquee .wordmark").count()).toBeGreaterThanOrEqual(12);
@@ -90,7 +92,7 @@ test("public site renders the animated hero, company marquee, eight skills and s
   const widths = await page.evaluate(() => ({ viewport: window.innerWidth, content: document.documentElement.scrollWidth }));
   expect(widths.content).toBe(widths.viewport);
   const mobileOrbit = await orbitReport();
-  expect(mobileOrbit, JSON.stringify(mobileOrbit)).toMatchObject({ outside: 0, onCore: 0, collisions: 0, clipped: 0 });
+  expect(mobileOrbit, JSON.stringify(mobileOrbit)).toMatchObject({ outside: 0, onCore: 0, collisions: 0, clipped: 0, brokenWords: [] });
   expect(mobileOrbit.width).toBeGreaterThanOrEqual(300);
   await shot(page, "02-home-mobile", false);
   await page.locator(".orbit").scrollIntoViewIfNeeded();
