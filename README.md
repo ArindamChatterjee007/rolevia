@@ -97,14 +97,17 @@ Labs tools are applications, not quizzes:
   Google"; Rolevia creates the lab workbook in the learner's own Drive through the Sheets API and "Check my
   Google Sheet" reads the cells back and runs the same task checks. Rolevia stores nothing from Google; the
   token lives in the learner's browser session.
-- **AI workbench** (`site/app/labs/ai-lab.js`): Rolevia is the front end, the assistant is the learner's own.
-  Three providers: *Paste from my assistant* (works today with any assistant, including free plans), *My own
-  API key* (any OpenAI-compatible endpoint; the key stays in the browser session and is sent only to that
-  endpoint; the learner pays their provider for tokens), and *Continue with ChatGPT* (OpenAI's "Sign in with
-  ChatGPT" lets Plus/Pro users spend their own plan inside partner apps, but for a hosted website it is a
-  limited trial granted to selected partners; the button explains this until OpenAI approves an application
-  and `openaiClientId` is configured). Points come from the brief's completeness and the line-by-line
-  verification, which is the skill the module teaches.
+- **The learner's own AI assistant** (`site/app/ai/providers.js`, set up once under Profile & security →
+  "Your AI assistant"): Google Gemini (free tier via a Google AI Studio key), an OpenAI API key (pay-as-you-go,
+  separate from ChatGPT Plus), any OpenAI-compatible endpoint, or "Continue with ChatGPT" once OpenAI approves
+  Rolevia as a partner. Settings stay in the learner's browser; requests go straight to the provider and are
+  billed to the learner; Rolevia never sees keys, prompts or replies. Everything assistant-powered then just
+  works: the **practice coach** on each module page (one question at a time, built from that module's lessons,
+  checkpoints, glossary and interview guides; feedback and a 1-5 score; asks the next), the **mock interview**
+  on the interview-prep page, and the **AI workbench** lab (brief → run → verify; paste remains the fallback).
+  Admins can connect their own assistant under My account and use "Draft with my assistant" in the grading
+  queue to pre-fill a lab review from the evaluation pack; the admin edits and saves, and learners see only
+  "reviewed by Rolevia".
 - The dashboards, Canva, CRM and Trello labs remain the interactive simulations from the first release.
 
 ### Batches and dates

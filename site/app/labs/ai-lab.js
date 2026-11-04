@@ -1,12 +1,11 @@
 // AI workbench lab (Business AI module). Rolevia is the front end; the model is the learner's own.
-// Providers: "Continue with ChatGPT" (only when OpenAI has approved Rolevia as a partner and a client id is
-// configured), bring-your-own API key for any OpenAI-compatible endpoint (key stays in this browser's session
-// storage and goes only to that endpoint), or paste the reply from the assistant the learner already uses.
+// The brief runs on the assistant the learner connected in their profile (site/app/ai/providers.js), or the
+// learner pastes a reply from any assistant.
 // The scored skills are the ones the module teaches: a complete brief and line-by-line verification.
 import { h, icon, toast, busy } from "../ui.js";
 import { ctx } from "../context.js";
+import { getAiConfig, aiReady, chat } from "../ai/providers.js";
 
-const KEY_STORAGE = "rolevia.ai.byok.v1";
 const BRIEF_FIELDS = [
   ["role", "Role for the assistant", "You are an operations analyst helping a small retail business…", /\b(you are|act as|as a|role)\b/i],
   ["goal", "Goal (one sentence, with the decision it supports)", "Summarise last month's sales by region so the owner can decide where to add stock.", /\b(so that|so the|decide|decision|because|in order to)\b/i],
@@ -46,7 +45,7 @@ const splitLines = (text) => String(text ?? "").split(/\n+/).map(line => line.tr
 export function aiLab(onComplete) {
   const root = h("div", { class: "ai-lab" });
   const values = {};
-  const state = { reply: "", marks: {}, note: "", ran: false, provider: "paste" };
+  const state = { reply: "", marks: {}, note: "", ran: false, provider: aiReady(getAiConfig(), ctx.config) ? "assistant" : "paste" };
   let best = 0;
   const briefScore = h("div", { class: "ai-score" });
   const replyBox = h("textarea", { class: "input", rows: 10, placeholder: "The assistant's reply appears here (or paste it).", "aria-label": "Assistant reply", onInput: (event) => { state.reply = event.target.value; renderVerify(); } });
@@ -74,35 +73,21 @@ export function aiLab(onComplete) {
   const promptPreview = h("pre", { class: "ai-prompt", "aria-label": "Composed prompt" });
   const copyPrompt = h("button", { class: "button ghost small", type: "button", onClick: async () => { const text = composePrompt(values); promptPreview.textContent = text; try { await navigator.clipboard.writeText(text); toast("Brief copied. Paste it into your assistant, then paste the reply below.", "success"); } catch { toast("Select the brief and copy it manually.", "info"); } } }, icon("clipboard", 14), "Copy the brief");
 
-  // Step 2: run
+  // Step 2: run with the learner's connected assistant (set up once in the profile); paste is the fallback.
   const providerBox = h("div", { class: "stack" });
   const renderProvider = () => {
-    const saved = JSON.parse(sessionStorage.getItem(KEY_STORAGE) ?? "null") ?? { baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini", key: "" };
-    const chatgptConfigured = Boolean(ctx.config.openaiClientId);
-    const tabs = h("div", { class: "chip-row" }, [["paste", "Paste from my assistant"], ["byok", "My own API key"], ["chatgpt", "Continue with ChatGPT"]].map(([key, label]) => h("button", { type: "button", class: `chip ${state.provider === key ? "on" : ""}`, onClick: () => { state.provider = key; renderProvider(); } }, label)));
+    const ready = aiReady(getAiConfig(), ctx.config);
+    const tabs = h("div", { class: "chip-row" }, [["assistant", ready ? "Run with my assistant" : "My assistant (not connected)"], ["paste", "Paste a reply"]].map(([key, label]) => h("button", { type: "button", class: `chip ${state.provider === key ? "on" : ""}`, onClick: () => { state.provider = key; renderProvider(); } }, label)));
     let body;
-    if (state.provider === "paste") body = h("p", { class: "small muted" }, "Copy the brief, run it in the assistant you already use (ChatGPT, Gemini, Copilot or another), then paste the full reply below. Free plans work; nothing is sent anywhere by Rolevia.");
-    else if (state.provider === "chatgpt") body = chatgptConfigured
-      ? h("p", { class: "small muted" }, "Continue with ChatGPT is configured. Sign-in uses OpenAI's OAuth flow with your ChatGPT plan; Rolevia never sees your conversations.")
-      : h("div", { class: "alert info" }, icon("info", 16), h("span", {}, "\"Continue with ChatGPT\" lets eligible Plus and Pro users run requests on their own plan inside partner apps. For a website it is currently a limited trial that OpenAI grants to selected partners, so Rolevia can offer it only after OpenAI approves an application. Until then, use your own API key or paste the reply."));
-    else {
-      const key = h("input", { class: "input", type: "password", placeholder: "sk-… (kept in this browser tab only)", value: saved.key, autocomplete: "off", "aria-label": "API key" });
-      const baseUrl = h("input", { class: "input", value: saved.baseUrl, "aria-label": "API base URL" });
-      const model = h("input", { class: "input", value: saved.model, "aria-label": "Model" });
-      const run = h("button", { class: "button primary small", type: "button", onClick: async (event) => {
-        if (!key.value.trim()) { toast("Paste your API key first.", "info"); return; }
-        sessionStorage.setItem(KEY_STORAGE, JSON.stringify({ key: key.value.trim(), baseUrl: baseUrl.value.trim().replace(/\/$/, ""), model: model.value.trim() }));
-        busy(event.currentTarget, true, "Running");
-        try {
-          const response = await fetch(`${baseUrl.value.trim().replace(/\/$/, "")}/chat/completions`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key.value.trim()}` }, body: JSON.stringify({ model: model.value.trim(), messages: [{ role: "user", content: composePrompt(values) }], temperature: 0.2 }) });
-          if (!response.ok) throw new Error(`The provider refused the request (${response.status}). Check the key, model name and that the endpoint allows browser requests.`);
-          const data = await response.json();
-          state.reply = data.choices?.[0]?.message?.content ?? ""; state.ran = true; replyBox.value = state.reply; renderVerify();
-          toast("Reply received. Now verify it line by line.", "success");
-        } catch (error) { toast(error.message, "error", 9000); } finally { busy(event.currentTarget, false); }
-      } }, icon("bolt", 14), "Run the brief");
-      body = h("div", { class: "stack" }, h("p", { class: "small muted" }, "Any OpenAI-compatible endpoint works. Your key is stored in this tab's session only and is sent only to the endpoint you enter; you pay your provider for the tokens you use (typically a fraction of a rupee per run)."), h("div", { class: "form-grid two" }, h("label", { class: "field" }, h("span", { class: "field-label" }, "API key"), key), h("label", { class: "field" }, h("span", { class: "field-label" }, "Model"), model), h("label", { class: "field" }, h("span", { class: "field-label" }, "API base URL"), baseUrl)), h("div", { class: "form-actions start" }, run));
-    }
+    if (state.provider === "paste") body = h("p", { class: "small muted" }, "Copy the brief, run it in the assistant you use, then paste the full reply below. Nothing is sent anywhere by Rolevia.");
+    else if (!ready) body = h("div", { class: "alert info" }, icon("info", 16), h("span", {}, "Connect your AI assistant once in ", h("a", { href: "#/portal/profile#ai" }, "Profile & security"), " and this lab runs the brief for you on your own account. Until then, paste the reply."));
+    else body = h("div", { class: "form-actions start" }, h("button", { class: "button primary small", type: "button", onClick: async (event) => {
+      if (scoreBrief(values).score < 20) { toast("Complete the brief first: the assistant needs the goal, context and acceptance criteria.", "info"); return; }
+      busy(event.currentTarget, true, "Running");
+      try { state.reply = await chat({ system: "You are a careful business assistant. Follow the brief exactly; when data is missing say unknown rather than inventing a figure.", messages: [{ role: "user", content: composePrompt(values) }], temperature: 0.2, maxTokens: 700 }); state.ran = true; replyBox.value = state.reply; renderVerify(); toast("Reply received. Now verify it line by line.", "success"); }
+      catch (error) { toast(error.message, "error", 9000); }
+      finally { busy(event.currentTarget, false, "Run the brief"); }
+    } }, icon("bolt", 14), "Run the brief"), h("span", { class: "tiny muted" }, "Uses your connected assistant; usage is billed to your account."));
     providerBox.replaceChildren(tabs, body);
   };
 

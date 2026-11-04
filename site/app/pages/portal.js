@@ -3,6 +3,7 @@ import { ctx, setAuth, withSession } from "../context.js";
 import { brand, errorBox, empty, previewBanner, copyButton, linkedinShareUrl, linkedinCertificationUrl } from "./components.js";
 import { LABS } from "./labs.js";
 import { illustration } from "./deck.js";
+import { aiSettingsCard } from "../ai/coach.js";
 
 const NAV = [["#/portal", "Dashboard", "grid", "dashboard"], ["#/portal/skills", "My skills", "book", "skills"], ["#/portal/classes", "Live classes", "play", "classes"], ["#/portal/labs", "Labs", "lab", "labs"], ["#/portal/quiz", "Daily quiz", "quiz", "quiz"], ["#/portal/assignments", "Assignments", "clipboard", "assignments"], ["#/portal/interview", "Interview prep", "spark", "interview"], ["#/portal/leaderboard", "Leaderboard", "trophy", "leaderboard"], ["#/portal/addons", "Add-ons & kit", "wallet", "addons"], ["#/portal/profile", "Profile & security", "user", "profile"]];
 
@@ -189,7 +190,7 @@ export async function profilePage(_, query) {
       h("div", { class: "form-actions" }, h("button", { class: "button primary", type: "submit" }, "Change password")));
     return h("div", { class: "grid-2" },
       h("div", { class: "stack" }, query.first ? h("div", { class: "alert info" }, icon("shield", 16), h("span", {}, "First sign-in: please replace your temporary password now.")) : null, h("div", { class: "card" }, h("h3", {}, "Profile"), h("p", { class: "small muted" }, `Student ID ${profile.studentId} · ${profile.email} · ${profile.phone}`), profileForm)),
-      h("div", { class: "stack" }, h("div", { class: "card" }, h("h3", {}, icon("lock", 18), "Password"), passwordForm), h("div", { class: "card" }, h("h3", {}, icon("device", 18), "Active device"), h("p", { class: "small" }, `${me.session.deviceLabel} · signed in ${formatTime(me.session.createdAt)} · last activity ${relative(me.session.lastSeen)}`), h("p", { class: "small muted" }, `Device switches recorded: ${profile.deviceSwitches}. A security notice is sent every ${me.threshold}.`), h("button", { class: "button ghost small", type: "button", onClick: () => modal({ title: "Sign out this device?", body: h("p", {}, "You can sign in again any time with a new one-time code."), actions: [{ label: "Sign out", variant: "danger", onClick: signOut }] }) }, icon("logout", 14), "Sign out"))));
+      h("div", { class: "stack" }, h("div", { id: "ai" }, aiSettingsCard()), h("div", { class: "card" }, h("h3", {}, icon("lock", 18), "Password"), passwordForm), h("div", { class: "card" }, h("h3", {}, icon("device", 18), "Active device"), h("p", { class: "small" }, `${me.session.deviceLabel} · signed in ${formatTime(me.session.createdAt)} · last activity ${relative(me.session.lastSeen)}`), h("p", { class: "small muted" }, `Device switches recorded: ${profile.deviceSwitches}. A security notice is sent every ${me.threshold}.`), h("button", { class: "button ghost small", type: "button", onClick: () => modal({ title: "Sign out this device?", body: h("p", {}, "You can sign in again any time with a new one-time code."), actions: [{ label: "Sign out", variant: "danger", onClick: signOut }] }) }, icon("logout", 14), "Sign out"))));
   });
   return portalShell(content, { active: "profile", title: "Profile & security", user: user() });
 }

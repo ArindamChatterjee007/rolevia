@@ -405,6 +405,58 @@ test("a student completes an interactive lab, a daily quiz, sees the leaderboard
   await shot(page, "11-badge-public");
 });
 
+test("a learner connects their own Gemini key in the profile; the practice coach, mock interview and AI workbench then run on it", async ({ page }) => {
+  // The provider is mocked at the network edge: no real key, no real call, but the full request path is exercised.
+  let calls = 0;
+  await page.route("https://generativelanguage.googleapis.com/**", async (route) => {
+    calls += 1;
+    const body = route.request().postDataJSON();
+    const system = body.systemInstruction?.parts?.[0]?.text ?? "";
+    const last = body.contents.at(-1)?.parts?.[0]?.text ?? "";
+    const text = system.startsWith("You are a connection test") ? "READY" : /careful business assistant/.test(system) ? "North: 4 orders, INR 6,600.\nSouth: 4 orders, INR 4,500." : /Begin the practice drill/.test(last) ? "Question 1: In the Kiran Stationery register, what does one row represent?" : `Partly right. One row is one completed order, not a product line. Score 3/5.\nQuestion 2: Which function adds only North sales?`;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }) });
+  });
+  await studentLogin(page);
+  await open(page, "/portal/learn/spreadsheets?tab=coach");
+  await expect(page.locator(".coach-setup")).toContainText("Connect the AI assistant you already use");
+  await page.locator(".coach-setup").getByRole("link", { name: "Set up your AI assistant" }).click();
+  await expect(page.locator(".ai-settings")).toBeVisible();
+  await page.locator(".ai-settings select").selectOption("gemini");
+  await expect(page.locator(".ai-settings")).toContainText("Free tier available");
+  await page.locator('.ai-settings input[aria-label="API key"]').fill("AIza-test-key-not-real");
+  await page.locator(".ai-settings").getByRole("button", { name: "Save and test" }).click();
+  await expect(page.locator(".ai-settings")).toContainText("Connected · Google Gemini", { timeout: 15_000 });
+  expect(calls).toBe(1);
+  await shot(page, "22-profile-ai-assistant", false);
+  await open(page, "/portal/learn/spreadsheets?tab=coach");
+  await page.getByRole("button", { name: "Start a practice drill" }).click();
+  await expect(page.locator(".coach-msg.assistant").first()).toContainText("Question 1", { timeout: 15_000 });
+  await page.fill('textarea[aria-label="Your answer"]', "A row is a product line.");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".coach-msg.user")).toContainText("A row is a product line.");
+  await expect(page.locator(".coach-msg.assistant").nth(1)).toContainText("Question 2", { timeout: 15_000 });
+  await shot(page, "23-practice-coach", false);
+  await open(page, "/portal/interview");
+  await expect(page.getByRole("button", { name: "Start a mock interview" })).toBeVisible();
+  await open(page, "/portal/labs/business-ai/tool");
+  await expect(page.locator(".chip.on")).toContainText("Run with my assistant");
+  await page.getByRole("button", { name: "Insert the fictional sample data" }).click();
+  await page.fill('[data-field="role"]', "You are an operations analyst for a small stationery retailer.");
+  await page.fill('[data-field="goal"]', "Summarise sales by region so the owner can decide where to add stock.");
+  await page.fill('[data-field="constraints"]', "Use only the data given; say unknown when a figure is missing.");
+  await page.fill('[data-field="format"]', "A table with Region, Orders and Sales (INR).");
+  await page.fill('[data-field="acceptance"]', "Totals must match my SUM; every claim must cite a row.");
+  await page.getByRole("button", { name: "Run the brief" }).click();
+  await expect(page.locator('textarea[aria-label="Assistant reply"]')).toHaveValue(/North: 4 orders/, { timeout: 15_000 });
+  await expect(page.locator(".verify-lines li")).toHaveCount(2);
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/#\/$/);
+  // The same browser's assistant also drafts a lab review for an admin; the admin still edits and saves.
+  await adminLogin(page, "content");
+  await open(page, "/admin/account");
+  await expect(page.locator(".ai-settings")).toContainText("Connected · Google Gemini");
+});
+
 test("content manager reviews a lab case answer with points and feedback; the learner sees it", async ({ page }) => {
   await studentLogin(page, "RV-26-0002");
   await open(page, "/portal/labs/crm/session/1");

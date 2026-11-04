@@ -7,8 +7,9 @@ import { portalShell, load, user, moduleById } from "./portal.js";
 import { LABS } from "./labs.js";
 import { classCard } from "./classes.js";
 import { deckViewer, illustration } from "./deck.js";
+import { coachPanel, coachSystemPrompt } from "../ai/coach.js";
 
-const TABS = [["overview", "Overview", "grid"], ["lessons", "Lessons", "book"], ["slides", "Slides", "play"], ["lab", "Practice lab", "lab"], ["interview", "Interview questions", "spark"], ["classes", "Live classes", "bell"], ["glossary", "Glossary", "clipboard"]];
+const TABS = [["overview", "Overview", "grid"], ["lessons", "Lessons", "book"], ["slides", "Slides", "play"], ["lab", "Practice lab", "lab"], ["coach", "Practice coach", "spark"], ["interview", "Interview questions", "quiz"], ["classes", "Live classes", "bell"], ["glossary", "Glossary", "clipboard"]];
 const setQuery = (moduleId, params) => history.replaceState(null, "", `${location.pathname}${location.search}#/portal/learn/${moduleId}?${new URLSearchParams(params)}`);
 const slug = (text) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
@@ -113,7 +114,7 @@ export async function learnPage({ moduleId }, query = {}) {
     const tabs = h("div", { class: "learn-tabs", role: "tablist" });
     const render = () => {
       tabs.replaceChildren(...TABS.map(([key, label, iconName]) => h("button", { type: "button", role: "tab", class: key === active ? "active" : "", "aria-selected": String(key === active), "data-tab": key, onClick: () => { active = key; setQuery(moduleId, { tab: key }); render(); } }, icon(iconName, 16), label, key === "slides" && data.decks.length ? h("span", { class: "count" }, data.decks.length) : null, key === "classes" && data.classes.some(item => item.status === "live") ? h("span", { class: "count live" }, "live") : null)));
-      panel.replaceChildren({ overview: () => overviewTab(data, meta, lessons), lessons: () => lessonsTab(data, meta, lessons), slides: () => slidesTab(data, meta), lab: () => labTab(data, meta, lessons), interview: () => interviewTab(data), classes: () => h("div", { class: "stack" }, data.classes.length ? data.classes.map(item => classCard(item)) : h("div", { class: "card" }, h("p", { class: "muted" }, "No live class is scheduled for this module yet.")), h("a", { class: "button ghost", href: "#/portal/classes" }, "All live classes")), glossary: () => glossaryTab(data) }[active]());
+      panel.replaceChildren({ overview: () => overviewTab(data, meta, lessons), lessons: () => lessonsTab(data, meta, lessons), slides: () => slidesTab(data, meta), lab: () => labTab(data, meta, lessons), coach: () => h("div", { class: "stack" }, coachPanel({ system: coachSystemPrompt({ module: meta, course: data.course }), opener: "Start a practice drill", intro: `Your coach quizzes you on ${meta.title}: concept checks, small calculations, scenario decisions and interview-style questions, one at a time, with feedback and a score.` })), interview: () => interviewTab(data), classes: () => h("div", { class: "stack" }, data.classes.length ? data.classes.map(item => classCard(item)) : h("div", { class: "card" }, h("p", { class: "muted" }, "No live class is scheduled for this module yet.")), h("a", { class: "button ghost", href: "#/portal/classes" }, "All live classes")), glossary: () => glossaryTab(data) }[active]());
     };
     render();
     return h("div", { class: `learn accent-${meta.accent}` },
@@ -142,6 +143,7 @@ export async function interviewPrepPage() {
     const general = data.general;
     return h("div", { class: "stack" },
       h("div", { class: "overview-hero" }, h("div", {}, h("p", { class: "lead" }, general?.intro ?? "Interview preparation for business roles."), h("p", { class: "small muted" }, "Model answers are guides, not scripts: adapt every point to your own evidence from the modules.")), illustration("interview", { class: "hero-art" })),
+      coachPanel({ system: coachSystemPrompt({ module: null, course: null, mode: "interview", bank: { questions: (general?.sections ?? []).flatMap(section => section.questions) } }), opener: "Start a mock interview", intro: "A mock interview with your AI coach: one question at a time, feedback against the STAR structure and a score. Answer as you would in the room." }),
       general ? h("div", { class: "stack" }, general.sections.map(section => h("section", { class: "card" }, h("h3", {}, section.title), h("p", { class: "small muted" }, section.summary), interviewList({ questions: section.questions }))), h("section", { class: "card" }, h("h3", {}, icon("star", 18), "Worked STAR examples"), h("div", { class: "star-grid" }, general.starStories.map(story => h("article", { class: "star" }, h("strong", {}, story.title), [["Situation", story.situation], ["Task", story.task], ["Action", story.action], ["Result", story.result]].map(([label, text]) => h("p", {}, h("span", { class: "star-label" }, label), text))))))) : null,
       data.modules.length ? h("section", { class: "card" }, h("h3", {}, icon("book", 18), "Questions from your modules"), data.modules.map(module => h("details", { class: "module-qa" }, h("summary", {}, h("strong", {}, module.title), h("span", { class: "tiny muted" }, ` · ${module.interview.questions.length} questions`)), interviewList(module.interview)))) : null);
   });
