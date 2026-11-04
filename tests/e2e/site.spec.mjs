@@ -340,7 +340,7 @@ test("a student completes an interactive lab, a daily quiz, sees the leaderboard
   await shot(page, "07-lab-spreadsheets");
 
   // AI workbench: brief completeness and verification are scored; the assistant itself is the learner's own.
-  await open(page, "/portal/labs/business-ai");
+  await open(page, "/portal/labs/business-ai/tool");
   await page.getByRole("button", { name: "Insert the fictional sample data" }).click();
   await page.fill('[data-field="role"]', "You are an operations analyst for a small stationery retailer.");
   await page.fill('[data-field="goal"]', "Summarise sales by region so the owner can decide where to add stock.");
