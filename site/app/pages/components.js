@@ -32,7 +32,7 @@ export function footer() {
       h("div", {}, brand(30), h("p", { class: "muted small" }, "Learn the role. Practise the work. Small, practical skill modules for MBA graduates and non-technical professionals."), h("p", { class: "tiny muted" }, "Pre-launch preview. Fees, dates and terms are proposals until confirmed in writing. No job placement or salary is guaranteed.")),
       h("div", {}, h("h4", {}, "Learn"), h("a", { href: "#/skills" }, "Skill modules"), h("a", { href: "#/pricing" }, "Pricing and career kit"), h("a", { href: "#/demo" }, "Free 30-minute demo"), h("a", { href: "#/register" }, "Register")),
       h("div", {}, h("h4", {}, "Students"), h("a", { href: "#/login" }, "Student sign-in"), h("a", { href: "#/leaderboard" }, "Public leaderboard"), h("a", { href: "#/faq" }, "Before you enroll")),
-      h("div", {}, h("h4", {}, "Studio"), h("a", { href: "#/admin/login" }, "Admin sign-in"), h("a", { href: "#/faq" }, "Privacy and refunds"), h("span", { class: "tiny muted" }, "Company names shown are research targets, not partners."))),
+      h("div", {}, h("h4", {}, "Studio"), h("a", { href: "#/admin/login" }, "Admin sign-in"), h("a", { href: "#/faq" }, "Privacy and refunds"), h("span", { class: "tiny muted" }, "Company names show where roles asking for these skills are advertised, not partners or placements."))),
     h("div", { class: "container footer-base" }, h("span", {}, `© ${new Date().getFullYear()} Rolevia (proposed brand). Manrope font under the SIL Open Font License.`), h("span", {}, "Built as a static preview; backend contract in docs/ARCHITECTURE.md")));
 }
 
@@ -58,7 +58,7 @@ export function orbit(modules) {
 
 // items: strings (names) or { name, careersUrl, logo } records from the public companies API. A logo renders only
 // when the API supplied one (which it does only with a recorded permission); otherwise a neutral monogram chip.
-export function marquee(items, { label = "Research targets: the kinds of companies where these skills are used", reverse = false } = {}) {
+export function marquee(items, { label = "Companies whose advertised roles ask for these skills", reverse = false } = {}) {
   const records = items.map(item => (typeof item === "string" ? { name: item } : item));
   const chip = (company, index) => {
     const inner = [company.logo ? h("img", { class: "company-logo", src: company.logo, alt: `${company.name} logo`, draggable: false }) : h("span", { class: "monogram", "aria-hidden": "true" }, monogram(company.name)), h("span", { class: "wordmark-text" }, h("span", { class: "wordmark-name" }, company.name), company.sector ? h("span", { class: "wordmark-sector" }, company.sector) : null)];
@@ -66,7 +66,7 @@ export function marquee(items, { label = "Research targets: the kinds of compani
   };
   const track = h("div", { class: `marquee-track ${reverse ? "reverse" : ""}` }, [...records, ...records].map(chip));
   const withLogos = records.some(company => company.logo);
-  return h("div", { class: "marquee-wrap" }, h("p", { class: "eyebrow center" }, label), h("div", { class: "marquee", "aria-hidden": "true" }, track), h("p", { class: "small muted center" }, withLogos ? "Company names and, where shown, logos appear with the owner's written permission. Rolevia has no partnership with, endorsement from or placement arrangement with any of them." : "Illustrative company names only. Rolevia has no partnership with, endorsement from or placement arrangement with any of them; logos appear only with written permission."));
+  return h("div", { class: "marquee-wrap" }, h("p", { class: "eyebrow center" }, label), h("div", { class: "marquee", "aria-hidden": "true" }, track), h("p", { class: "small muted center" }, withLogos ? "These companies publicly advertise roles that ask for the skills taught here; they do not hire through Rolevia. Names identify where such roles appear; logos are shown only with the owner's written permission. Rolevia has no partnership with, endorsement from or hiring arrangement with any of them." : "These companies publicly advertise roles that ask for the skills taught here; they do not hire through Rolevia and no opportunity is promised. Names identify where such roles appear; logos appear only with the owner's written permission."));
 }
 
 export function quotesTicker(quotes) {
