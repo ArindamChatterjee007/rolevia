@@ -547,3 +547,6 @@ a.lesson { text-decoration: none; color: inherit; } a.lesson:hover { border-colo
 /* Hidden attribute must win over display rules on buttons and inputs */
 [hidden] { display: none !important; }
 .learn-panel, .coach, .coach-log, .coach-msg, .coach-text, .coach-composer { min-width: 0; max-width: 100%; } .coach-text { overflow-wrap: anywhere; } .coach-composer textarea { min-width: 0; width: 100%; }
+/* A horizontally scrolling row must not report its full content width to the grid tracks above it, or the whole
+   portal column grows past the viewport (CSS Grid sizes auto tracks from min-content contributions). */
+.learn-tabs, .room-tiles { contain: inline-size; } .portal-main > * { min-width: 0; }
