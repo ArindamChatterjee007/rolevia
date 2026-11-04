@@ -108,6 +108,8 @@ export function coachPanel({ system, promptArgs = null, opener = "Start practice
   const config = getAiConfig();
   if (!aiReady(config)) return setupCard();
   if (aiKind(config) === "handoff") return handoffPanel({ prompt: promptArgs ? handoffPrompt(promptArgs) : `${system}\n\nBegin now with your first question.`, config, intro, opener });
+  // The on-device model has a small context window, so it gets the compact instructions.
+  const instructions = aiKind(config) === "local" && promptArgs ? coachSystemPrompt({ ...promptArgs, compact: true }) : system;
   const messages = [];
   const conversation = `coach-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const log = h("div", { class: "coach-log", "aria-live": "polite" });
@@ -122,7 +124,7 @@ export function coachPanel({ system, promptArgs = null, opener = "Start practice
     const pending = thinking(); log.append(pending); log.scrollTop = log.scrollHeight;
     send.disabled = true; input.disabled = true;
     try {
-      const reply = await chat({ system, messages: messages.length ? messages : [{ role: "user", content: "Begin the practice drill with your first question." }], temperature: 0.4, maxTokens: 500, conversation, onProgress: (loaded) => { pending.querySelector(".coach-wait").textContent = loaded < 1 ? ` downloading the built-in assistant… ${Math.round(loaded * 100)}%` : " starting…"; } });
+      const reply = await chat({ system: instructions, messages: messages.length ? messages : [{ role: "user", content: "Begin the practice drill with your first question." }], temperature: 0.4, maxTokens: 500, conversation, onProgress: (loaded) => { pending.querySelector(".coach-wait").textContent = loaded < 1 ? ` downloading the built-in assistant… ${Math.round(loaded * 100)}%` : " starting…"; } });
       messages.push({ role: "assistant", content: reply });
       pending.replaceWith(bubble("assistant", reply));
     } catch (error) { pending.replaceWith(h("div", { class: "alert error" }, icon("info", 16), h("span", {}, error.message))); }

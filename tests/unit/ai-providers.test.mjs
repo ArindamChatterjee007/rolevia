@@ -119,6 +119,9 @@ test("the browser's built-in assistant: one session per conversation, system pro
     assert.equal(sessions[1].destroyed, true);
     endLocalConversation("c1");
     assert.equal(sessions[0].destroyed, true);
+    // The small on-device model's quota error is explained in plain words.
+    globalThis.LanguageModel.create = async () => ({ prompt: async () => { const error = new Error("The input is too large."); error.name = "QuotaExceededError"; throw error; }, destroy: () => {} });
+    await assert.rejects(chat({ config, system: "Coach.", messages: [{ role: "user", content: "hi" }] }), /ran out of room/);
     availability = "unavailable";
     await assert.rejects(chat({ config, messages: [{ role: "user", content: "hi" }] }), /cannot run on this device/);
     assert.equal(aiReady(config), true);

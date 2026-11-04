@@ -351,8 +351,8 @@ test("a student completes an interactive lab, a daily quiz, sees the leaderboard
   await page.fill('[data-field="format"]', "A table with Region, Orders and Sales (INR), then a paragraph of three sentences.");
   await page.fill('[data-field="acceptance"]', "Totals must match my SUM; every claim must cite a row; no figure may be invented.");
   await expect(page.locator(".ai-total")).toContainText("brief 40/40");
-  await page.locator(".chip", { hasText: "My assistant (not connected)" }).click();
-  await expect(page.locator(".ai-lab")).toContainText("Connect your AI assistant once in");
+  await page.locator(".chip", { hasText: "My assistant (not chosen)" }).click();
+  await expect(page.locator(".ai-lab")).toContainText("Choose your AI assistant once in");
   await page.locator(".chip", { hasText: "Paste a reply" }).click();
   await page.fill('textarea[aria-label="Assistant reply"]', "North: 4 orders, INR 6,600.\nSouth: 4 orders, INR 4,900.\nRecommendation: add stock in the North first.");
   await expect(page.locator(".verify-lines li")).toHaveCount(3);
@@ -522,8 +522,9 @@ test("no API key: a learner picks ChatGPT or Gemini and practice opens in their 
   await page.getByRole("button", { name: "Paste the reply" }).click();
   await expect(page.locator('textarea[aria-label="Assistant reply"]')).toHaveValue(/North: 4 orders/);
   await expect(page.locator(".verify-lines li")).toHaveCount(2);
-  // The browser's built-in assistant (Prompt API) is simulated: the option appears only when the API exists.
-  await expect(settings.locator('option[value="builtin"]')).toHaveCount(0);
+  // The browser's built-in assistant (Prompt API) is simulated so the drill is deterministic (the runner's
+  // Chromium exposes a real LanguageModel whose model is too small for the coach). Init scripts apply on the
+  // next full navigation, so reload before using it.
   await page.addInitScript(() => {
     window.LanguageModel = {
       availability: async () => "downloadable",
@@ -536,6 +537,9 @@ test("no API key: a learner picks ChatGPT or Gemini and practice opens in their 
       },
     };
   });
+  await page.reload();
+  await page.waitForSelector("#splash", { state: "detached" });
+  expect(await page.evaluate(() => LanguageModel.availability())).toBe("downloadable");
   await open(page, "/portal/profile?focus=ai");
   await settings.locator("select").selectOption("builtin");
   await expect(settings).toContainText("Runs on this computer");

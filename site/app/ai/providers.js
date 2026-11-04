@@ -101,15 +101,27 @@ async function localChat({ messages, system, conversation, onProgress, signal })
     else { entry.session.destroy?.(); entry = null; }
   }
   if (!entry) {
-    const session = await LanguageModel.create({ ...LOCAL_OPTIONS, signal, initialPrompts: [...(system ? [{ role: "system", content: system }] : []), ...history], monitor(monitor) { monitor.addEventListener("downloadprogress", (event) => onProgress?.(Number(event.loaded) || 0)); } });
+    let session;
+    try { session = await LanguageModel.create({ ...LOCAL_OPTIONS, signal, initialPrompts: [...(system ? [{ role: "system", content: system }] : []), ...history], monitor(monitor) { monitor.addEventListener("downloadprogress", (event) => onProgress?.(Number(event.loaded) || 0)); } }); }
+    catch (error) { throw friendlyLocalError(error); }
     entry = { session, system, turns: history.length };
     if (conversation) localSessions.set(conversation, entry);
   }
-  const reply = text(await entry.session.prompt(last.content, { signal }));
+  let reply;
+  try { reply = text(await entry.session.prompt(last.content, { signal })); }
+  catch (error) { throw friendlyLocalError(error); }
   entry.turns = history.length + 2;
   if (!conversation) entry.session.destroy?.();
   if (!reply) throw new Error("The built-in assistant returned an empty reply.");
   return reply;
+}
+// The on-device model is small: explain its limits in plain words instead of surfacing DOMException names.
+function friendlyLocalError(error) {
+  const message = String(error?.message ?? error);
+  if (error?.name === "QuotaExceededError" || /too large|quota/i.test(message)) return new Error("The built-in assistant ran out of room for this conversation. Start a new drill, or choose ChatGPT or Gemini in your profile for longer sessions.");
+  if (error?.name === "NotSupportedError" || error?.name === "NotAllowedError") return new Error("The built-in assistant could not start on this device. Choose ChatGPT or Gemini in your profile.");
+  if (error?.name === "AbortError") return new Error("Stopped.");
+  return error instanceof Error ? error : new Error(message);
 }
 export function endLocalConversation(conversation) {
   const entry = localSessions.get(conversation);
