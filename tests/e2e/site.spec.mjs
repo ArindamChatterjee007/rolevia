@@ -24,7 +24,7 @@ async function open(page, route = "/") {
   await page.waitForSelector("#splash", { state: "detached" });
 }
 const latestCode = (page) => page.evaluate(() => {
-  const state = JSON.parse(localStorage.getItem("rolevia.preview.v8"));
+  const state = JSON.parse(localStorage.getItem("rolevia.preview.v9"));
   return state.outbox.find(message => message.channel === "email" && /Code \d{6}/.test(message.body)).body.match(/Code (\d{6})/)[1];
 });
 async function enterOtpBoxes(page) {
@@ -444,12 +444,17 @@ test("content manager uploads a lesson with a file, grades a submission, announc
   const firstCompany = companies.locator(".company-row").first();
   await firstCompany.locator("summary").click();
   await firstCompany.locator("input[name=careersUrl]").fill("https://example.com/careers");
+  await firstCompany.locator("select[name=requestStatus]").selectOption("requested");
+  await firstCompany.locator("input[name=requestDate]").fill("2026-11-04");
+  await firstCompany.locator("input[name=requestContact]").fill("brand@example.com");
   await firstCompany.locator("input[name=grantedBy]").fill("Brand team lead, Example Co");
   await firstCompany.locator("input[name=reference]").fill("Email: logo approval for Rolevia, 4 Nov 2026");
   await firstCompany.locator("input[name=date]").fill("2026-11-04");
   await firstCompany.getByRole("button", { name: "Save" }).click();
   await expect(page.locator(".toast", { hasText: "Company updated" })).toBeVisible();
   await expect(companies).toContainText("0 with a permitted logo", { timeout: 10_000 }); // permission recorded, but no logo file yet: nothing published
+  await expect(companies.locator(".company-row").first()).toContainText("permission granted");
+  await expect(page.locator(".marquee .wordmark-sector").first()).toBeVisible().catch(() => {});
   await shot(page, "13-ops-snapshot");
   await open(page, "/");
   await expect(page.locator(".marquee .wordmark").first()).toBeVisible();
@@ -543,7 +548,7 @@ test("live class: host starts, learner joins with video, screen share, live quiz
   await hostPage.locator('select[aria-label="Question from the module bank"]').selectOption({ index: 1 });
   await hostPage.getByRole("button", { name: "Send to class" }).click();
   await expect(studentPage.locator(".quiz-card h3")).toBeVisible({ timeout: 15_000 });
-  const answerIndex = await studentPage.evaluate(() => { const state = JSON.parse(localStorage.getItem("rolevia.preview.v8")); return state.classes.find(item => item.id === "cls-demo-live").quizzes.at(-1).answerIndex; });
+  const answerIndex = await studentPage.evaluate(() => { const state = JSON.parse(localStorage.getItem("rolevia.preview.v9")); return state.classes.find(item => item.id === "cls-demo-live").quizzes.at(-1).answerIndex; });
   await studentPage.locator(".quiz-option").nth(answerIndex).click();
   await expect(studentPage.locator(".quiz-card")).toContainText("Answer recorded");
   await expect(hostPage.locator(".result-bars")).toContainText("1 of 1 answered", { timeout: 15_000 });

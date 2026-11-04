@@ -54,6 +54,21 @@ function companiesCard() {
       const logoInput = h("input", { type: "file", accept: "image/png,image/jpeg,image/svg+xml,image/webp", class: "input" });
       let logoRecord;
       logoInput.addEventListener("change", async () => { const file = logoInput.files[0]; logoRecord = file ? await readFileRecord(file, { maxStoredBytes: 60 * 1024 }) : undefined; if (file && !logoRecord.dataUrl) toast("Logo files must be 60 KB or smaller.", "error"); });
+      const requestEmail = () => `Subject: Request to display the ${company.name || "[Company]"} logo on Rolevia's "where these skills are used" page
+
+Dear ${company.name || "[Company]"} brand team,
+
+I run Rolevia, a small business-skills studio in India that teaches practical tools (spreadsheets, dashboards, CRM, budgeting) to non-technical MBA graduates. On our public website we list companies whose published job advertisements ask for these skills, as research targets for our learners.
+
+We would like permission to show the ${company.name || "[Company]"} logo next to your company name in that list. The page states clearly that Rolevia has no partnership with, endorsement from or placement arrangement with any listed company, and we would reproduce the logo exactly as supplied in your brand guidelines, without alteration, at a small size, on this page only: ${location.origin}${location.pathname}
+
+If you agree, could you reply with written confirmation and the preferred logo file (or a link to your brand resources), and let us know of any conditions? We will remove the logo immediately on request at any time. Until we hear from you the page shows only your company name.
+
+Thank you for considering this.
+
+Arindam Chatterjee
+Founder, Rolevia`;
+      const copyEmail = h("button", { class: "button ghost small", type: "button", onClick: async () => { try { await navigator.clipboard.writeText(requestEmail()); toast("Permission request email copied. Send it from your own mailbox and record the date below.", "success", 6000); } catch { modal({ title: "Permission request email", body: h("pre", { class: "ai-prompt" }, requestEmail()), actions: [{ label: "Close" }] }); } } }, icon("mail", 14), "Copy permission request email");
       const element = h("form", { class: "form-grid two company-form", novalidate: true, onSubmit: async (event) => {
         event.preventDefault();
         const values = formData(element);
@@ -61,13 +76,18 @@ function companiesCard() {
         busy(button, true, "Saving");
         try {
           const permission = values.grantedBy || values.reference || values.date ? { grantedBy: values.grantedBy, reference: values.reference, date: values.date } : (company.permission && values.keepPermission ? undefined : null);
-          await ctx.api.opsUpsertCompany(withSession({ company: { id: company.id, name: values.name, careersUrl: values.careersUrl, visible: values.visible === "on", logo: logoRecord?.dataUrl ? logoRecord : values.removeLogo === "on" ? null : undefined, permission } }));
+          await ctx.api.opsUpsertCompany(withSession({ company: { id: company.id, name: values.name, sector: values.sector, careersUrl: values.careersUrl, visible: values.visible === "on", logo: logoRecord?.dataUrl ? logoRecord : values.removeLogo === "on" ? null : undefined, permission, request: { status: values.requestStatus, date: values.requestDate, contact: values.requestContact, notes: values.requestNotes } } }));
           toast(company.id ? "Company updated." : "Company added.", "success");
           render();
         } catch (error) { if (!showFieldErrors(element, error.extra?.fields ?? {})) toast(error.message, "error"); busy(button, false); }
       } },
         field({ label: "Company name", name: "name", value: company.name ?? "", required: true }),
+        field({ label: "Sector shown under the name", name: "sector", value: company.sector ?? "", placeholder: "IT services" }),
         field({ label: "Public careers page (https, optional)", name: "careersUrl", type: "url", value: company.careersUrl ?? "", placeholder: "https://…/careers" }),
+        h("div", { class: "field span-2 permission-box request-box" }, h("span", { class: "field-label" }, "Logo permission request (the legitimate route to a real logo)"),
+          h("div", { class: "form-grid three" }, field({ label: "Status", name: "requestStatus", type: "select", value: company.request?.status ?? "none", options: [{ value: "none", label: "Not requested yet" }, { value: "requested", label: "Requested, awaiting reply" }, { value: "granted", label: "Granted (record the permission below)" }, { value: "declined", label: "Declined (keep the name only)" }] }), field({ label: "Date sent / decided", name: "requestDate", type: "date", value: company.request?.date ?? "" }), field({ label: "Contact (brand or press team)", name: "requestContact", value: company.request?.contact ?? "", placeholder: "brand@…" })),
+          field({ label: "Notes", name: "requestNotes", value: company.request?.notes ?? "", placeholder: "Brand guidelines link, conditions, follow-up date" }),
+          h("div", { class: "form-actions start" }, copyEmail), h("p", { class: "tiny muted" }, "Send the request from your own mailbox. When a company replies yes, upload the file they supply and record the permission; the logo then appears automatically.")),
         h("label", { class: "field" }, h("span", { class: "field-label" }, "Logo file (PNG, JPG, SVG or WebP, up to 60 KB)"), logoInput, h("span", { class: "field-hint" }, company.logo ? `Current: ${company.logo.name}` : "No logo on file. Use the file the company's brand team supplied.")),
         h("div", { class: "field" }, h("span", { class: "field-label" }, "Publication"), h("label", { class: "check" }, h("input", { type: "checkbox", name: "visible", checked: company.visible !== false }), h("span", { class: "small" }, "Show this company on the public site")), company.logo ? h("label", { class: "check" }, h("input", { type: "checkbox", name: "removeLogo" }), h("span", { class: "small" }, "Remove the logo")) : null),
         h("div", { class: "field span-2 permission-box" }, h("span", { class: "field-label" }, "Written permission to show the logo (required before a logo is published)"), company.permission ? h("p", { class: "tiny" }, `On file: ${company.permission.grantedBy}, ${company.permission.reference}, ${company.permission.date}. `, h("label", { class: "check inline" }, h("input", { type: "checkbox", name: "keepPermission", checked: true }), h("span", { class: "small" }, "keep"))) : null,
@@ -77,8 +97,8 @@ function companiesCard() {
       return element;
     };
     host.replaceChildren(
-      h("p", { class: "small muted" }, `${companies.length} companies listed · ${companies.filter(company => company.logo && company.permission).length} with a permitted logo · ${companies.filter(company => company.logo && !company.permission).length} with a logo on file but no permission record (not published).`),
-      h("div", { class: "company-rows" }, companies.map(company => h("details", { class: "company-row" }, h("summary", {}, company.logo && company.permission ? h("img", { class: "company-logo", src: company.logo.dataUrl, alt: "" }) : h("span", { class: "monogram" }, company.name.split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase()), h("strong", {}, company.name), h("span", { class: `tag ${company.logo && company.permission ? "good" : company.logo ? "pending" : ""}` }, company.logo && company.permission ? "logo published" : company.logo ? "logo held, no permission" : "name only"), company.visible === false ? h("span", { class: "tag bad" }, "hidden") : null), form(company)))),
+      h("p", { class: "small muted" }, `${companies.length} companies listed · ${companies.filter(company => company.logo && company.permission).length} with a permitted logo · ${companies.filter(company => company.request?.status === "requested").length} permission requests awaiting a reply · ${companies.filter(company => company.request?.status === "declined").length} declined · ${companies.filter(company => company.logo && !company.permission).length} with a logo on file but no permission record (not published).`),
+      h("div", { class: "company-rows" }, companies.map(company => h("details", { class: "company-row" }, h("summary", {}, company.logo && company.permission ? h("img", { class: "company-logo", src: company.logo.dataUrl, alt: "" }) : h("span", { class: "monogram" }, company.name.split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase()), h("strong", {}, company.name), h("span", { class: `tag ${company.logo && company.permission ? "good" : company.logo ? "pending" : ""}` }, company.logo && company.permission ? "logo published" : company.logo ? "logo held, no permission" : "name only"), company.request?.status && company.request.status !== "none" ? h("span", { class: `tag ${company.request.status === "granted" ? "good" : company.request.status === "declined" ? "bad" : "pending"}` }, `permission ${company.request.status}`) : null, company.visible === false ? h("span", { class: "tag bad" }, "hidden") : null), form(company)))),
       h("details", { class: "company-row add" }, h("summary", {}, icon("spark", 14), h("strong", {}, "Add a company")), form()));
   };
   render().catch(error => host.replaceChildren(errorBox(error)));

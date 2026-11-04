@@ -19,7 +19,7 @@ const outlet = document.getElementById("app");
 const splash = document.getElementById("splash");
 const guarded = (check, render) => async (params, query, path) => check() ?? render(params, query, path);
 
-const STORAGE_KEY = "rolevia.preview.v8";
+const STORAGE_KEY = "rolevia.preview.v9";
 
 async function boot() {
   // Google OAuth returns tokens in the hash; each consumer only acts on its own `state` prefix.

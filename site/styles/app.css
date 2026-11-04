@@ -512,3 +512,7 @@ a.lesson { text-decoration: none; color: inherit; } a.lesson:hover { border-colo
 
 /* Wide sheets (many columns) put the task panel underneath so the grid gets the full width */
 .sheet-layout.wide { grid-template-columns: 1fr; } .sheet-layout.wide .sheet-tasks { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+
+/* Company chips: name with sector line; a permitted logo replaces the monogram */
+.wordmark-text { display: grid; line-height: 1.15; } .wordmark-name { font-weight: 800; } .wordmark-sector { font-size: 0.68rem; font-weight: 500; color: var(--muted); letter-spacing: 0.01em; }
+.request-box { background: rgba(143, 179, 255, 0.05); }

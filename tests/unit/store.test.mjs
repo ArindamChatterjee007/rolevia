@@ -616,6 +616,7 @@ test("hiring companies: names are public, a logo is published only with a record
   const names = await api.companies();
   assert.ok(names.length >= 20);
   assert.ok(names.every(company => company.logo === null), "no logo is published without permission");
+  assert.ok(names.every(company => company.sector), "every seeded company carries a sector label");
   const ops = await api.opsLogin({ passphrase: "ROLEVIA-OPS-PREVIEW", ...device("founder") });
   const opsAuth = { token: ops.token, deviceId: "device-founder" };
   const first = (await api.opsCompanies(opsAuth))[0];
@@ -626,8 +627,12 @@ test("hiring companies: names are public, a logo is published only with a record
   await rejects(api.opsUpsertCompany({ ...opsAuth, company: { id: first.id, name: first.name, permission: { grantedBy: "x", reference: "", date: "soon" } } }), "VALIDATION");
   await rejects(api.opsUpsertCompany({ ...opsAuth, company: { id: first.id, name: first.name, logo: { name: "big.png", size: 70 * 1024, type: "image/png", dataUrl: `data:image/png;base64,${"A".repeat(90 * 1024)}` } } }), "VALIDATION");
   await rejects(api.opsUpsertCompany({ ...opsAuth, company: { id: first.id, name: first.name, logo: { name: "doc.pdf", size: 10, type: "application/pdf", dataUrl: `data:application/pdf;base64,${Buffer.from("x").toString("base64")}` } } }), "VALIDATION");
+  const asked = await api.opsUpsertCompany({ ...opsAuth, company: { id: first.id, name: first.name, request: { status: "requested", date: "2026-11-04", contact: "brand@example.com", notes: "Sent from founder mailbox" } } });
+  assert.equal(asked.request.status, "requested");
+  await rejects(api.opsUpsertCompany({ ...opsAuth, company: { id: first.id, name: first.name, request: { status: "maybe" } } }), "VALIDATION");
   const permitted = await api.opsUpsertCompany({ ...opsAuth, company: { id: first.id, name: first.name, careersUrl: "https://example.com/careers", permission: { grantedBy: "Brand team lead, Example Co", reference: "Email: Logo use approval for Rolevia", date: "2026-11-04" } } });
   assert.ok(permitted.permission.recordedAt);
+  assert.equal(permitted.request.status, "granted", "recording a permission marks the request granted");
   const published = (await api.companies()).find(company => company.id === first.id);
   assert.equal(published.logo, png.dataUrl, "with permission on record the public API returns the logo");
   assert.match(published.permissionNote, /shown with permission/);
@@ -638,6 +643,7 @@ test("hiring companies: names are public, a logo is published only with a record
   await rejects(api.opsCompanies({ token: student.token, deviceId: "device-ananya" }), "FORBIDDEN");
   const old = { ...api._state(), version: 7 }; delete old.companies;
   const migrated = await createMockServer({ storage: memoryStorage(old), curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, courseContent: COURSE_CONTENT, interviewBank: INTERVIEW_GENERAL });
-  assert.equal(migrated._state().version, 8);
+  assert.equal(migrated._state().version, STATE_VERSION);
   assert.ok(migrated._state().companies.length >= 20);
+  assert.ok(migrated._state().companies.every(company => company.request && typeof company.sector === "string"), "v9 adds sectors and request tracking");
 });

@@ -61,7 +61,7 @@ export function orbit(modules) {
 export function marquee(items, { label = "Research targets: the kinds of companies where these skills are used", reverse = false } = {}) {
   const records = items.map(item => (typeof item === "string" ? { name: item } : item));
   const chip = (company, index) => {
-    const inner = [company.logo ? h("img", { class: "company-logo", src: company.logo, alt: `${company.name} logo`, draggable: false }) : h("span", { class: "monogram", "aria-hidden": "true" }, monogram(company.name)), company.name];
+    const inner = [company.logo ? h("img", { class: "company-logo", src: company.logo, alt: `${company.name} logo`, draggable: false }) : h("span", { class: "monogram", "aria-hidden": "true" }, monogram(company.name)), h("span", { class: "wordmark-text" }, h("span", { class: "wordmark-name" }, company.name), company.sector ? h("span", { class: "wordmark-sector" }, company.sector) : null)];
     return company.careersUrl ? h("a", { class: `wordmark tint-${COMPANY_TINTS[index % COMPANY_TINTS.length]}`, href: company.careersUrl, target: "_blank", rel: "noopener noreferrer nofollow" }, ...inner) : h("span", { class: `wordmark tint-${COMPANY_TINTS[index % COMPANY_TINTS.length]}` }, ...inner);
   };
   const track = h("div", { class: `marquee-track ${reverse ? "reverse" : ""}` }, [...records, ...records].map(chip));

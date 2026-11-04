@@ -16,12 +16,13 @@ export class ApiError extends Error {
 import { validateSlide } from "./content/modules/validate.mjs";
 
 const encoder = new TextEncoder();
-export const STATE_VERSION = 8;
+export const STATE_VERSION = 9;
 // Company names shown on the public site as research targets (nominative use). Logos are trademarks: one can be
 // attached only together with a record of the owner's written permission, which the public API then exposes.
-export const DEFAULT_COMPANIES = ["Accenture", "Genpact", "Amazon", "Freshworks", "HubSpot", "Unilever", "Deloitte", "Infosys", "Zoho", "Swiggy", "Razorpay", "Tata Consultancy Services", "Wipro", "HCLTech", "Capgemini", "Cognizant", "Flipkart", "Zomato", "PhonePe", "ICICI Bank", "HDFC Bank", "Mahindra", "EY", "KPMG", "Nykaa", "Meesho", "Urban Company", "Tech Mahindra"];
+export const DEFAULT_COMPANIES = [["Accenture", "IT services and consulting"], ["Genpact", "Business process services"], ["Amazon", "E-commerce and cloud"], ["Freshworks", "Business software"], ["HubSpot", "CRM and marketing software"], ["Unilever", "Consumer goods"], ["Deloitte", "Professional services"], ["Infosys", "IT services"], ["Zoho", "Business software"], ["Swiggy", "Food delivery and quick commerce"], ["Razorpay", "Fintech"], ["Tata Consultancy Services", "IT services"], ["Wipro", "IT services"], ["HCLTech", "IT services"], ["Capgemini", "IT services and consulting"], ["Cognizant", "IT services"], ["Flipkart", "E-commerce"], ["Zomato", "Food delivery"], ["PhonePe", "Fintech"], ["ICICI Bank", "Banking"], ["HDFC Bank", "Banking"], ["Mahindra", "Automotive and conglomerate"], ["EY", "Professional services"], ["KPMG", "Professional services"], ["Nykaa", "E-commerce"], ["Meesho", "E-commerce"], ["Urban Company", "Services marketplace"], ["Tech Mahindra", "IT services"]];
 export const MAX_LOGO_BYTES = 60 * 1024;
-export const seedCompanies = (now) => DEFAULT_COMPANIES.map((name, index) => ({ id: `co-${index + 1}`, name, careersUrl: "", logo: null, permission: null, visible: true, order: index + 1, updatedAt: now }));
+export const LOGO_REQUEST_STATES = ["none", "requested", "granted", "declined"];
+export const seedCompanies = (now) => DEFAULT_COMPANIES.map(([name, sector], index) => ({ id: `co-${index + 1}`, name, sector, careersUrl: "", logo: null, permission: null, request: { status: "none", date: "", contact: "", notes: "" }, visible: true, order: index + 1, updatedAt: now }));
 export const MAX_DECK_SLIDES = 40;
 const OTP_TTL_MS = 5 * 60 * 1000;
 const SESSION_IDLE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -424,7 +425,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
     // Public: names always; a logo only when a permission record exists (the UI falls back to a monogram chip).
     async companies() {
       await wait();
-      return (state.companies ?? []).filter(company => company.visible).sort((a, b) => a.order - b.order).map(company => ({ id: company.id, name: company.name, careersUrl: company.careersUrl || null, logo: company.logo && company.permission ? company.logo.dataUrl : null, permissionNote: company.permission ? `Logo shown with permission (${company.permission.reference})` : null }));
+      return (state.companies ?? []).filter(company => company.visible).sort((a, b) => a.order - b.order).map(company => ({ id: company.id, name: company.name, sector: company.sector || null, careersUrl: company.careersUrl || null, logo: company.logo && company.permission ? company.logo.dataUrl : null, permissionNote: company.permission ? `Logo shown with permission (${company.permission.reference})` : null }));
     },
     async quote({ moduleIds = [], serviceIds = [], currency = "INR" }) { await wait(); return quoteFor(moduleIds, serviceIds, currency); },
     async publicLeaderboard() {
@@ -1317,11 +1318,19 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
         if (grantedBy.length < 3 || reference.length < 3 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) errors.permission = "Record who granted permission, a reference (email subject, letter or licence id) and the date.";
         else permission = { grantedBy: grantedBy.slice(0, 120), reference: reference.slice(0, 160), date, recordedBy: user.id, recordedAt: now() };
       }
+      // Permission-request tracking (who was asked, when, outcome) so the founder can follow up company by company.
+      let request = existing?.request ?? { status: "none", date: "", contact: "", notes: "" };
+      if (company?.request) {
+        const status = String(company.request.status ?? "none");
+        if (!LOGO_REQUEST_STATES.includes(status)) errors.request = "Unknown request status.";
+        if (company.request.date && !/^\d{4}-\d{2}-\d{2}$/.test(String(company.request.date))) errors.request = "Use a YYYY-MM-DD date for the request.";
+        request = { status, date: String(company.request.date ?? "").slice(0, 10), contact: String(company.request.contact ?? "").trim().slice(0, 160), notes: String(company.request.notes ?? "").trim().slice(0, 400) };
+      }
       // A logo without a permission record is kept privately but never published.
       if (Object.keys(errors).length) throw new ApiError("VALIDATION", Object.values(errors)[0], { fields: errors });
       state.companies ??= [];
       const record = existing ?? { id: `co-${randomToken(6).toLowerCase()}`, order: state.companies.length + 1, visible: true };
-      Object.assign(record, { name, careersUrl: company?.careersUrl ? String(company.careersUrl).trim() : "", logo, permission, visible: company?.visible !== false, updatedAt: now() });
+      Object.assign(record, { name, sector: String(company?.sector ?? existing?.sector ?? "").trim().slice(0, 60), careersUrl: company?.careersUrl ? String(company.careersUrl).trim() : "", logo, permission, request: permission && request.status !== "granted" ? { ...request, status: "granted" } : request, visible: company?.visible !== false, updatedAt: now() });
       if (!existing) state.companies.push(record);
       audit(user.id, existing ? "update_company" : "create_company", { companyId: record.id, logo: Boolean(logo), permission: Boolean(permission) });
       persist();
@@ -1455,6 +1464,11 @@ export function migrateState(state, { courseContent = {}, now = Date.now() } = {
   if (next.version < 8) {
     next.companies = next.companies ?? seedCompanies(now);
     next.version = 8;
+  }
+  if (next.version < 9) {
+    const sectors = new Map(DEFAULT_COMPANIES);
+    next.companies = (next.companies ?? []).map(company => ({ ...company, sector: company.sector ?? sectors.get(company.name) ?? "", request: company.request ?? { status: company.permission ? "granted" : "none", date: "", contact: "", notes: "" } }));
+    next.version = 9;
   }
   return next;
 }
