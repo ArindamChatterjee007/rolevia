@@ -544,3 +544,6 @@ a.lesson { text-decoration: none; color: inherit; } a.lesson:hover { border-colo
 .coach-msg { display: grid; gap: 0.2rem; padding: 0.7rem 0.9rem; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); max-width: 92%; } .coach-msg.user { justify-self: end; background: rgba(223, 237, 157, 0.08); border-color: rgba(223, 237, 157, 0.25); } .coach-msg.thinking { color: var(--muted); }
 .coach-who { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 700; } .coach-text { white-space: pre-wrap; line-height: 1.55; font-size: 0.95rem; }
 .coach-composer { display: flex; gap: 0.6rem; align-items: flex-end; } .coach-composer textarea { flex: 1; } .coach-setup { border-style: dashed; }
+/* Hidden attribute must win over display rules on buttons and inputs */
+[hidden] { display: none !important; }
+.learn-panel, .coach, .coach-log, .coach-msg, .coach-text, .coach-composer { min-width: 0; max-width: 100%; } .coach-text { overflow-wrap: anywhere; } .coach-composer textarea { min-width: 0; width: 100%; }

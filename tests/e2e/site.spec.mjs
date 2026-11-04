@@ -433,6 +433,9 @@ test("a learner connects their own Gemini key in the profile; the practice coach
   await page.keyboard.press("Enter");
   await expect(page.locator(".coach-msg.user")).toContainText("A row is a product line.");
   await expect(page.locator(".coach-msg.assistant").nth(1)).toContainText("Question 2", { timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "Start a practice drill" })).toBeHidden();
+  const coachWidths = await page.evaluate(() => ({ viewport: window.innerWidth, content: document.documentElement.scrollWidth }));
+  expect(coachWidths.content).toBe(coachWidths.viewport);
   await shot(page, "23-practice-coach", false);
   await open(page, "/portal/interview");
   await expect(page.getByRole("button", { name: "Start a mock interview" })).toBeVisible();
