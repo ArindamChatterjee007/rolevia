@@ -1,10 +1,9 @@
 // AI workbench lab (Business AI module). Rolevia is the front end; the model is the learner's own.
-// The brief runs on the assistant the learner connected in their profile (site/app/ai/providers.js), or the
-// learner pastes a reply from any assistant.
+// The brief runs on the assistant the learner chose in their profile (site/app/ai/providers.js): opened in
+// their own ChatGPT or Gemini, run on the browser's built-in assistant or an API key, or pasted from anywhere.
 // The scored skills are the ones the module teaches: a complete brief and line-by-line verification.
 import { h, icon, toast, busy } from "../ui.js";
-import { ctx } from "../context.js";
-import { getAiConfig, aiReady, chat } from "../ai/providers.js";
+import { PROVIDERS, getAiConfig, aiReady, aiKind, chat, openAssistant } from "../ai/providers.js";
 
 const BRIEF_FIELDS = [
   ["role", "Role for the assistant", "You are an operations analyst helping a small retail business…", /\b(you are|act as|as a|role)\b/i],
@@ -45,7 +44,7 @@ const splitLines = (text) => String(text ?? "").split(/\n+/).map(line => line.tr
 export function aiLab(onComplete) {
   const root = h("div", { class: "ai-lab" });
   const values = {};
-  const state = { reply: "", marks: {}, note: "", ran: false, provider: aiReady(getAiConfig(), ctx.config) ? "assistant" : "paste" };
+  const state = { reply: "", marks: {}, note: "", ran: false, provider: aiReady(getAiConfig()) ? "assistant" : "paste" };
   let best = 0;
   const briefScore = h("div", { class: "ai-score" });
   const replyBox = h("textarea", { class: "input", rows: 10, placeholder: "The assistant's reply appears here (or paste it).", "aria-label": "Assistant reply", onInput: (event) => { state.reply = event.target.value; renderVerify(); } });
@@ -75,19 +74,33 @@ export function aiLab(onComplete) {
 
   // Step 2: run with the learner's connected assistant (set up once in the profile); paste is the fallback.
   const providerBox = h("div", { class: "stack" });
+  const WORKBENCH_SYSTEM = "You are a careful business assistant. Follow the brief exactly; when data is missing say unknown rather than inventing a figure.";
+  const pasteReply = h("button", { class: "button ghost small", type: "button", onClick: async () => {
+    try { const text = await navigator.clipboard.readText(); if (!text.trim()) { toast("Nothing on the clipboard yet. Copy the reply in your assistant first.", "info"); return; } state.reply = text; state.ran = true; replyBox.value = text; renderVerify(); toast("Reply pasted. Now verify it line by line.", "success"); }
+    catch { toast("Paste the reply into the box below (Ctrl+V).", "info"); replyBox.focus(); }
+  } }, icon("clipboard", 14), "Paste the reply");
   const renderProvider = () => {
-    const ready = aiReady(getAiConfig(), ctx.config);
-    const tabs = h("div", { class: "chip-row" }, [["assistant", ready ? "Run with my assistant" : "My assistant (not connected)"], ["paste", "Paste a reply"]].map(([key, label]) => h("button", { type: "button", class: `chip ${state.provider === key ? "on" : ""}`, onClick: () => { state.provider = key; renderProvider(); } }, label)));
+    const config = getAiConfig();
+    const ready = aiReady(config);
+    const kind = aiKind(config);
+    const info = PROVIDERS[config?.provider];
+    const assistantLabel = !ready ? "My assistant (not chosen)" : kind === "handoff" ? (info.url ? `Open in ${info.short}` : "Copy for my assistant") : "Run with my assistant";
+    const tabs = h("div", { class: "chip-row" }, [["assistant", assistantLabel], ["paste", "Paste a reply"]].map(([key, label]) => h("button", { type: "button", class: `chip ${state.provider === key ? "on" : ""}`, onClick: () => { state.provider = key; renderProvider(); } }, label)));
     let body;
     if (state.provider === "paste") body = h("p", { class: "small muted" }, "Copy the brief, run it in the assistant you use, then paste the full reply below. Nothing is sent anywhere by Rolevia.");
-    else if (!ready) body = h("div", { class: "alert info" }, icon("info", 16), h("span", {}, "Connect your AI assistant once in ", h("a", { href: "#/portal/profile?focus=ai" }, "Profile & security"), " and this lab runs the brief for you on your own account. Until then, paste the reply."));
+    else if (!ready) body = h("div", { class: "alert info" }, icon("info", 16), h("span", {}, "Choose your AI assistant once in ", h("a", { href: "#/portal/profile?focus=ai" }, "Profile & security"), " (ChatGPT or Gemini, no key needed) and this lab opens the brief there for you. Until then, paste the reply."));
+    else if (kind === "handoff") body = h("div", { class: "stack" }, h("div", { class: "form-actions start" }, h("button", { class: "button primary small", type: "button", onClick: async () => {
+      if (scoreBrief(values).score < 20) { toast("Complete the brief first: the assistant needs the goal, context and acceptance criteria.", "info"); return; }
+      const result = await openAssistant({ prompt: composePrompt(values), config });
+      toast(result.prefilled ? `${info.short} opened with your brief typed in. Copy its reply, come back and press Paste the reply.` : result.url ? `${info.short} opened. Paste the brief (it is on your clipboard), then bring the reply back here.` : "Brief copied. Run it in your assistant, then paste the reply here.", "info", 9000);
+    } }, icon("bolt", 14), info.url ? `Open the brief in ${info.short}` : "Copy the brief for my assistant"), pasteReply), h("span", { class: "tiny muted" }, `Runs in your own ${info.short} account; the reply comes back here for verification.`));
     else body = h("div", { class: "form-actions start" }, h("button", { class: "button primary small", type: "button", onClick: async (event) => {
       if (scoreBrief(values).score < 20) { toast("Complete the brief first: the assistant needs the goal, context and acceptance criteria.", "info"); return; }
       busy(event.currentTarget, true, "Running");
-      try { state.reply = await chat({ system: "You are a careful business assistant. Follow the brief exactly; when data is missing say unknown rather than inventing a figure.", messages: [{ role: "user", content: composePrompt(values) }], temperature: 0.2, maxTokens: 700 }); state.ran = true; replyBox.value = state.reply; renderVerify(); toast("Reply received. Now verify it line by line.", "success"); }
+      try { state.reply = await chat({ system: WORKBENCH_SYSTEM, messages: [{ role: "user", content: composePrompt(values) }], temperature: 0.2, maxTokens: 700 }); state.ran = true; replyBox.value = state.reply; renderVerify(); toast("Reply received. Now verify it line by line.", "success"); }
       catch (error) { toast(error.message, "error", 9000); }
       finally { busy(event.currentTarget, false, "Run the brief"); }
-    } }, icon("bolt", 14), "Run the brief"), h("span", { class: "tiny muted" }, "Uses your connected assistant; usage is billed to your account."));
+    } }, icon("bolt", 14), "Run the brief"), h("span", { class: "tiny muted" }, kind === "local" ? "Runs on this computer with the browser's built-in assistant." : "Uses your connected assistant; usage is billed to your account."));
     providerBox.replaceChildren(tabs, body);
   };
 

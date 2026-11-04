@@ -419,14 +419,14 @@ test("a learner connects their own Gemini key in the profile; the practice coach
   });
   await studentLogin(page);
   await open(page, "/portal/learn/spreadsheets?tab=coach");
-  await expect(page.locator(".coach-setup")).toContainText("Connect the AI assistant you already use");
-  await page.locator(".coach-setup").getByRole("link", { name: "Set up your AI assistant" }).click();
+  await expect(page.locator(".coach-setup")).toContainText("Choose the assistant you already use");
+  await page.locator(".coach-setup").getByRole("link", { name: "Choose your AI assistant" }).click();
   await expect(page.locator(".ai-settings")).toBeVisible();
   await page.locator(".ai-settings select").selectOption("gemini");
   await expect(page.locator(".ai-settings")).toContainText("Free tier available");
   await page.locator('.ai-settings input[aria-label="API key"]').fill("AIza-test-key-not-real");
   await page.locator(".ai-settings").getByRole("button", { name: "Save and test" }).click();
-  await expect(page.locator(".ai-settings")).toContainText("Connected · Google Gemini", { timeout: 15_000 });
+  await expect(page.locator(".ai-settings")).toContainText("Ready · Google Gemini API key", { timeout: 15_000 });
   expect(calls).toBe(1);
   await shot(page, "22-profile-ai-assistant", false);
   await open(page, "/portal/learn/spreadsheets?tab=coach");
@@ -458,7 +458,126 @@ test("a learner connects their own Gemini key in the profile; the practice coach
   // The same browser's assistant also drafts a lab review for an admin; the admin still edits and saves.
   await adminLogin(page, "content");
   await open(page, "/admin/account");
-  await expect(page.locator(".ai-settings")).toContainText("Connected · Google Gemini");
+  await expect(page.locator(".ai-settings")).toContainText("Ready · Google Gemini API key");
+});
+
+test("no API key: a learner picks ChatGPT or Gemini and practice opens in their own account with the prompt ready; the browser's built-in assistant runs the coach in the page", async ({ page, context }) => {
+  // Hand-off targets are stubbed at the network edge so the test never leaves the runner.
+  await context.route("https://chatgpt.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<title>stub chatgpt</title>" }));
+  await context.route("https://gemini.google.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<title>stub gemini</title>" }));
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await studentLogin(page, "RV-26-0002");
+  await open(page, "/portal/profile?focus=ai");
+  const settings = page.locator(".ai-settings");
+  await expect(settings).toContainText("Not chosen yet");
+  await expect(settings.locator("select")).toHaveValue("chatgpt-web");
+  await expect(settings.locator('input[aria-label="API key"]')).toBeHidden();
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(settings).toContainText("Ready · ChatGPT (your account)");
+  await shot(page, "22a-profile-chatgpt-choice", false);
+  // Module coach: the drill opens in ChatGPT, typed in, and the same prompt is on the clipboard.
+  await open(page, "/portal/learn/spreadsheets?tab=coach");
+  await expect(page.locator(".coach")).toContainText("In your own ChatGPT");
+  const [chatgptTab] = await Promise.all([page.waitForEvent("popup"), page.getByRole("button", { name: "Start a practice drill in ChatGPT" }).click()]);
+  await chatgptTab.waitForLoadState();
+  const chatgptUrl = new URL(chatgptTab.url());
+  expect(chatgptUrl.origin).toBe("https://chatgpt.com");
+  const typed = chatgptUrl.searchParams.get("q");
+  expect(typed).toContain("Business Spreadsheets");
+  expect(typed).toMatch(/ONE question at a time/);
+  expect(typed).toMatch(/Begin now: greet me in one line and ask question 1\.$/);
+  expect(typed.length).toBeLessThanOrEqual(4500);
+  await chatgptTab.close();
+  await page.bringToFront();
+  await expect(page.locator(".coach")).toContainText("opened in a new tab with the practice typed in");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(typed);
+  await shot(page, "23a-coach-handoff", false);
+  // Gemini has no prefill URL: the tab opens plain and the prompt is copied.
+  await open(page, "/portal/profile?focus=ai");
+  await settings.locator("select").selectOption("gemini-web");
+  await expect(settings).toContainText("paste it");
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(settings).toContainText("Ready · Google Gemini (your account)");
+  await open(page, "/portal/interview");
+  const [geminiTab] = await Promise.all([page.waitForEvent("popup"), page.getByRole("button", { name: "Start a mock interview in Gemini" }).click()]);
+  await geminiTab.waitForLoadState();
+  expect(geminiTab.url()).toBe("https://gemini.google.com/app");
+  await geminiTab.close();
+  await page.bringToFront();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/STAR structure/);
+  // AI workbench: the brief opens in the learner's assistant and the reply is pasted back for verification.
+  await open(page, "/portal/labs/business-ai/tool");
+  await expect(page.locator(".chip.on")).toContainText("Open in Gemini");
+  await page.getByRole("button", { name: "Insert the fictional sample data" }).click();
+  await page.fill('[data-field="role"]', "You are an operations analyst for a small stationery retailer.");
+  await page.fill('[data-field="goal"]', "Summarise sales by region so the owner can decide where to add stock.");
+  await page.fill('[data-field="constraints"]', "Use only the data given; say unknown when a figure is missing.");
+  await page.fill('[data-field="format"]', "A table with Region, Orders and Sales (INR).");
+  await page.fill('[data-field="acceptance"]', "Totals must match my SUM; every claim must cite a row.");
+  const [briefTab] = await Promise.all([page.waitForEvent("popup"), page.getByRole("button", { name: "Open the brief in Gemini" }).click()]);
+  await briefTab.close();
+  await page.bringToFront();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^Role for the assistant: You are an operations analyst/);
+  await page.evaluate(() => navigator.clipboard.writeText("North: 4 orders, INR 6,600.\nSouth: 4 orders, INR 4,500."));
+  await page.getByRole("button", { name: "Paste the reply" }).click();
+  await expect(page.locator('textarea[aria-label="Assistant reply"]')).toHaveValue(/North: 4 orders/);
+  await expect(page.locator(".verify-lines li")).toHaveCount(2);
+  // The browser's built-in assistant (Prompt API) is simulated: the option appears only when the API exists.
+  await expect(settings.locator('option[value="builtin"]')).toHaveCount(0);
+  await page.addInitScript(() => {
+    window.LanguageModel = {
+      availability: async () => "downloadable",
+      create: async (options) => {
+        const listeners = {}; options.monitor?.({ addEventListener: (name, fn) => { listeners[name] = fn; } });
+        listeners.downloadprogress?.({ loaded: 0.4 }); listeners.downloadprogress?.({ loaded: 1 });
+        let count = 0;
+        const system = options.initialPrompts?.[0]?.content ?? "";
+        return { prompt: async (text) => { count += 1; if (system.startsWith("You are a connection test")) return "READY"; return count === 1 ? "Question 1: In the Kiran Stationery register, what does one row represent?" : `Partly right: ${text.slice(0, 20)}. Score 3/5.\nQuestion 2: Which function adds only North sales?`; }, append: async () => {}, destroy: () => {} };
+      },
+    };
+  });
+  await open(page, "/portal/profile?focus=ai");
+  await settings.locator("select").selectOption("builtin");
+  await expect(settings).toContainText("Runs on this computer");
+  await settings.getByRole("button", { name: "Save and test" }).click();
+  await expect(settings).toContainText("Ready · Built into this browser");
+  await open(page, "/portal/learn/spreadsheets?tab=coach");
+  await expect(page.locator(".coach")).toContainText("Runs on this computer");
+  await page.getByRole("button", { name: "Start a practice drill" }).click();
+  await expect(page.locator(".coach-msg.assistant").first()).toContainText("Question 1");
+  await page.fill('textarea[aria-label="Your answer"]', "A row is one completed order.");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".coach-msg.assistant").nth(1)).toContainText("Question 2");
+  await shot(page, "23b-coach-on-device", false);
+  // Leave one case answer in the queue so the admin side has something to draft.
+  await open(page, "/portal/labs/crm/session/1");
+  const caseInfo = await page.evaluate(async () => { const { LAB_PROGRAMMES } = await import("./app/content/labs/index.js"); const session = LAB_PROGRAMMES.crm.sessions[0]; const kase = session.tasks.find(task => task.type === "case"); return { caseIndex: session.tasks.indexOf(kase), minWords: kase.minWords }; });
+  const caseCard = page.locator(".task-card").nth(caseInfo.caseIndex);
+  await caseCard.locator("textarea").fill(Array.from({ length: caseInfo.minWords + 3 }, (_, index) => `reason${index}`).join(" "));
+  await caseCard.getByRole("button", { name: "Submit for review" }).click();
+  await expect(caseCard).toContainText("under review");
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/#\/$/);
+  // An admin with a ChatGPT account drafts a lab review by hand-off and pastes the JSON back.
+  await adminLogin(page, "content");
+  await open(page, "/admin/account");
+  await settings.locator("select").selectOption("chatgpt-web");
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(settings).toContainText("Ready · ChatGPT (your account)");
+  await open(page, "/admin/grading");
+  const pending = page.locator(".review-card.pending").first();
+  await expect(pending).toBeVisible();
+  const [packTab] = await Promise.all([page.waitForEvent("popup"), pending.getByRole("button", { name: "Draft in ChatGPT" }).click()]);
+  const packUrl = new URL(packTab.url());
+  await packTab.close();
+  await page.bringToFront();
+  expect(packUrl.searchParams.get("q") ?? "").toMatch(/^You are an assessor for a business-skills studio/);
+  const taskId = await pending.locator("input[type=number]").first().getAttribute("name");
+  await page.evaluate((id) => navigator.clipboard.writeText(`Here is the draft:\n{"scores": {"${id}": 14}, "feedback": "Clear reasoning; quantify the impact next time."}`), taskId);
+  await pending.getByRole("button", { name: "Paste the draft" }).click();
+  await expect(pending.locator("textarea[name=feedback]")).toHaveValue(/quantify the impact/);
+  await expect(pending.locator("input[type=number]").first()).toHaveValue("14");
+  await shot(page, "12b-admin-draft-handoff", false);
 });
 
 test("content manager reviews a lab case answer with points and feedback; the learner sees it", async ({ page }) => {

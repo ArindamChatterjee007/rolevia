@@ -97,17 +97,22 @@ Labs tools are applications, not quizzes:
   Google"; Rolevia creates the lab workbook in the learner's own Drive through the Sheets API and "Check my
   Google Sheet" reads the cells back and runs the same task checks. Rolevia stores nothing from Google; the
   token lives in the learner's browser session.
-- **The learner's own AI assistant** (`site/app/ai/providers.js`, set up once under Profile & security →
-  "Your AI assistant"): Google Gemini (free tier via a Google AI Studio key), an OpenAI API key (pay-as-you-go,
-  separate from ChatGPT Plus), any OpenAI-compatible endpoint, or "Continue with ChatGPT" once OpenAI approves
-  Rolevia as a partner. Settings stay in the learner's browser; requests go straight to the provider and are
-  billed to the learner; Rolevia never sees keys, prompts or replies. Everything assistant-powered then just
-  works: the **practice coach** on each module page (one question at a time, built from that module's lessons,
-  checkpoints, glossary and interview guides; feedback and a 1-5 score; asks the next), the **mock interview**
-  on the interview-prep page, and the **AI workbench** lab (brief → run → verify; paste remains the fallback).
-  Admins can connect their own assistant under My account and use "Draft with my assistant" in the grading
-  queue to pre-fill a lab review from the evaluation pack; the admin edits and saves, and learners see only
-  "reviewed by Rolevia".
+- **The learner's own AI assistant** (`site/app/ai/providers.js`, chosen once under Profile & security →
+  "Your AI assistant"; no API key needed): **ChatGPT (your account)** or **Google Gemini (your account)**,
+  where Rolevia prepares the prompt, opens the assistant in a new tab (typed in on ChatGPT via `?q=`, copied to
+  the clipboard for Gemini, which has no prefill URL) and the learner practises signed in as usual on their
+  own plan; **the assistant built into the browser** (Chrome 148+ desktop, Prompt API / Gemini Nano: on
+  device, no account, offline after a one-time download), which runs the coach inside the page; or, under
+  "Advanced", the learner's own Gemini / OpenAI / compatible API key. The choice stays in the browser;
+  Rolevia never sees prompts, replies or keys. Assistant-powered surfaces: the **practice coach** on each
+  module page (one question at a time from that module's lessons, checkpoints, glossary and interview guides;
+  feedback and a 1-5 score; a compact hand-off version under 4,500 characters is checked by the unit tests),
+  the **mock interview** on the interview-prep page, and the **AI workbench** lab (brief → open/run → paste
+  the reply → verify). Admins choose their assistant under My account; the grading queue offers "Draft with
+  my assistant" (in-page) or "Draft in ChatGPT/Gemini" + "Paste the draft" (hand-off); the admin edits and
+  saves, and learners see only "reviewed by Rolevia". ChatGPT inside Rolevia pages without a tab switch
+  ("Continue with ChatGPT") is only open to OpenAI's selected partners; `openaiClientId` in `site/config.json`
+  is reserved for that approval.
 - The dashboards, Canva, CRM and Trello labs remain the interactive simulations from the first release.
 
 ### Batches and dates

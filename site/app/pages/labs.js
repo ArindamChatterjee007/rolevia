@@ -101,7 +101,7 @@ function trelloLab(onComplete) {
 export const LABS = [
   { id: "spreadsheets", title: "Clean and summarise the register", icon: "grid", summary: "A real spreadsheet: clean the register with TRIM and VALUE, then SUM, SUMIFS, COUNTIFS and IF. Six checked tasks; also openable in Google Sheets.", tool: "Rolevia Sheets · Google Sheets", render: sheetRender("spreadsheets") },
   { id: "dashboards", title: "Build an honest dashboard", icon: "chart", summary: "Choose decision KPIs, the right chart and catch a wrong tile.", render: dashboardsLab },
-  { id: "business-ai", title: "Brief, run and verify", icon: "spark", summary: "An AI workbench: write a checkable brief, run it with your own assistant (API key or paste), then verify the reply line by line.", tool: "Your AI assistant", render: aiLab },
+  { id: "business-ai", title: "Brief, run and verify", icon: "spark", summary: "An AI workbench: write a checkable brief, run it in your own ChatGPT or Gemini (or paste from any assistant), then verify the reply line by line.", tool: "Your AI assistant", render: aiLab },
   { id: "canva", title: "Order the story", icon: "play", summary: "Sequence five slides into a decision story and pick a readable style.", render: canvaLab },
   { id: "crm", title: "Clean the pipeline", icon: "user", summary: "Move five deals to the right stage and watch the win rate.", render: crmLab },
   { id: "hr-tracker", title: "Fair scorecard", icon: "clipboard", summary: "A real spreadsheet: weights that sum to 100%, SUMPRODUCT weighted totals, MAX, INDEX/MATCH and a threshold flag. Five checked tasks.", tool: "Rolevia Sheets · Google Sheets", render: sheetRender("hr-tracker") },
