@@ -121,10 +121,12 @@ export function coachPanel({ system, promptArgs = null, opener = "Start practice
   const thinking = () => h("div", { class: "coach-msg assistant thinking" }, h("span", { class: "coach-who" }, "Coach"), h("div", { class: "coach-text" }, h("span", { class: "spinner" }), h("span", { class: "coach-wait" }, " thinking…")));
   const ask = async (userText) => {
     if (userText) { messages.push({ role: "user", content: userText }); log.append(bubble("user", userText)); }
+    // The opening move stays in the transcript (unshown) so every provider sees one consistent history.
+    else if (!messages.length) messages.push({ role: "user", content: "Begin the practice drill with your first question." });
     const pending = thinking(); log.append(pending); log.scrollTop = log.scrollHeight;
     send.disabled = true; input.disabled = true;
     try {
-      const reply = await chat({ system: instructions, messages: messages.length ? messages : [{ role: "user", content: "Begin the practice drill with your first question." }], temperature: 0.4, maxTokens: 500, conversation, onProgress: (loaded) => { pending.querySelector(".coach-wait").textContent = loaded < 1 ? ` downloading the built-in assistant… ${Math.round(loaded * 100)}%` : " starting…"; } });
+      const reply = await chat({ system: instructions, messages, temperature: 0.4, maxTokens: 500, conversation, onProgress: (loaded) => { pending.querySelector(".coach-wait").textContent = loaded < 1 ? ` downloading the built-in assistant… ${Math.round(loaded * 100)}%` : " starting…"; } });
       messages.push({ role: "assistant", content: reply });
       pending.replaceWith(bubble("assistant", reply));
     } catch (error) { pending.replaceWith(h("div", { class: "alert error" }, icon("info", 16), h("span", {}, error.message))); }
