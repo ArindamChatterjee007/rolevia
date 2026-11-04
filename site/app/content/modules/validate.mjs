@@ -150,3 +150,57 @@ export function validateInterviewBank(bank) {
   else bank.starStories.forEach((story, index) => { for (const key of ["situation", "task", "action", "result"]) errors.push(...checkText(`starStories[${index}].${key}`, story?.[key], 20, 400)); errors.push(...checkText(`starStories[${index}].title`, story?.title, 4, 90)); });
   return errors;
 }
+
+// ---------- lab programmes (site/app/content/labs/<moduleId>.js) ----------
+export const LAB_TASK_TYPES = ["short", "case", "proof"];
+export function validateLabProgramme(programme, { moduleId }) {
+  const errors = [];
+  if (!programme || typeof programme !== "object") return ["programme: expected an object"];
+  if (programme.moduleId !== moduleId) errors.push(`moduleId: expected ${moduleId}`);
+  errors.push(...checkText("summary", programme.summary, 40, 300));
+  if (!Array.isArray(programme.sessions) || programme.sessions.length !== 8) return [...errors, "sessions: exactly 8 weekly sessions"];
+  const taskIds = new Set();
+  programme.sessions.forEach((session, index) => {
+    const path = `sessions[${index}]`;
+    const expectedId = `${moduleId}-lab-s${index + 1}`;
+    if (session?.id !== expectedId) errors.push(`${path}.id: expected ${expectedId}`);
+    if (session?.week !== index + 1) errors.push(`${path}.week: expected ${index + 1}`);
+    errors.push(...checkText(`${path}.title`, session?.title, 4, 90));
+    if (!Number.isInteger(session?.minutes) || session.minutes < 45 || session.minutes > 180) errors.push(`${path}.minutes: integer 45-180`);
+    errors.push(...checkList(`${path}.scenario`, session?.scenario, 1, 3, 60, 700));
+    errors.push(...checkText(`${path}.outcome`, session?.outcome, 20, 240));
+    if (session?.dataset !== undefined && session?.dataset !== null) {
+      const table = session.dataset;
+      if (!Array.isArray(table?.columns) || table.columns.length < 2 || table.columns.length > 6) errors.push(`${path}.dataset.columns: 2-6 columns`);
+      if (!Array.isArray(table?.rows) || table.rows.length < 2 || table.rows.length > 12) errors.push(`${path}.dataset.rows: 2-12 rows`);
+      else table.rows.forEach((row, r) => { if (!Array.isArray(row) || row.length !== table.columns?.length) errors.push(`${path}.dataset.rows[${r}]: must have ${table.columns?.length} cells`); });
+    }
+    if (!Array.isArray(session?.tasks) || session.tasks.length < 3 || session.tasks.length > 5) { errors.push(`${path}.tasks: 3-5 tasks`); return; }
+    const types = session.tasks.map(task => task?.type);
+    if (types.filter(type => type === "short").length < 2) errors.push(`${path}.tasks: at least two short (checkable) tasks`);
+    if (!types.includes("case")) errors.push(`${path}.tasks: at least one case task for review`);
+    session.tasks.forEach((task, taskIndex) => {
+      const tpath = `${path}.tasks[${taskIndex}]`;
+      const expectedTaskId = `${expectedId}-t${taskIndex + 1}`;
+      if (task?.id !== expectedTaskId) errors.push(`${tpath}.id: expected ${expectedTaskId}`);
+      if (taskIds.has(task?.id)) errors.push(`${tpath}.id: duplicate`); taskIds.add(task?.id);
+      if (!LAB_TASK_TYPES.includes(task?.type)) errors.push(`${tpath}.type: one of ${LAB_TASK_TYPES.join("|")}`);
+      errors.push(...checkText(`${tpath}.prompt`, task?.prompt, 20, 600));
+      if (task?.hint !== undefined) errors.push(...checkText(`${tpath}.hint`, task.hint, 10, 240));
+      if (task?.type === "short") {
+        const answer = task.answer ?? {};
+        if (answer.kind === "number") { if (typeof answer.value !== "number" || !Number.isFinite(answer.value)) errors.push(`${tpath}.answer.value: number`); if (answer.tolerance !== undefined && (typeof answer.tolerance !== "number" || answer.tolerance < 0)) errors.push(`${tpath}.answer.tolerance: non-negative number`); }
+        else if (answer.kind === "text") { if (!Array.isArray(answer.accepted) || !answer.accepted.length || answer.accepted.some(item => !isText(item, 1, 80))) errors.push(`${tpath}.answer.accepted: 1+ accepted answers (1-80 chars)`); }
+        else if (answer.kind === "choice") { if (!Array.isArray(answer.options) || answer.options.length < 3 || answer.options.length > 5 || new Set(answer.options).size !== answer.options.length) errors.push(`${tpath}.answer.options: 3-5 distinct options`); if (!Number.isInteger(answer.answerIndex) || answer.answerIndex < 0 || answer.answerIndex >= (answer.options?.length ?? 0)) errors.push(`${tpath}.answer.answerIndex: valid index`); }
+        else errors.push(`${tpath}.answer.kind: number|text|choice`);
+        errors.push(...checkText(`${tpath}.explanation`, task.explanation, 20, 400));
+      }
+      if (task?.type === "case") {
+        errors.push(...checkList(`${tpath}.rubric`, task.rubric, 3, 5, 10, 200));
+        if (!Number.isInteger(task.minWords) || task.minWords < 60 || task.minWords > 300) errors.push(`${tpath}.minWords: integer 60-300`);
+      }
+      if (task?.type === "proof") errors.push(...checkText(`${tpath}.mustShow`, task.mustShow, 20, 300));
+    });
+  });
+  return errors;
+}

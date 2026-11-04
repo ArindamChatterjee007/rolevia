@@ -62,7 +62,7 @@ function overviewTab(data, meta, lessons) {
     h("div", { class: "grid-2" },
       h("div", { class: "card" }, h("h3", {}, icon("check", 18), "What you will be able to do"), h("ul", { class: "ticks" }, meta.outcomes.map(item => h("li", {}, icon("check", 14), item))), h("p", { class: "tiny muted" }, `Prerequisite: ${meta.prerequisite}`)),
       h("div", { class: "card" }, h("h3", {}, icon("clipboard", 18), "Final project"), h("p", { class: "small" }, meta.capstone), h("p", { class: "small muted" }, `Assessed on: ${meta.assessment}`), h("a", { class: "link-button", href: "#/portal/assignments" }, "Open assignments"))),
-    data.course ? h("div", { class: "card" }, h("h3", {}, icon("book", 18), "Two-week plan"), h("div", { class: "week-grid" }, data.course.weeks.map(week => h("div", { class: "week" }, h("p", { class: "eyebrow" }, `Week ${week.week}`), h("strong", {}, week.theme), h("ol", { class: "week-lessons" }, week.lessons.map(lesson => h("li", { class: lesson.done ? "done" : "" }, h("a", { href: `#/portal/learn/${meta.id}?lesson=${lesson.id}` }, lesson.title), h("span", { class: "tiny muted" }, ` · ${lesson.minutes} min`)))))))) : null);
+    data.course ? h("div", { class: "card" }, h("h3", {}, icon("book", 18), "Lessons: weeks 1 and 2 of the course"), h("div", { class: "week-grid" }, data.course.weeks.map(week => h("div", { class: "week" }, h("p", { class: "eyebrow" }, `Week ${week.week}`), h("strong", {}, week.theme), h("ol", { class: "week-lessons" }, week.lessons.map(lesson => h("li", { class: lesson.done ? "done" : "" }, h("a", { href: `#/portal/learn/${meta.id}?lesson=${lesson.id}` }, lesson.title), h("span", { class: "tiny muted" }, ` · ${lesson.minutes} min`)))))))) : null);
 }
 
 function lessonsTab(data, meta, lessons) {

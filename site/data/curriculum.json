@@ -11,19 +11,35 @@
     "claimBoundary": "Each module develops a specific practical skill. It does not by itself qualify someone for a job, make them an industry expert or guarantee an interview, salary or promotion."
   },
   "skillFormat": {
-    "weeks": 2,
+    "weeks": 8,
     "recordedHours": 4,
     "liveWorkshopCount": 1,
     "liveWorkshopMinutes": 60,
     "doubtClinicCount": 2,
     "doubtClinicMinutes": 30,
-    "practiceHours": 6,
+    "practiceHours": 12,
     "accessDays": 180,
-    "practiceTasks": 4,
+    "practiceTasks": 32,
     "reviewedProjects": 1,
     "proposedCohortLimit": 12,
     "responseBusinessDays": 2,
-    "resubmissionDays": 14
+    "resubmissionDays": 14,
+    "lessonWeeks": 2,
+    "labSessions": 8,
+    "labHoursPerSession": 1.5
+  },
+  "schedule": {
+    "firstBatchStart": "2026-12-01",
+    "courseWeeks": 8,
+    "gapDays": 0,
+    "batchesShown": 4,
+    "note": "Courses run in consecutive eight-week batches with no holiday breaks; every skill module starts on each batch date.",
+    "interviewReady": {
+      "status": "coming-soon",
+      "firstMonth": "2027-01",
+      "batchesPerMonth": "2 to 3",
+      "format": "written preparation plus a 45-minute individual mock interview; batch dates confirmed by email"
+    }
   },
   "modules": [
     {

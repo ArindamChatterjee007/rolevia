@@ -84,9 +84,40 @@ export async function adminGradingPage() {
       host.replaceChildren(submissions.length ? h("div", { class: "stack" }, submissions.map(submission => { const form = h("form", { class: "grade-form", novalidate: true, onSubmit: async (event) => { event.preventDefault(); const values = formData(form); const button = form.querySelector("button[type=submit]"); busy(button, true, "Saving"); try { await ctx.api.adminGrade(withSession({ submissionId: submission.id, score: values.score, feedback: values.feedback })); toast("Graded. Points added to the leaderboard.", "success"); render(); } catch (error) { toast(error.message, "error"); busy(button, false); } } }, field({ label: `Score / ${submission.assignment?.maxScore ?? 100}`, name: "score", type: "number", value: submission.score ?? "", min: 0, max: submission.assignment?.maxScore ?? 100, required: true }), field({ label: "Feedback", name: "feedback", type: "textarea", value: submission.feedback ?? "", rows: 2 }), h("div", { class: "form-actions" }, h("button", { class: "button primary small", type: "submit" }, submission.gradedAt ? "Update grade" : "Save grade"))); return h("div", { class: `card ${submission.gradedAt ? "graded" : ""}` }, h("div", { class: "card-head" }, h("div", {}, h("p", { class: "eyebrow" }, submission.assignment ? moduleTitle(submission.assignment.moduleId) : "Assignment"), h("strong", {}, `${submission.student} · ${submission.assignment?.title ?? "deleted assignment"}`)), h("span", { class: `tag ${submission.gradedAt ? "good" : "pending"}` }, submission.gradedAt ? `Graded ${submission.score}` : "Ungraded")), h("p", { class: "small" }, submission.text), submission.link ? h("a", { class: "link-button small", href: submission.link, target: "_blank", rel: "noopener noreferrer" }, submission.link) : null, submission.file ? h("p", { class: "file-meta" }, icon("clipboard", 14), `${submission.file.name} · ${formatBytes(submission.file.size)}`, submission.file.dataUrl ? h("a", { class: "link-button small", href: submission.file.dataUrl, download: submission.file.name }, "Download") : h("span", { class: "tiny muted" }, "name only"), submission.file.sha256 ? h("span", { class: "tiny muted" }, `sha256 ${submission.file.sha256.slice(0, 12)}…`) : null) : null, h("p", { class: "tiny muted" }, `Submitted ${formatTime(submission.submittedAt)}`), form); })) : empty("No submissions yet."));
     };
     await render();
-    return host;
+    const reviews = labReviewQueue();
+    return h("div", { class: "stack" }, h("h3", { class: "section-title" }, icon("clipboard", 18), "Assignment submissions"), host, h("h3", { class: "section-title" }, icon("lab", 18), "Lab case reviews"), reviews);
   });
   return shell(content, { active: "grading", title: "Grading queue" });
+}
+
+// Lab case answers and evidence awaiting review. "Copy evaluation pack" assembles scenario, task, rubric and the
+// learner's answer as plain text so the reviewer can assess it with whatever method the studio uses; points and
+// feedback entered here reach the learner.
+function labReviewQueue() {
+  const host = h("div", { class: "stack" }, skeleton(3));
+  const render = async () => {
+    const queue = await ctx.api.adminLabReviews(withSession());
+    if (!queue.length) { host.replaceChildren(h("p", { class: "muted small" }, "No lab case answers waiting. Learners submit them from their weekly lab sessions.")); return; }
+    host.replaceChildren(...queue.map(entry => {
+      const pack = () => [`ROLEVIA LAB REVIEW PACK`, `Module: ${entry.moduleTitle} · Week ${entry.week}: ${entry.sessionTitle}`, `Learner: ${entry.student} (${entry.studentId})`, ``, `SCENARIO`, ...entry.scenario, ``, `EXPECTED OUTCOME`, entry.outcome, ``, ...entry.items.flatMap(item => [`TASK (${item.type}, max ${item.maxPoints} points)`, item.prompt, item.rubric ? `Rubric:\n- ${item.rubric.join("\n- ")}` : `Must show: ${item.mustShow}`, `LEARNER ANSWER:`, item.url ? `Link: ${item.url}` : item.file ? `File: ${item.file.name} (${formatBytes(item.file.size)})` : item.answer, ``]), `Score each task 0 to its maximum against the rubric and write feedback the learner can act on.`].join("\n");
+      const inputs = new Map();
+      const form = h("form", { class: "grade-form", novalidate: true, onSubmit: async (event) => {
+        event.preventDefault();
+        const button = form.querySelector("button[type=submit]");
+        busy(button, true, "Saving");
+        try {
+          const scores = Object.fromEntries([...inputs.entries()].map(([taskId, input]) => [taskId, Number(input.value)]));
+          await ctx.api.adminReviewLab(withSession({ attemptId: entry.attemptId, scores, feedback: form.querySelector("textarea").value }));
+          toast("Review saved. The learner sees the points and feedback in their session.", "success"); render();
+        } catch (error) { if (!showFieldErrors(form, error.extra?.fields ?? {})) toast(error.message, "error"); busy(button, false); }
+      } },
+        ...entry.items.map(item => h("div", { class: "review-item" }, h("div", { class: "card-head" }, h("strong", {}, `${item.type === "case" ? "Case answer" : "Evidence"} · max ${item.maxPoints}`), item.reviewedAt ? h("span", { class: "tag good" }, `${item.points}/${item.maxPoints} reviewed`) : h("span", { class: "tag pending" }, "pending")), h("p", { class: "small" }, item.prompt), item.rubric ? h("ul", { class: "reader-bullets small" }, item.rubric.map(line => h("li", {}, line))) : h("p", { class: "tiny muted" }, `Must show: ${item.mustShow}`), item.url ? h("a", { class: "link-button", href: item.url, target: "_blank", rel: "noopener noreferrer" }, item.url) : item.file ? h("a", { class: "link-button", href: item.file.dataUrl ?? "#", download: item.file.dataUrl ? item.file.name : null }, `${item.file.name} (${formatBytes(item.file.size)})`) : h("blockquote", { class: "answer" }, item.answer), item.reviewedAt ? null : (() => { const input = h("input", { class: "input small", type: "number", min: 0, max: item.maxPoints, value: "", "aria-label": `Points for ${item.type}`, required: true, name: item.taskId }); inputs.set(item.taskId, input); return h("label", { class: "field compact" }, h("span", { class: "field-label" }, `Points (0-${item.maxPoints})`), input); })())),
+        entry.pending ? [h("label", { class: "field" }, h("span", { class: "field-label" }, "Feedback to the learner"), h("textarea", { class: "input", rows: 3, name: "feedback", placeholder: "What was strong, what was missing against the rubric, one concrete improvement." })), h("div", { class: "form-actions" }, h("button", { class: "button ghost small", type: "button", onClick: async () => { try { await navigator.clipboard.writeText(pack()); toast("Evaluation pack copied.", "success"); } catch { modal({ title: "Evaluation pack", body: h("pre", { class: "ai-prompt" }, pack()), actions: [{ label: "Close" }] }); } } }, icon("clipboard", 14), "Copy evaluation pack"), h("button", { class: "button primary small", type: "submit" }, "Save review"))] : null);
+      return h("details", { class: `card review-card ${entry.pending ? "pending" : ""}`, open: entry.pending }, h("summary", {}, h("strong", {}, `${entry.student} · ${entry.moduleTitle} · week ${entry.week}`), h("span", { class: "tiny muted" }, ` ${entry.sessionTitle} · ${entry.items.length} item${entry.items.length === 1 ? "" : "s"} · ${relative(entry.updatedAt)}`), entry.pending ? h("span", { class: "tag pending" }, "to review") : h("span", { class: "tag good" }, "reviewed")), h("details", { class: "scenario-fold" }, h("summary", { class: "tiny" }, "Scenario and expected outcome"), entry.scenario.map(paragraph => h("p", { class: "small muted" }, paragraph)), h("p", { class: "small" }, h("strong", {}, "Outcome: "), entry.outcome)), form);
+    }));
+  };
+  render().catch(error => host.replaceChildren(errorBox(error)));
+  return host;
 }
 
 export async function adminAlertsPage() {

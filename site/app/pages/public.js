@@ -2,6 +2,19 @@ import { h, icon, money, observeReveals, countUp, ring, skeleton, formatDate } f
 import { ctx } from "../context.js";
 import { publicShell, orbit, marquee, quotesTicker, statCard, sectionHead, COMPANY_NAMES, errorBox, empty } from "./components.js";
 import { illustration } from "./deck.js";
+import { batches, nextBatch, formatBatchDate } from "../schedule.js";
+
+// Batch calendar block shared by the home page, skills page and pricing page.
+export function batchCalendar({ compact = false } = {}) {
+  const schedule = ctx.curriculum.schedule;
+  const list = batches(schedule);
+  if (!list.length) return null;
+  const interview = schedule.interviewReady;
+  return h("div", { class: `batch-calendar ${compact ? "compact" : ""}` },
+    h("div", { class: "batch-list" }, list.map(batch => h("div", { class: `batch ${batch.status}` }, h("span", { class: "batch-label" }, batch.label, batch.status === "running" ? h("span", { class: "tag live" }, "running") : batch.number === list[0].number && batch.status === "upcoming" ? h("span", { class: "tag good" }, "next") : null), h("strong", {}, batch.range), h("span", { class: "tiny muted" }, `${schedule.courseWeeks} weeks · every skill module`)))),
+    compact ? null : h("p", { class: "small muted" }, `${schedule.note} Interview Ready: coming soon, first batches in ${new Date(`${interview.firstMonth}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })} (${interview.batchesPerMonth} batches a month; ${interview.format}).`));
+}
+export const nextBatchLine = () => { const batch = nextBatch(ctx.curriculum.schedule); return batch ? `${batch.label} starts ${formatBatchDate(batch.start)}` : "Batch dates announced soon"; };
 import { PRINCIPLES } from "../content/principles.js";
 import { LABS } from "./labs.js";
 
@@ -14,7 +27,7 @@ export function skillCard(module, { compact = false } = {}) {
     h("h3", {}, module.title),
     h("p", { class: "muted" }, module.label),
     compact ? null : h("ul", { class: "ticks" }, module.outcomes.slice(0, 2).map(outcome => h("li", {}, icon("check", 14), outcome))),
-    h("div", { class: "skill-card-foot" }, h("span", { class: "price" }, money(module.priceINR), h("small", {}, ` / ${money(module.priceUSD, "USD")}`)), h("span", { class: "duration" }, "2 weeks · 12 h")));
+    h("div", { class: "skill-card-foot" }, h("span", { class: "price" }, money(module.priceINR), h("small", {}, ` / ${money(module.priceUSD, "USD")}`)), h("span", { class: "duration" }, "8 weeks · weekly labs")));
 }
 
 function tilt(event) {
@@ -38,13 +51,13 @@ export async function homePage() {
       h("div", { class: "hero-copy" },
         h("p", { class: "eyebrow reveal in" }, icon("spark", 14), "Affordable skill modules · from ", money(1999), " / ", money(39, "USD")),
         h("h1", { class: "display reveal in" }, "Business knowledge. ", h("span", { class: "serif" }, "Practical confidence."), h("br"), "Work you can show."),
-        h("p", { class: "lead reveal in" }, "Two-week, tool-based skill modules for MBA graduates and non-technical professionals. Recorded lessons, interactive labs, daily quizzes, human feedback and selected live sessions."),
+        h("p", { class: "lead reveal in" }, "Eight-week, tool-based skill modules for MBA graduates and non-technical professionals: two weeks of recorded lessons, eight weekly lab sessions with case work reviewed by Rolevia, daily quizzes and live workshops."),
         h("div", { class: "hero-actions reveal in" }, h("a", { class: "button primary large", href: "#/register" }, "Start with one skill", icon("arrow", 18)), h("a", { class: "button ghost large", href: "#/demo" }, icon("play", 18), "Free 30-minute demo")),
-        h("ul", { class: "hero-points reveal in" }, h("li", {}, icon("check", 14), `Any ${careerBonus.qualifyingModules} modules unlock Interview Ready + resume support`), h("li", {}, icon("check", 14), "One active device, OTP sign-in, verified registration"), h("li", {}, icon("check", 14), "Leaderboard badges you can share on LinkedIn"))),
+        h("ul", { class: "hero-points reveal in" }, h("li", {}, icon("check", 14), h("strong", {}, nextBatchLine()), " · eight weeks · every module"), h("li", {}, icon("check", 14), `Any ${careerBonus.qualifyingModules} modules unlock Interview Ready + resume support`), h("li", {}, icon("check", 14), "One active device, OTP sign-in, verified registration"), h("li", {}, icon("check", 14), "Leaderboard badges you can share on LinkedIn"))),
       h("div", { class: "hero-visual reveal in" }, orbit(modules))));
 
   const stats = h("section", { class: "container stats-row" },
-    statCard("08", "focused skill modules", "2 weeks each"), statCard("12 h", "per module", "4 recorded + 2 live + 6 practice"), statCard(`${careerBonus.qualifyingModules}`, "modules unlock the career kit", "Interview Ready + resume support"), statCard(`${referral.refundPercent}%`, "cashback on one module", `after ${referral.qualifyingPeople} qualifying referrals`));
+    statCard("08", "focused skill modules", "8 weeks each"), statCard("8", "weekly lab sessions", "test cases + case studies reviewed"), statCard(`${careerBonus.qualifyingModules}`, "modules unlock the career kit", "Interview Ready + resume support"), statCard(`${referral.refundPercent}%`, "cashback on one module", `after ${referral.qualifyingPeople} qualifying referrals`));
 
   const how = h("section", { class: "container section" }, sectionHead("How it works", "Register, verify, learn, show.", "A short path from the first payment to work you can explain in an interview."),
     h("div", { class: "steps-grid" }, [
@@ -54,6 +67,7 @@ export async function homePage() {
       ["04", "Show your evidence", "Climb the leaderboard, earn badges, share them on LinkedIn and add the free career kit after five modules."],
     ].map(([number, title, text], index) => h("div", { class: "step-card reveal", style: { "--i": index } }, h("span", { class: "step-number" }, number), h("h3", {}, title), h("p", { class: "muted" }, text)))));
 
+  const calendar = h("section", { class: "container section", id: "batches" }, sectionHead("Batch calendar", "Courses start together. ", "Eight-week batches run back to back; join any module on a batch date."), batchCalendar());
   const skills = h("section", { class: "container section", id: "skills" }, sectionHead("Skill modules", "Pick one skill. Know the price.", "Every module is separately purchasable. No bundle is required."), h("div", { class: "skills-grid" }, modules.map(module => skillCard(module))), h("div", { class: "center" }, h("a", { class: "button ghost", href: "#/pricing" }, "Compare all fees", icon("arrow", 16))));
 
   const kit = h("section", { class: "container section" },
@@ -74,14 +88,14 @@ export async function homePage() {
 
   const companiesHost = marquee(COMPANY_NAMES);
   ctx.api.companies?.().then(list => { if (Array.isArray(list) && list.length) companiesHost.replaceWith(marquee(list)); }).catch(() => {});
-  const page = publicShell(h("div", {}, hero, stats, companiesHost, how, skills, kit, labs, board, quotes, demoSection), { active: "home" });
+  const page = publicShell(h("div", {}, hero, stats, companiesHost, how, calendar, skills, kit, labs, board, quotes, demoSection), { active: "home" });
   queueMicrotask(() => { observeReveals(page); page.querySelectorAll(".stat-value").forEach(element => { const text = element.textContent; const number = Number.parseFloat(text); if (!Number.isNaN(number) && /^\d/.test(text)) countUp(element, number, { suffix: text.replace(/^[\d.]+/, ""), decimals: 0 }); }); });
   return page;
 }
 
 export function skillsPage() {
   const { modules } = ctx.curriculum;
-  const page = publicShell(h("div", { class: "container section" }, sectionHead("Skill modules", "Eight focused skills. ", "Each module is 2 weeks, 12 learning hours, one interactive lab, daily quizzes and one reviewed project."), h("div", { class: "skills-grid" }, modules.map(module => skillCard(module)))), { active: "skills" });
+  const page = publicShell(h("div", { class: "container section" }, sectionHead("Skill modules", "Eight focused skills. ", "Each module runs eight weeks: two weeks of lessons, eight weekly lab sessions with checked tasks and reviewed case work, daily quizzes, a live workshop and one reviewed final project."), h("div", { class: "skills-grid" }, modules.map(module => skillCard(module)))), { active: "skills" });
   queueMicrotask(() => observeReveals(page));
   return page;
 }
@@ -104,7 +118,7 @@ export function skillDetailPage({ id }) {
         h("div", { class: "proof reveal" }, h("h3", {}, "How to describe this skill in an interview"), h("blockquote", {}, `“${module.interviewEvidence}”`), h("p", { class: "tiny muted" }, "Use this only after doing the work, and describe it as a learning project."))),
       h("aside", { class: "detail-aside" },
         h("div", { class: "price-card" }, h("p", { class: "eyebrow" }, "Proposed fee"), h("div", { class: "price-big" }, money(module.priceINR)), h("div", { class: "muted" }, `${money(module.priceUSD, "USD")} international`), h("p", { class: "small muted" }, "Per learner. Applicable taxes are shown before payment."), h("a", { class: "button primary block", href: `#/register?module=${module.id}` }, "Register for this skill", icon("arrow", 16)), h("a", { class: "button ghost block", href: "#/demo" }, "Try the free demo first")),
-        h("div", { class: "aside-card" }, h("h4", {}, "Primary tool"), h("p", {}, module.tool), h("h4", {}, "Useful in"), h("p", {}, module.roles.join(" · ")), h("h4", {}, "Starting point"), h("p", { class: "small muted" }, module.prerequisite), h("h4", {}, "Where roles like this are advertised"), h("p", { class: "small muted" }, `${module.companies.join(", ")}. Not hiring partners.`), h("p", { class: "tiny muted" }, module.next))))), { active: "skills" });
+        h("div", { class: "aside-card" }, h("h4", {}, "Next batch"), h("p", {}, nextBatchLine(), h("span", { class: "tiny muted block" }, `${ctx.curriculum.schedule.courseWeeks} weeks: lessons in weeks 1-2, a lab session every week, live workshop, final project`)), h("h4", {}, "Primary tool"), h("p", {}, module.tool), h("h4", {}, "Useful in"), h("p", {}, module.roles.join(" · ")), h("h4", {}, "Starting point"), h("p", { class: "small muted" }, module.prerequisite), h("h4", {}, "Where roles like this are advertised"), h("p", { class: "small muted" }, `${module.companies.join(", ")}. Not hiring partners.`), h("p", { class: "tiny muted" }, module.next))))), { active: "skills" });
   queueMicrotask(() => observeReveals(page));
   return page;
 }
@@ -117,7 +131,7 @@ export function pricingPage(_, query) {
     table.replaceChildren(
       h("div", { class: "pricing-head" }, h("span", {}, "Programme"), h("span", { class: "right" }, "Fee")),
       ...modules.map(module => h("a", { class: "pricing-row", href: `#/skills/${module.id}` }, h("span", {}, h("strong", {}, `${module.code} · ${module.title}`), h("small", { class: "muted" }, module.tool)), h("span", { class: "right price" }, money(module[`price${currency}`], currency)))),
-      h("div", { class: "pricing-row highlight" }, h("span", {}, h("strong", {}, "Interview Ready (standalone)"), h("small", { class: "muted" }, "2 weeks · 8 hours · one personal mock · free in the career kit")), h("span", { class: "right price" }, money(interviewCourse[`price${currency}`], currency))),
+      h("div", { class: "pricing-row highlight" }, h("span", {}, h("strong", {}, "Interview Ready (standalone)"), h("small", { class: "muted" }, "Coming soon · written preparation + one personal mock · free in the career kit")), h("span", { class: "right price" }, money(interviewCourse[`price${currency}`], currency))),
       ...services.map(service => h("div", { class: "pricing-row service" }, h("span", {}, h("strong", {}, service.name), h("small", { class: "muted" }, service.scope)), h("span", { class: "right price" }, money(service[`price${currency}`], currency)))));
   };
   render();
@@ -125,6 +139,7 @@ export function pricingPage(_, query) {
   const page = publicShell(h("div", { class: "container section" },
     sectionHead("Pricing", "Affordable, focused, separately purchasable.", "INR fees are proposed India prices. USD fees are separate international prices, not conversions. Taxes are shown before payment."),
     toggle, table,
+    h("h3", { class: "section-title" }, icon("bell", 18), "Batch dates"), batchCalendar({ compact: true }),
     h("div", { class: "two-col" },
       h("div", { class: "kit-panel reveal" }, h("div", {}, h("p", { class: "eyebrow" }, "Career kit"), h("h3", {}, `Buy any ${careerBonus.qualifyingModules} skill modules`), h("p", { class: "muted" }, "Receive Interview Ready, its mock, one resume review and one done-for-you resume at no extra tuition or service fee.")), h("ol", { class: "terms" }, careerBonus.policy.map(term => h("li", {}, term)))),
       h("div", { class: "kit-panel reveal alt" }, h("div", {}, h("p", { class: "eyebrow" }, "Referral cashback"), h("h3", {}, `Refer ${referral.qualifyingPeople}, get ${referral.refundPercent}% of one module back`), h("p", { class: "muted" }, "After five qualifying new paid referrals, receive 50% cashback on one designated paid skill module, not on a whole package.")), h("ol", { class: "terms" }, referral.policy.map(term => h("li", {}, term)))))), { active: "pricing" });

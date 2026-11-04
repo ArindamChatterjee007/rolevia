@@ -4,8 +4,12 @@ import { h, icon } from "../ui.js";
 
 export const ILLUSTRATION_IDS = ["spreadsheets", "dashboards", "business-ai", "canva", "crm", "hr-tracker", "trello", "budgeting", "live-class", "interview", "labs", "welcome"];
 
-export function illustration(id, { class: className = "", size = null } = {}) {
+// Photographs (Pexels licence, see assets/photos/CREDITS.md) for modules and portal areas; the vector mark for
+// the rest. `art: "vector"` forces the illustration, used inside slides where photos would compete with text.
+export const PHOTO_IDS = ["spreadsheets", "dashboards", "business-ai", "canva", "crm", "hr-tracker", "trello", "budgeting", "live-class", "interview", "labs"];
+export function illustration(id, { class: className = "", size = null, art = "photo" } = {}) {
   const safe = ILLUSTRATION_IDS.includes(id) ? id : "welcome";
+  if (art === "photo" && PHOTO_IDS.includes(safe)) return h("img", { class: `illustration photo ${className}`, src: `assets/photos/${safe}.jpg`, alt: "", draggable: false, loading: "lazy", width: 960, height: 600 });
   return h("img", { class: `illustration ${className}`, src: `assets/illustrations/${safe}.svg`, alt: "", draggable: false, loading: "lazy", width: size, height: size });
 }
 
@@ -15,9 +19,9 @@ export const SLIDE_KIND_LABELS = { title: "Title", content: "Points", steps: "St
 export function slideView(slide, { index = 0, total = 1, deckTitle = "", reveal = false, chosen = null, onChoose = null, accent = "" } = {}) {
   const body = [];
   if (slide.kind === "title") {
-    body.push(h("div", { class: "slide-title-layout" }, h("div", { class: "slide-title-copy" }, h("p", { class: "slide-eyebrow" }, deckTitle), h("h2", {}, slide.title), slide.subtitle ? h("p", { class: "slide-subtitle" }, slide.subtitle) : null), illustration(slide.illustration ?? "welcome", { class: "slide-art" })));
+    body.push(h("div", { class: "slide-title-layout" }, h("div", { class: "slide-title-copy" }, h("p", { class: "slide-eyebrow" }, deckTitle), h("h2", {}, slide.title), slide.subtitle ? h("p", { class: "slide-subtitle" }, slide.subtitle) : null), illustration(slide.illustration ?? "welcome", { class: "slide-art", art: "vector" })));
   } else if (slide.kind === "content" || slide.kind === "summary") {
-    body.push(h("div", { class: `slide-split ${slide.illustration ? "with-art" : ""}` }, h("div", {}, h("h2", {}, slide.title), slide.subtitle ? h("p", { class: "slide-subtitle" }, slide.subtitle) : null, h("ul", { class: "slide-bullets" }, (slide.bullets ?? []).map(bullet => h("li", {}, h("span", { class: "slide-marker" }), h("span", {}, bullet))))), slide.illustration ? illustration(slide.illustration, { class: "slide-art small" }) : null));
+    body.push(h("div", { class: `slide-split ${slide.illustration ? "with-art" : ""}` }, h("div", {}, h("h2", {}, slide.title), slide.subtitle ? h("p", { class: "slide-subtitle" }, slide.subtitle) : null, h("ul", { class: "slide-bullets" }, (slide.bullets ?? []).map(bullet => h("li", {}, h("span", { class: "slide-marker" }), h("span", {}, bullet))))), slide.illustration ? illustration(slide.illustration, { class: "slide-art small", art: "vector" }) : null));
   } else if (slide.kind === "steps") {
     body.push(h("h2", {}, slide.title), slide.subtitle ? h("p", { class: "slide-subtitle" }, slide.subtitle) : null, h("ol", { class: "slide-steps" }, (slide.steps ?? []).map((step, stepIndex) => h("li", {}, h("span", { class: "slide-step-index" }, stepIndex + 1), h("span", {}, step)))));
   } else if (slide.kind === "question") {

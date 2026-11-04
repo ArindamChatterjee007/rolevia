@@ -73,7 +73,17 @@ slides" task is queued for the host. The eight workshop decks are seeded with th
 
 ### Interactive labs: Rolevia's own tools, the learner's own accounts
 
-Labs are applications, not quizzes:
+Every module has an **eight-week lab programme** (`site/app/content/labs/<id>.js`, schema in
+`validate.mjs`): one session a week with a scenario, a dataset, **short tasks checked immediately** (figures,
+terms, choices; 5 points each, awarded once; unlimited retries; the explanation appears when solved),
+**case answers** (minimum word count, rubric shown; 20 points) and **evidence** (link or file; 10 points) that
+go to Rolevia's **review queue**. Learners see "Under review", then points and written feedback; the review
+promise is "within 3 business days". Admins with the grading permission review from the Grading queue, where
+"Copy evaluation pack" assembles scenario, task, rubric and answer as plain text so the studio can assess it by
+whatever method it uses; the site itself never states how a review is produced. Week 8 is the capstone
+(case + evidence). The interactive practice tools below sit beside the programme (`#/portal/labs/<id>/tool`).
+
+Labs tools are applications, not quizzes:
 
 - **Rolevia Sheets** (`site/app/labs/sheet-engine.js`): an in-browser spreadsheet engine with real formulas
   (arithmetic, `SUM`, `SUMIFS`, `COUNTIFS`, `IF`, `VLOOKUP`/`XLOOKUP`/`INDEX`/`MATCH`, `SUMPRODUCT`,
@@ -96,6 +106,19 @@ Labs are applications, not quizzes:
   and `openaiClientId` is configured). Points come from the brief's completeness and the line-by-line
   verification, which is the skill the module teaches.
 - The dashboards, Canva, CRM and Trello labs remain the interactive simulations from the first release.
+
+### Batches and dates
+
+`site/data/curriculum.json` → `schedule`: Batch 1 starts 1 December 2026; every course runs eight weeks
+(lessons in weeks 1-2, a lab session every week, a live workshop, the final project); batches run back to back
+with no holiday gaps (`site/app/schedule.js` computes them); the next four are shown on the home page, pricing
+page and each module page. Interview Ready is "coming soon" with first batches in January 2027 (2 to 3 a month).
+
+### Photographs
+
+Module and portal imagery uses photographs from Pexels under the Pexels License (free commercial use, no
+attribution required; credits recorded in `site/assets/photos/CREDITS.md`). People shown are stock models with
+no connection to Rolevia. Slide decks keep the vector illustrations so text stays readable.
 
 ### Live classes
 

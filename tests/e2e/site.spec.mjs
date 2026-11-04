@@ -24,7 +24,7 @@ async function open(page, route = "/") {
   await page.waitForSelector("#splash", { state: "detached" });
 }
 const latestCode = (page) => page.evaluate(() => {
-  const state = JSON.parse(localStorage.getItem("rolevia.preview.v9"));
+  const state = JSON.parse(localStorage.getItem("rolevia.preview.v10"));
   return state.outbox.find(message => message.channel === "email" && /Code \d{6}/.test(message.body)).body.match(/Code (\d{6})/)[1];
 });
 async function enterOtpBoxes(page) {
@@ -88,6 +88,10 @@ test("public site renders the animated hero, company marquee, eight skills and s
   await expect(page.locator(".marquee-wrap")).toContainText("they do not hire through Rolevia and no opportunity is promised");
   await expect(page.locator(".marquee-wrap")).toContainText("logos appear only with the owner's written permission");
   await expect(page.locator(".skills-grid .skill-card")).toHaveCount(8);
+  await expect(page.locator(".skill-card img.photo")).toHaveCount(8);
+  await expect(page.locator(".batch-list .batch")).toHaveCount(4);
+  await expect(page.locator(".batch-list .batch").first()).toContainText(/\d+ \w+ – \d+ \w+ 20\d\d/); // consecutive 8-week batches from 1 December 2026
+  await expect(page.locator(".hero-points")).toContainText(/Batch \d+ starts \d+ \w+ 20\d\d/);
   await expect(page.locator(".quotes-ticker .quote").first()).toBeVisible();
   await expect(page.locator(".teaser-row").first()).toContainText("#1");
   await shot(page, "01-home-desktop");
@@ -291,6 +295,26 @@ test("a student completes an interactive lab, a daily quiz, sees the leaderboard
 
   // Rolevia Sheets lab: type real formulas through the formula bar; checks run live and the best score is saved.
   await open(page, "/portal/labs/spreadsheets");
+  await expect(page.locator(".session-row")).toHaveCount(8);
+  await expect(page.locator(".overview-hero")).toContainText("reviewed by Rolevia within 3 business days");
+  await shot(page, "07b-lab-programme");
+  // Week 1 session: a checked short task (wrong then right) and a case answer that goes to review.
+  await page.locator(".session-row a").first().click();
+  await expect(page.locator(".reader-head h2")).toBeVisible();
+  const sessionData = await page.evaluate(async () => { const { LAB_PROGRAMMES } = await import("./app/content/labs/index.js"); const session = LAB_PROGRAMMES.spreadsheets.sessions[0]; const short = session.tasks.find(task => task.type === "short" && task.answer.kind !== "choice"); const kase = session.tasks.find(task => task.type === "case"); return { shortIndex: session.tasks.indexOf(short), right: short.answer.kind === "number" ? String(short.answer.value) : short.answer.accepted[0], caseIndex: session.tasks.indexOf(kase), minWords: kase.minWords }; });
+  const shortCard = page.locator(".task-card").nth(sessionData.shortIndex);
+  await shortCard.locator("input").fill("999999");
+  await shortCard.getByRole("button", { name: "Check" }).click();
+  await expect(shortCard).toContainText("1 attempt so far");
+  await shortCard.locator("input").fill(sessionData.right);
+  await shortCard.getByRole("button", { name: "Check" }).click();
+  await expect(shortCard).toContainText("Correct (+5 points)");
+  const caseCard = page.locator(".task-card").nth(sessionData.caseIndex);
+  await caseCard.locator("textarea").fill(Array.from({ length: sessionData.minWords + 3 }, (_, index) => `point${index}`).join(" "));
+  await caseCard.getByRole("button", { name: "Submit for review" }).click();
+  await expect(caseCard).toContainText("under review");
+  await shot(page, "07c-lab-session");
+  await open(page, "/portal/labs/spreadsheets/tool");
   await expect(page.locator(".sheet-grid")).toBeVisible();
   await expect(page.locator(".sheet-task")).toHaveCount(6);
   await expect(page.locator(".sheet-score strong")).toHaveText("0 / 6");
@@ -379,6 +403,36 @@ test("a student completes an interactive lab, a daily quiz, sees the leaderboard
   await open(page, `/badge/${badgeCode}`);
   await expect(page.locator(".badge-card")).toContainText("Ananya Iyer");
   await shot(page, "11-badge-public");
+});
+
+test("content manager reviews a lab case answer with points and feedback; the learner sees it", async ({ page }) => {
+  await studentLogin(page, "RV-26-0002");
+  await open(page, "/portal/labs/crm/session/1");
+  const data = await page.evaluate(async () => { const { LAB_PROGRAMMES } = await import("./app/content/labs/index.js"); const session = LAB_PROGRAMMES.crm.sessions[0]; const kase = session.tasks.find(task => task.type === "case"); return { caseIndex: session.tasks.indexOf(kase), minWords: kase.minWords }; });
+  const caseCard = page.locator(".task-card").nth(data.caseIndex);
+  await caseCard.locator("textarea").fill(Array.from({ length: data.minWords + 3 }, (_, index) => `reason${index}`).join(" "));
+  await caseCard.getByRole("button", { name: "Submit for review" }).click();
+  await expect(caseCard).toContainText("under review");
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/#\/$/);
+  await adminLogin(page, "content");
+  await open(page, "/admin/grading");
+  const review = page.locator(".review-card.pending", { hasText: "Rohit Menon" }).first();
+  await expect(review).toBeVisible();
+  await review.getByRole("button", { name: "Copy evaluation pack" }).click();
+  await expect(page.locator(".toast", { hasText: "Evaluation pack" }).or(page.locator(".modal", { hasText: "Evaluation pack" }))).toBeVisible();
+  await page.locator(".modal .icon-button").click().catch(() => {});
+  await review.locator('input[type="number"]').first().fill("16");
+  await review.locator("textarea").fill("Clear recommendation with the right stage logic; next time quote the pipeline figures you relied on.");
+  await review.getByRole("button", { name: "Save review" }).click();
+  await expect(page.locator(".toast", { hasText: "Review saved" })).toBeVisible();
+  await shot(page, "12a-admin-lab-review");
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/#\/$/);
+  await studentLogin(page, "RV-26-0002");
+  await open(page, "/portal/labs/crm/session/1");
+  await expect(page.locator(".task-card").nth(data.caseIndex)).toContainText("Reviewed · 16/20 points");
+  await expect(page.locator(".task-card").nth(data.caseIndex)).toContainText("quote the pipeline figures");
 });
 
 test("content manager uploads a lesson with a file, grades a submission, announces; the unlisted operations view needs its passphrase", async ({ page }) => {
@@ -549,7 +603,7 @@ test("live class: host starts, learner joins with video, screen share, live quiz
   await hostPage.locator('select[aria-label="Question from the module bank"]').selectOption({ index: 1 });
   await hostPage.getByRole("button", { name: "Send to class" }).click();
   await expect(studentPage.locator(".quiz-card h3")).toBeVisible({ timeout: 15_000 });
-  const answerIndex = await studentPage.evaluate(() => { const state = JSON.parse(localStorage.getItem("rolevia.preview.v9")); return state.classes.find(item => item.id === "cls-demo-live").quizzes.at(-1).answerIndex; });
+  const answerIndex = await studentPage.evaluate(() => { const state = JSON.parse(localStorage.getItem("rolevia.preview.v10")); return state.classes.find(item => item.id === "cls-demo-live").quizzes.at(-1).answerIndex; });
   await studentPage.locator(".quiz-option").nth(answerIndex).click();
   await expect(studentPage.locator(".quiz-card")).toContainText("Answer recorded");
   await expect(hostPage.locator(".result-bars")).toContainText("1 of 1 answered", { timeout: 15_000 });

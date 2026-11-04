@@ -5,13 +5,14 @@ import { createMockServer, memoryStorage, ApiError, STATE_VERSION } from "../../
 import { QUIZ_BANK } from "../../site/app/content/quiz-bank.js";
 import { ASSIGNMENT_BRIEFS } from "../../site/app/content/assignments.js";
 import { COURSE_CONTENT, INTERVIEW_GENERAL } from "../../site/app/content/modules/index.js";
+import { LAB_PROGRAMMES } from "../../site/app/content/labs/index.js";
 
 const curriculum = JSON.parse(await readFile(new URL("../../site/data/curriculum.json", import.meta.url), "utf8"));
 const DAY = 24 * 60 * 60 * 1000;
 
 async function server(start = Date.UTC(2026, 10, 3, 9)) {
   let clock = start;
-  const api = await createMockServer({ storage: memoryStorage(), curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, courseContent: COURSE_CONTENT, interviewBank: INTERVIEW_GENERAL, now: () => clock });
+  const api = await createMockServer({ storage: memoryStorage(), curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, courseContent: COURSE_CONTENT, interviewBank: INTERVIEW_GENERAL, labProgrammes: LAB_PROGRAMMES, now: () => clock });
   return { api, tick: (ms) => { clock += ms; }, latestCode: (purpose = "code") => api._state().outbox.find(message => message.channel === "email" && message.body.includes("Code"))?.body.match(/Code (\d{6})/)?.[1] };
 }
 const device = (label) => ({ deviceId: `device-${label}`, deviceLabel: label });
@@ -646,4 +647,62 @@ test("hiring companies: names are public, a logo is published only with a record
   assert.equal(migrated._state().version, STATE_VERSION);
   assert.ok(migrated._state().companies.length >= 20);
   assert.ok(migrated._state().companies.every(company => company.request && typeof company.sector === "string"), "v9 adds sectors and request tracking");
+});
+
+test("lab programmes: eight sessions per module, short tasks checked at once with points once, case answers reviewed with points and feedback, tracker counts sessions", async () => {
+  const { api, latestCode } = await server();
+  const rohit = await signIn(api, "RV-26-0002", "Learn#2026", device("rohit"), latestCode); // spreadsheets, crm, business-ai
+  const auth = { token: rohit.token, deviceId: "device-rohit" };
+  const priya = await signIn(api, "RV-26-0003", "Learn#2026", device("priya"), latestCode);
+  await rejects(api.labProgramme({ token: priya.token, deviceId: "device-priya", moduleId: "crm" }), "NOT_ENROLLED");
+  const programme = await api.labProgramme({ ...auth, moduleId: "spreadsheets" });
+  assert.equal(programme.sessions.length, 8);
+  assert.equal(programme.progress.done, 0);
+  const session = programme.sessions[0];
+  assert.ok(session.tasks.every(task => task.type !== "short" || (task.correct === null && task.explanation === null)), "answers and explanations are hidden until solved");
+  const source = LAB_PROGRAMMES.spreadsheets.sessions[0];
+  const shortTask = source.tasks.find(task => task.type === "short" && task.answer.kind === "number") ?? source.tasks.find(task => task.type === "short");
+  const caseTask = source.tasks.find(task => task.type === "case");
+  const wrongValue = shortTask.answer.kind === "number" ? shortTask.answer.value + 1000 : shortTask.answer.kind === "text" ? "definitely not this" : (shortTask.answer.answerIndex + 1) % shortTask.answer.options.length;
+  const rightValue = shortTask.answer.kind === "number" ? String(shortTask.answer.value) : shortTask.answer.kind === "text" ? shortTask.answer.accepted[0].toUpperCase() : shortTask.answer.answerIndex;
+  const before = (await api.dashboard(auth)).points;
+  const wrong = await api.submitLabTasks({ ...auth, moduleId: "spreadsheets", sessionId: session.id, answers: { [shortTask.id]: wrongValue } });
+  assert.equal(wrong.results[shortTask.id].correct, false);
+  assert.equal((await api.dashboard(auth)).points, before, "a wrong answer earns nothing");
+  const right = await api.submitLabTasks({ ...auth, moduleId: "spreadsheets", sessionId: session.id, answers: { [shortTask.id]: rightValue } });
+  assert.equal(right.results[shortTask.id].correct, true);
+  assert.equal((await api.dashboard(auth)).points, before + 5);
+  const solved = right.session.tasks.find(task => task.id === shortTask.id);
+  assert.equal(solved.attempts, 2);
+  assert.equal(solved.explanation, shortTask.explanation, "the explanation appears once solved");
+  await api.submitLabTasks({ ...auth, moduleId: "spreadsheets", sessionId: session.id, answers: { [shortTask.id]: rightValue } });
+  assert.equal((await api.dashboard(auth)).points, before + 5, "points are awarded once");
+  await rejects(api.submitLabTasks({ ...auth, moduleId: "spreadsheets", sessionId: session.id, answers: { [caseTask.id]: "Too short." } }), "VALIDATION");
+  const essay = Array.from({ length: caseTask.minWords + 5 }, (_, index) => `word${index}`).join(" ");
+  const submitted = await api.submitLabTasks({ ...auth, moduleId: "spreadsheets", sessionId: session.id, answers: { [caseTask.id]: essay } });
+  assert.equal(submitted.results[caseTask.id].status, "under_review");
+  const content = await adminToken(api, latestCode, "content");
+  const contentAuth = { token: content, deviceId: "device-admin-laptop" };
+  const tracker = await api.adminTracker(contentAuth);
+  assert.ok(tracker.tasks.some(task => task.type === "labreview" && task.title.includes("Rohit")), "a review task is queued for the content role");
+  const queue = await api.adminLabReviews(contentAuth);
+  const entry = queue.find(item => item.student === "Rohit Menon" && item.week === 1);
+  assert.ok(entry && entry.pending && entry.items[0].answer === essay);
+  await rejects(api.adminLabReviews({ token: (await adminToken(api, latestCode, "success")), deviceId: "device-admin-laptop" }), "FORBIDDEN");
+  await rejects(api.adminReviewLab({ ...contentAuth, attemptId: entry.attemptId, scores: { [caseTask.id]: 25 }, feedback: "Clear structure, but the totals were not reconciled." }), "VALIDATION");
+  await rejects(api.adminReviewLab({ ...contentAuth, attemptId: entry.attemptId, scores: { [caseTask.id]: 15 }, feedback: "ok" }), "VALIDATION");
+  const reviewed = await api.adminReviewLab({ ...contentAuth, attemptId: entry.attemptId, scores: { [caseTask.id]: 15 }, feedback: "Clear structure and the right decision; reconcile the totals against the dataset next time." });
+  assert.equal(reviewed.awarded, 15);
+  assert.equal((await api.dashboard(auth)).points, before + 20);
+  const after = (await api.labProgramme({ ...auth, moduleId: "spreadsheets" })).sessions[0].tasks.find(task => task.id === caseTask.id);
+  assert.equal(after.status, "reviewed");
+  assert.equal(after.earned, 15);
+  assert.match(after.feedback, /reconcile/);
+  await rejects(api.submitLabTasks({ ...auth, moduleId: "spreadsheets", sessionId: session.id, answers: { [caseTask.id]: essay } }), "ALREADY_GRADED");
+  assert.ok((await api.notifications(auth)).some(item => item.title.startsWith("Lab week 1 reviewed")));
+  assert.equal((await api.adminTracker(contentAuth)).tasks.find(task => task.type === "labreview" && task.refId === entry.attemptId).status, "done");
+  const dash = await api.dashboard(auth);
+  assert.equal(dash.modules.find(module => module.id === "spreadsheets").labSessions.total, 8);
+  const progress = (await api.adminTracker(contentAuth)).progress.find(row => row.id === "u-student-2");
+  assert.equal(progress.labSessionsTotal, 24);
 });

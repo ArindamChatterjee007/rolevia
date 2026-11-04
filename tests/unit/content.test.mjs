@@ -25,3 +25,18 @@ test("the general interview bank passes its schema and covers behavioural prepar
   assert.deepEqual(validateInterviewBank(INTERVIEW_GENERAL), []);
   assert.ok(INTERVIEW_GENERAL.sections.some(section => /STAR|behavioural/i.test(section.title)));
 });
+
+test("every module ships an eight-week lab programme with checkable tasks and reviewed case work", async () => {
+  const { LAB_PROGRAMMES } = await import("../../site/app/content/labs/index.js");
+  const { validateLabProgramme } = await import("../../site/app/content/modules/validate.mjs");
+  for (const module of curriculum.modules) {
+    const programme = LAB_PROGRAMMES[module.id];
+    assert.ok(programme, `${module.id} has a lab programme`);
+    const errors = validateLabProgramme(programme, { moduleId: module.id });
+    assert.deepEqual(errors, [], `${module.id}: ${errors.slice(0, 5).join(" | ")}`);
+    const tasks = programme.sessions.flatMap(session => session.tasks);
+    assert.ok(tasks.filter(task => task.type === "short").length >= 16, `${module.id}: at least 16 checkable tasks`);
+    assert.ok(tasks.filter(task => task.type === "case").length >= 8, `${module.id}: at least one case per week`);
+    assert.ok(programme.sessions[7].tasks.some(task => task.type === "proof"), `${module.id}: the capstone week asks for evidence`);
+  }
+});

@@ -7,8 +7,9 @@ import { h } from "./ui.js";
 import { previewDrawer, sessionLostOverlay } from "./pages/components.js";
 import { homePage, skillsPage, skillDetailPage, pricingPage, demoPage, publicLeaderboardPage, faqPage, badgePage, notFoundPage } from "./pages/public.js";
 import { registerPage, loginPage, resetPage, adminLoginPage, opsLoginPage } from "./pages/auth.js";
-import { guard, dashboardPage, mySkillsPage, labsPage, labPage, quizPage, assignmentsPage, leaderboardPage, addonsPage, profilePage, notificationsPage } from "./pages/portal.js";
+import { guard, dashboardPage, mySkillsPage, labsPage, quizPage, assignmentsPage, leaderboardPage, addonsPage, profilePage, notificationsPage } from "./pages/portal.js";
 import { learnPage, slidesPage, interviewPrepPage } from "./pages/learn.js";
+import { labProgrammePage, labSessionPage, labToolPage } from "./pages/lab-programme.js";
 import { adminDecksPage, adminDeckEditorPage } from "./pages/decks.js";
 import { adminGuard, adminOverviewPage, adminStudentsPage, adminContentPage, adminGradingPage, adminAlertsPage, adminPaymentsPage, adminAnnouncePage, adminAuditPage, adminTrackerPage, adminAccountPage } from "./pages/admin.js";
 import { opsGuard, opsPage } from "./pages/ops.js";
@@ -19,7 +20,7 @@ const outlet = document.getElementById("app");
 const splash = document.getElementById("splash");
 const guarded = (check, render) => async (params, query, path) => check() ?? render(params, query, path);
 
-const STORAGE_KEY = "rolevia.preview.v9";
+const STORAGE_KEY = "rolevia.preview.v10";
 
 async function boot() {
   // Google OAuth returns tokens in the hash; each consumer only acts on its own `state` prefix.
@@ -40,8 +41,8 @@ async function boot() {
   if (ctx.config.apiBase) { ctx.mode = "live"; ctx.api = createHttpApi(ctx.config.apiBase); document.body.dataset.mode = "live"; }
   else {
     // Preview only: the in-browser backend and the quiz answer keys are never downloaded in live mode.
-    const [{ createMockServer, browserStorage }, { QUIZ_BANK }, { ASSIGNMENT_BRIEFS }, { COURSE_CONTENT, INTERVIEW_GENERAL }] = await Promise.all([import("./store.js"), import("./content/quiz-bank.js"), import("./content/assignments.js"), import("./content/modules/index.js")]);
-    ctx.api = await createMockServer({ storage: browserStorage(STORAGE_KEY, localStorage), curriculum: ctx.curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, courseContent: COURSE_CONTENT, interviewBank: INTERVIEW_GENERAL, latency: () => (testMode ? 0 : 220 + Math.random() * 320) });
+    const [{ createMockServer, browserStorage }, { QUIZ_BANK }, { ASSIGNMENT_BRIEFS }, { COURSE_CONTENT, INTERVIEW_GENERAL }, { LAB_PROGRAMMES }] = await Promise.all([import("./store.js"), import("./content/quiz-bank.js"), import("./content/assignments.js"), import("./content/modules/index.js"), import("./content/labs/index.js")]);
+    ctx.api = await createMockServer({ storage: browserStorage(STORAGE_KEY, localStorage), curriculum: ctx.curriculum, quizBank: QUIZ_BANK, assignmentBriefs: ASSIGNMENT_BRIEFS, courseContent: COURSE_CONTENT, interviewBank: INTERVIEW_GENERAL, labProgrammes: LAB_PROGRAMMES, latency: () => (testMode ? 0 : 220 + Math.random() * 320) });
   }
 
   const router = createRouter([
@@ -62,7 +63,9 @@ async function boot() {
     { path: "/portal/slides/:deckId", render: guarded(guard, slidesPage) },
     { path: "/portal/interview", render: guarded(guard, interviewPrepPage) },
     { path: "/portal/labs", render: guarded(guard, labsPage) },
-    { path: "/portal/labs/:id", render: guarded(guard, labPage) },
+    { path: "/portal/labs/:id", render: guarded(guard, labProgrammePage) },
+    { path: "/portal/labs/:id/session/:week", render: guarded(guard, labSessionPage) },
+    { path: "/portal/labs/:id/tool", render: guarded(guard, labToolPage) },
     { path: "/portal/quiz", render: guarded(guard, quizPage) },
     { path: "/portal/assignments", render: guarded(guard, assignmentsPage) },
     { path: "/portal/leaderboard", render: guarded(guard, leaderboardPage) },

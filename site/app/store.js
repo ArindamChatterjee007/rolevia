@@ -16,7 +16,9 @@ export class ApiError extends Error {
 import { validateSlide } from "./content/modules/validate.mjs";
 
 const encoder = new TextEncoder();
-export const STATE_VERSION = 9;
+export const STATE_VERSION = 10;
+export const LAB_POINTS = { short: 5, case: 20, proof: 10 };
+export const LAB_REVIEW_BUSINESS_DAYS = 3;
 // Company names shown on the public site as research targets (nominative use). Logos are trademarks: one can be
 // attached only together with a record of the owner's written permission, which the public API then exposes.
 export const DEFAULT_COMPANIES = [["Accenture", "IT services and consulting"], ["Genpact", "Business process services"], ["Amazon", "E-commerce and cloud"], ["Freshworks", "Business software"], ["HubSpot", "CRM and marketing software"], ["Unilever", "Consumer goods"], ["Deloitte", "Professional services"], ["Infosys", "IT services"], ["Zoho", "Business software"], ["Swiggy", "Food delivery and quick commerce"], ["Razorpay", "Fintech"], ["Tata Consultancy Services", "IT services"], ["Wipro", "IT services"], ["HCLTech", "IT services"], ["Capgemini", "IT services and consulting"], ["Cognizant", "IT services"], ["Flipkart", "E-commerce"], ["Zomato", "Food delivery"], ["PhonePe", "Fintech"], ["ICICI Bank", "Banking"], ["HDFC Bank", "Banking"], ["Mahindra", "Automotive and conglomerate"], ["EY", "Professional services"], ["KPMG", "Professional services"], ["Nykaa", "E-commerce"], ["Meesho", "E-commerce"], ["Urban Company", "Services marketplace"], ["Tech Mahindra", "IT services"]];
@@ -109,7 +111,7 @@ export function browserStorage(key, localStorage) {
   };
 }
 
-export async function createMockServer({ storage, curriculum, quizBank = {}, assignmentBriefs = {}, courseContent = {}, interviewBank = null, now = () => Date.now(), latency = () => 0, deliver = null, seedMode = "demo", opsPassphrase = null, iceServers = DEFAULT_ICE_SERVERS, payments = "preview", paymentInstructions = "" }) {
+export async function createMockServer({ storage, curriculum, quizBank = {}, assignmentBriefs = {}, courseContent = {}, interviewBank = null, labProgrammes = {}, now = () => Date.now(), latency = () => 0, deliver = null, seedMode = "demo", opsPassphrase = null, iceServers = DEFAULT_ICE_SERVERS, payments = "preview", paymentInstructions = "" }) {
   const modulesById = new Map(curriculum.modules.map(module => [module.id, module]));
   const servicesById = new Map(curriculum.services.map(service => [service.id, service]));
   const interview = curriculum.interviewCourse;
@@ -184,6 +186,30 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
   const structuredLessons = (moduleId) => (courseFor(moduleId)?.weeks ?? []).flatMap(week => week.lessons.map(lesson => ({ ...lesson, week: week.week })));
   const lessonCount = (moduleId) => structuredLessons(moduleId).length + (state.content.lessons[moduleId] ?? []).length;
   const lessonsDone = (user, moduleId) => [...structuredLessons(moduleId), ...(state.content.lessons[moduleId] ?? [])].filter(lesson => user.completedLessons.includes(lesson.id)).length;
+  // ---------- lab programmes (8 weekly sessions per module; answers checked here, case work reviewed later) ----------
+  const programmeFor = (moduleId) => labProgrammes[moduleId] ?? null;
+  const normaliseText = (value) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, " ").replace(/[.,;:!?]+$/, "");
+  const checkShort = (task, value) => {
+    const answer = task.answer ?? {};
+    if (answer.kind === "number") { const number = Number(String(value ?? "").replace(/[,₹\s]|INR/gi, "")); if (!Number.isFinite(number)) return false; return Math.abs(number - answer.value) <= (answer.tolerance ?? (Number.isInteger(answer.value) ? 0 : 0.01)) + 1e-9; }
+    if (answer.kind === "text") return answer.accepted.map(normaliseText).includes(normaliseText(value));
+    if (answer.kind === "choice") return Number(value) === answer.answerIndex;
+    return false;
+  };
+  const wordCount = (text) => String(text ?? "").trim().split(/\s+/).filter(Boolean).length;
+  const attemptFor = (userId, moduleId, sessionId) => state.labAttempts.find(item => item.userId === userId && item.moduleId === moduleId && item.sessionId === sessionId);
+  const taskView = (task, entry) => {
+    const base = { id: task.id, type: task.type, prompt: task.prompt, hint: task.hint ?? null, points: LAB_POINTS[task.type] };
+    if (task.type === "short") return { ...base, kind: task.answer.kind, options: task.answer.kind === "choice" ? task.answer.options : null, value: entry?.value ?? null, correct: entry?.correct ?? null, attempts: entry?.attempts ?? 0, explanation: entry?.correct ? task.explanation : null, earned: entry?.points ?? 0 };
+    if (task.type === "case") return { ...base, rubric: task.rubric, minWords: task.minWords, value: entry?.value ?? null, status: entry ? (entry.reviewedAt ? "reviewed" : "under_review") : null, earned: entry?.points ?? 0, feedback: entry?.feedback ?? null, submittedAt: entry?.submittedAt ?? null };
+    return { ...base, mustShow: task.mustShow, value: entry?.value ?? null, status: entry ? (entry.reviewedAt ? "reviewed" : "under_review") : null, earned: entry?.points ?? 0, feedback: entry?.feedback ?? null, submittedAt: entry?.submittedAt ?? null };
+  };
+  const sessionView = (session, attempt) => {
+    const tasks = session.tasks.map(task => taskView(task, attempt?.answers?.[task.id]));
+    const done = tasks.filter(task => (task.type === "short" ? task.correct : Boolean(task.value))).length;
+    return { id: session.id, week: session.week, title: session.title, minutes: session.minutes, scenario: session.scenario, dataset: session.dataset ?? null, outcome: session.outcome, tasks, progress: { done, total: tasks.length }, status: done === tasks.length ? (tasks.some(task => task.status === "under_review") ? "under_review" : "complete") : done ? "in_progress" : "not_started", earned: tasks.reduce((sum, task) => sum + task.earned, 0), possible: tasks.reduce((sum, task) => sum + task.points, 0) };
+  };
+  const labSessionsDone = (user, moduleId) => (programmeFor(moduleId)?.sessions ?? []).filter(session => { const view = sessionView(session, attemptFor(user.id, moduleId, session.id)); return view.status === "complete" || view.status === "under_review"; }).length;
   const requireDeck = (deckId) => { const deck = state.decks.find(item => item.id === deckId); if (!deck) throw new ApiError("NOT_FOUND", "Slide deck not found."); return deck; };
   // reveal: include answers/explanations (study mode after publication, or the host); notes: presenter notes (host/admin only).
   const deckView = (deck, { reveal = false, notes = false, slides = true } = {}) => ({
@@ -602,7 +628,7 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       const modules = user.modules.map(id => {
         const done = lessonsDone(user, id);
         const labRun = state.labRuns.find(run => run.userId === user.id && run.labId === id);
-        return { id, title: modulesById.get(id).title, tool: modulesById.get(id).tool, lessons: lessonCount(id), done, labScore: labRun?.score ?? null, quizToday: state.quizAttempts.some(attempt => attempt.userId === user.id && attempt.moduleId === id && attempt.date === dateKey(now())) };
+        return { id, title: modulesById.get(id).title, tool: modulesById.get(id).tool, lessons: lessonCount(id), done, labSessions: { done: labSessionsDone(user, id), total: programmeFor(id)?.sessions.length ?? 0 }, labScore: labRun?.score ?? null, quizToday: state.quizAttempts.some(attempt => attempt.userId === user.id && attempt.moduleId === id && attempt.date === dateKey(now())) };
       });
       const streak = computeStreak(user.id);
       return { user: publicUser(user), modules, streak, points: totalPoints(user.id), weekPoints: totalPoints(user.id, now() - 7 * 24 * 60 * 60 * 1000), announcements: state.content.announcements.slice(0, 3), notifications: user.notifications.slice(0, 5), kit: { unlocked: kitUnlocked(user), count: distinctPaidModules(user), required: curriculum.careerBonus.qualifyingModules }, devices: { switches: user.deviceSwitches, threshold: state.settings.deviceSwitchThreshold, history: user.deviceHistory.slice(0, 5) }, rank: leaderboardRows("all").find(row => row.userId === user.id)?.rank ?? null };
@@ -967,7 +993,9 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
         const submitted = state.submissions.filter(item => item.userId === user.id).length;
         const lastEvent = Math.max(user.verifiedAt ?? 0, ...state.pointEvents.filter(event => event.userId === user.id).map(event => event.at), ...state.sessions.filter(session => session.userId === user.id).map(session => session.lastSeen));
         const attended = state.classes.filter(item => item.status === "ended" && item.attendance.some(entry => entry.userId === user.id)).length;
-        return { id: user.id, name: user.name, studentId: user.studentId, modules: user.modules.length, lessonsDone: done, lessonsTotal: lessons.length, quizDays: new Set(state.quizAttempts.filter(item => item.userId === user.id).map(item => item.date)).size, labs: state.labRuns.filter(run => run.userId === user.id).length, labsTotal: user.modules.length, assignmentsGraded: graded, assignmentsSubmitted: submitted, assignmentsTotal: assignments.length, classesAttended: attended, classesHeld: state.classes.filter(item => item.status === "ended" && user.modules.includes(item.moduleId)).length, livePoints: state.pointEvents.filter(event => event.userId === user.id && event.type === "live").reduce((sum, event) => sum + event.points, 0), points: totalPoints(user.id), weekPoints: totalPoints(user.id, now() - 7 * 24 * 60 * 60 * 1000), lastActive: lastEvent || null, deviceSwitches: user.deviceSwitches, kitUnlocked: kitUnlocked(user) };
+        const labSessions = user.modules.reduce((sum, id) => sum + labSessionsDone(user, id), 0);
+        const labSessionsTotal = user.modules.reduce((sum, id) => sum + (programmeFor(id)?.sessions.length ?? 0), 0);
+        return { id: user.id, name: user.name, studentId: user.studentId, modules: user.modules.length, lessonsDone: done, lessonsTotal: lessons.length, labSessions, labSessionsTotal, quizDays: new Set(state.quizAttempts.filter(item => item.userId === user.id).map(item => item.date)).size, labs: state.labRuns.filter(run => run.userId === user.id).length, labsTotal: user.modules.length, assignmentsGraded: graded, assignmentsSubmitted: submitted, assignmentsTotal: assignments.length, classesAttended: attended, classesHeld: state.classes.filter(item => item.status === "ended" && user.modules.includes(item.moduleId)).length, livePoints: state.pointEvents.filter(event => event.userId === user.id && event.type === "live").reduce((sum, event) => sum + event.points, 0), points: totalPoints(user.id), weekPoints: totalPoints(user.id, now() - 7 * 24 * 60 * 60 * 1000), lastActive: lastEvent || null, deviceSwitches: user.deviceSwitches, kitUnlocked: kitUnlocked(user) };
       }).sort((a, b) => b.points - a.points);
       const tasks = state.tasks.map(task => ({ ...task, assignee: admins.find(item => item.id === task.assigneeId)?.name ?? null, mine: task.assigneeId === admin.id || (!task.assigneeId && (hasPermission(admin, task.role === "content" ? "grading" : task.role === "success" ? "verify" : "tasks") || task.role === admin.role)), overdue: task.status !== "done" && task.dueAt < now() }));
       return { me: publicUser(admin), admins, roles: ROLES, pipeline, progress, tasks, summary: { openTasks: tasks.filter(task => task.status !== "done").length, overdue: tasks.filter(task => task.overdue).length, awaitingVerification: pipeline.filter(row => row.status === "pending_verification").length, unpaid: pipeline.filter(row => row.status === "pending_payment").length, active: progress.length } };
@@ -1003,6 +1031,104 @@ export async function createMockServer({ storage, curriculum, quizBank = {}, ass
       audit(admin.id, `task_${action}`, { taskId });
       persist();
       return task;
+    },
+
+    // ---------- lab programmes ----------
+    async labProgramme({ token, deviceId, moduleId }) {
+      await wait();
+      const { user } = requireSession(token, deviceId, ["student", "admin"]);
+      requireModule(user, moduleId);
+      const programme = programmeFor(moduleId);
+      if (!programme) return { module: modulesById.get(moduleId), summary: null, sessions: [] };
+      const sessions = programme.sessions.map(session => sessionView(session, attemptFor(user.id, moduleId, session.id)));
+      return { module: modulesById.get(moduleId), summary: programme.summary, reviewDays: LAB_REVIEW_BUSINESS_DAYS, sessions, progress: { done: sessions.filter(session => ["complete", "under_review"].includes(session.status)).length, total: sessions.length, earned: sessions.reduce((sum, session) => sum + session.earned, 0), possible: sessions.reduce((sum, session) => sum + session.possible, 0) } };
+    },
+    async submitLabTasks({ token, deviceId, moduleId, sessionId, answers = {} }) {
+      await wait();
+      const { user } = requireSession(token, deviceId);
+      requireModule(user, moduleId);
+      const session = programmeFor(moduleId)?.sessions.find(item => item.id === sessionId);
+      if (!session) throw new ApiError("NOT_FOUND", "Lab session not found.");
+      let attempt = attemptFor(user.id, moduleId, sessionId);
+      if (!attempt) { attempt = { id: crypto.randomUUID(), userId: user.id, moduleId, sessionId, answers: {}, createdAt: now(), updatedAt: now() }; state.labAttempts.push(attempt); }
+      const results = {};
+      let needsReview = false;
+      for (const [taskId, raw] of Object.entries(answers)) {
+        const task = session.tasks.find(item => item.id === taskId);
+        if (!task) continue;
+        const existing = attempt.answers[taskId];
+        if (task.type === "short") {
+          if (existing?.correct) { results[taskId] = { correct: true, alreadyDone: true }; continue; }
+          const correct = checkShort(task, raw);
+          const points = correct ? LAB_POINTS.short : 0;
+          attempt.answers[taskId] = { value: String(raw ?? "").slice(0, 200), correct, attempts: (existing?.attempts ?? 0) + 1, points, submittedAt: now() };
+          if (correct) addPoints(user.id, points, "lab", `${sessionId}:${taskId}`);
+          results[taskId] = { correct, points };
+        } else if (task.type === "case") {
+          if (existing?.reviewedAt) throw new ApiError("ALREADY_GRADED", "This case answer has been reviewed and cannot be changed.");
+          const text = String(raw ?? "").trim();
+          if (wordCount(text) < task.minWords) throw new ApiError("VALIDATION", `Write at least ${task.minWords} words for this case (you have ${wordCount(text)}).`, { fields: { [taskId]: `At least ${task.minWords} words.` } });
+          attempt.answers[taskId] = { value: text.slice(0, 6000), submittedAt: now(), points: 0, reviewedAt: null, feedback: null };
+          needsReview = true;
+          results[taskId] = { status: "under_review" };
+        } else if (task.type === "proof") {
+          if (existing?.reviewedAt) throw new ApiError("ALREADY_GRADED", "This evidence has been reviewed and cannot be changed.");
+          const url = typeof raw === "string" ? raw.trim() : raw?.url ? String(raw.url).trim() : "";
+          const file = raw && typeof raw === "object" && raw.name ? normaliseFile(raw) : null;
+          if (!url && !file) throw new ApiError("VALIDATION", "Attach an https link or a file as evidence.", { fields: { [taskId]: "Link or file required." } });
+          if (url && !/^https:\/\/[^\s]+$/i.test(url)) throw new ApiError("VALIDATION", "Evidence links must start with https://", { fields: { [taskId]: "Use an https:// link." } });
+          attempt.answers[taskId] = { value: url || file.name, url: url || null, file, submittedAt: now(), points: 0, reviewedAt: null, feedback: null };
+          needsReview = true;
+          results[taskId] = { status: "under_review" };
+        }
+      }
+      attempt.updatedAt = now();
+      if (needsReview) createTask({ title: `Review lab case: ${modulesById.get(moduleId)?.title ?? moduleId} week ${session.week} by ${user.name}`, type: "labreview", role: "content", refId: attempt.id, dueAt: now() + LAB_REVIEW_BUSINESS_DAYS * 24 * 60 * 60 * 1000, link: "#/admin/grading" });
+      audit(user.id, "lab_submit", { moduleId, sessionId, tasks: Object.keys(answers).length });
+      persist();
+      return { results, session: sessionView(session, attempt), points: totalPoints(user.id) };
+    },
+    async adminLabReviews({ token, deviceId }) {
+      await wait();
+      requireAdmin(token, deviceId, "grading");
+      const pending = [];
+      for (const attempt of state.labAttempts) {
+        const session = programmeFor(attempt.moduleId)?.sessions.find(item => item.id === attempt.sessionId);
+        if (!session) continue;
+        const items = session.tasks.filter(task => task.type !== "short" && attempt.answers[task.id]).map(task => ({ taskId: task.id, type: task.type, prompt: task.prompt, rubric: task.rubric ?? null, mustShow: task.mustShow ?? null, maxPoints: LAB_POINTS[task.type], answer: attempt.answers[task.id].value, url: attempt.answers[task.id].url ?? null, file: attempt.answers[task.id].file ?? null, submittedAt: attempt.answers[task.id].submittedAt, reviewedAt: attempt.answers[task.id].reviewedAt ?? null, points: attempt.answers[task.id].points ?? 0, feedback: attempt.answers[task.id].feedback ?? null }));
+        if (!items.length) continue;
+        const student = findUser(user => user.id === attempt.userId);
+        pending.push({ attemptId: attempt.id, student: student?.name ?? "Unknown", studentId: student?.studentId ?? null, moduleId: attempt.moduleId, moduleTitle: modulesById.get(attempt.moduleId)?.title ?? attempt.moduleId, week: session.week, sessionTitle: session.title, scenario: session.scenario, outcome: session.outcome, items, pending: items.some(item => !item.reviewedAt), updatedAt: attempt.updatedAt });
+      }
+      return pending.sort((a, b) => Number(b.pending) - Number(a.pending) || a.updatedAt - b.updatedAt);
+    },
+    async adminReviewLab({ token, deviceId, attemptId, scores = {}, feedback = "" }) {
+      await wait();
+      const { user: admin } = requireAdmin(token, deviceId, "grading");
+      const attempt = state.labAttempts.find(item => item.id === attemptId);
+      if (!attempt) throw new ApiError("NOT_FOUND", "Lab submission not found.");
+      const session = programmeFor(attempt.moduleId)?.sessions.find(item => item.id === attempt.sessionId);
+      const student = findUser(user => user.id === attempt.userId);
+      const text = String(feedback ?? "").trim();
+      if (text.length < 20) throw new ApiError("VALIDATION", "Write at least a sentence of feedback for the learner.", { fields: { feedback: "At least 20 characters." } });
+      let awarded = 0;
+      for (const [taskId, raw] of Object.entries(scores)) {
+        const task = session?.tasks.find(item => item.id === taskId && item.type !== "short");
+        const entry = attempt.answers[taskId];
+        if (!task || !entry || entry.reviewedAt) continue;
+        const max = LAB_POINTS[task.type];
+        const points = Number(raw);
+        if (!Number.isInteger(points) || points < 0 || points > max) throw new ApiError("VALIDATION", `Points for each item must be a whole number between 0 and its maximum (${max}).`, { fields: { [taskId]: `0 to ${max}` } });
+        entry.points = points; entry.reviewedAt = now(); entry.reviewedBy = admin.id; entry.feedback = text;
+        if (points > 0) addPoints(attempt.userId, points, "lab", `${attempt.sessionId}:${taskId}:review`);
+        awarded += points;
+      }
+      attempt.updatedAt = now();
+      completeTasks("labreview", attempt.id, admin.id);
+      if (student) notify(student, "grade", `Lab week ${session?.week ?? ""} reviewed: ${modulesById.get(attempt.moduleId)?.title ?? attempt.moduleId}`, `${awarded} points awarded. ${text.slice(0, 160)}${text.length > 160 ? "…" : ""}`);
+      audit(admin.id, "lab_review", { attemptId, awarded });
+      persist();
+      return { ok: true, awarded, session: session ? sessionView(session, attempt) : null };
     },
 
     // ---------- live classes ----------
@@ -1470,6 +1596,10 @@ export function migrateState(state, { courseContent = {}, now = Date.now() } = {
     next.companies = (next.companies ?? []).map(company => ({ ...company, sector: company.sector ?? sectors.get(company.name) ?? "", request: company.request ?? { status: company.permission ? "granted" : "none", date: "", contact: "", notes: "" } }));
     next.version = 9;
   }
+  if (next.version < 10) {
+    next.labAttempts = next.labAttempts ?? [];
+    next.version = 10;
+  }
   return next;
 }
 
@@ -1562,7 +1692,7 @@ async function seed(curriculum, assignmentBriefs, now, courseContent = {}) {
     version: STATE_VERSION,
     rev: 0,
     settings: { deviceSwitchThreshold: 5, previewCredentials },
-    tasks, classes, decks, companies: seedCompanies(now),
+    tasks, classes, decks, companies: seedCompanies(now), labAttempts: [],
     users, payments: users.filter(user => user.type === "student").map(user => ({ id: `PAY-SEED${user.id.slice(-1)}`, userId: user.id, items: user.modules.map(id => ({ id, kind: "module", title: curriculum.modules.find(module => module.id === id).title, amount: curriculum.modules.find(module => module.id === id)[`price${user.currency}`] })), subtotal: user.modules.reduce((sum, id) => sum + curriculum.modules.find(module => module.id === id)[`price${user.currency}`], 0), currency: user.currency, method: "preview-card", status: "succeeded", at: user.paidAt, preview: true })),
     sessions: [], otps: [], outbox: [], deviceAlerts: [], badges: [], opsNotes: [{ id: crypto.randomUUID(), text: "Preview data only. Replace with the live backend before any real enrollment.", at: now }],
     content: { lessons, assignments, announcements: [{ id: "ann-1", title: "Welcome to the Rolevia preview", body: "Everything here uses fictional data. Try today's quiz, open a lab and check the leaderboard.", at: now - day }, { id: "ann-2", title: "Live workshop calendar", body: "Dates and time zones are confirmed by email before each two-week module starts.", at: now - 3 * day }] },
@@ -1576,5 +1706,5 @@ async function emptySeed(now, opsPassphrase, curriculum, courseContent = {}) {
   if (!opsPassphrase || String(opsPassphrase).length < 12) throw new Error("An operations passphrase of at least 12 characters is required to start with an empty database.");
   const ops = blankUser({ id: "u-ops", type: "ops", name: "Founder Operations", email: "ops@rolevia.local", phone: "+910000000000", status: "active", salt: randomToken(16) });
   ops.passHash = await sha256(`${ops.salt}:${opsPassphrase}`);
-  return { version: STATE_VERSION, rev: 0, settings: { deviceSwitchThreshold: 5, previewCredentials: null }, tasks: [], classes: [], decks: seedDecks(curriculum, courseContent, now), companies: seedCompanies(now), users: [ops], payments: [], sessions: [], otps: [], outbox: [], deviceAlerts: [], badges: [], opsNotes: [], content: { lessons: {}, assignments: [], announcements: [] }, submissions: [], quizAttempts: [], labRuns: [], pointEvents: [], auditLog: [{ at: now, actor: "system", action: "init", meta: {} }], counters: { studentSeq: 0, adminSeq: 0 } };
+  return { version: STATE_VERSION, rev: 0, settings: { deviceSwitchThreshold: 5, previewCredentials: null }, tasks: [], classes: [], decks: seedDecks(curriculum, courseContent, now), companies: seedCompanies(now), labAttempts: [], users: [ops], payments: [], sessions: [], otps: [], outbox: [], deviceAlerts: [], badges: [], opsNotes: [], content: { lessons: {}, assignments: [], announcements: [] }, submissions: [], quizAttempts: [], labRuns: [], pointEvents: [], auditLog: [{ at: now, actor: "system", action: "init", meta: {} }], counters: { studentSeq: 0, adminSeq: 0 } };
 }
