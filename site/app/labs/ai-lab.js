@@ -80,7 +80,7 @@ export function aiLab(onComplete) {
     const tabs = h("div", { class: "chip-row" }, [["assistant", ready ? "Run with my assistant" : "My assistant (not connected)"], ["paste", "Paste a reply"]].map(([key, label]) => h("button", { type: "button", class: `chip ${state.provider === key ? "on" : ""}`, onClick: () => { state.provider = key; renderProvider(); } }, label)));
     let body;
     if (state.provider === "paste") body = h("p", { class: "small muted" }, "Copy the brief, run it in the assistant you use, then paste the full reply below. Nothing is sent anywhere by Rolevia.");
-    else if (!ready) body = h("div", { class: "alert info" }, icon("info", 16), h("span", {}, "Connect your AI assistant once in ", h("a", { href: "#/portal/profile#ai" }, "Profile & security"), " and this lab runs the brief for you on your own account. Until then, paste the reply."));
+    else if (!ready) body = h("div", { class: "alert info" }, icon("info", 16), h("span", {}, "Connect your AI assistant once in ", h("a", { href: "#/portal/profile?focus=ai" }, "Profile & security"), " and this lab runs the brief for you on your own account. Until then, paste the reply."));
     else body = h("div", { class: "form-actions start" }, h("button", { class: "button primary small", type: "button", onClick: async (event) => {
       if (scoreBrief(values).score < 20) { toast("Complete the brief first: the assistant needs the goal, context and acceptance criteria.", "info"); return; }
       busy(event.currentTarget, true, "Running");

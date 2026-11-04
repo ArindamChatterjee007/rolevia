@@ -348,11 +348,9 @@ test("a student completes an interactive lab, a daily quiz, sees the leaderboard
   await page.fill('[data-field="format"]', "A table with Region, Orders and Sales (INR), then a paragraph of three sentences.");
   await page.fill('[data-field="acceptance"]', "Totals must match my SUM; every claim must cite a row; no figure may be invented.");
   await expect(page.locator(".ai-total")).toContainText("brief 40/40");
-  await page.locator(".chip", { hasText: "My own API key" }).click();
-  await expect(page.locator(".ai-lab")).toContainText("stored in this tab's session only");
-  await page.locator(".chip", { hasText: "Continue with ChatGPT" }).click();
-  await expect(page.locator(".ai-lab")).toContainText("limited trial");
-  await page.locator(".chip", { hasText: "Paste from my assistant" }).click();
+  await page.locator(".chip", { hasText: "My assistant (not connected)" }).click();
+  await expect(page.locator(".ai-lab")).toContainText("Connect your AI assistant once in");
+  await page.locator(".chip", { hasText: "Paste a reply" }).click();
   await page.fill('textarea[aria-label="Assistant reply"]', "North: 4 orders, INR 6,600.\nSouth: 4 orders, INR 4,900.\nRecommendation: add stock in the North first.");
   await expect(page.locator(".verify-lines li")).toHaveCount(3);
   await page.locator(".verify-lines li").nth(0).getByRole("button", { name: "Supported", exact: true }).click();

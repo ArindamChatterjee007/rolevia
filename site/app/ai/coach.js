@@ -69,7 +69,7 @@ export function coachSystemPrompt({ module, course, mode = "practice", bank = nu
 export function coachPanel({ system, opener = "Start practice", intro = "Your AI coach asks one question at a time, checks your answer and moves on. Answer in your own words." }) {
   if (!aiReady(getAiConfig(), ctx.config)) {
     const saved = getAiConfig();
-    return h("div", { class: "card coach-setup" }, h("h3", {}, icon("spark", 18), "Practice with your AI coach"), h("p", { class: "small muted" }, saved ? "Your saved assistant is not active yet. Choose Gemini or an API key in your profile to practise now." : "Connect the AI assistant you already use (Gemini has a free tier) and the coach will quiz you on this material, check your answers and keep going."), h("a", { class: "button primary small", href: ctx.auth.type === "admin" ? "#/admin/account" : "#/portal/profile#ai" }, icon("spark", 14), "Set up your AI assistant"));
+    return h("div", { class: "card coach-setup" }, h("h3", {}, icon("spark", 18), "Practice with your AI coach"), h("p", { class: "small muted" }, saved ? "Your saved assistant is not active yet. Choose Gemini or an API key in your profile to practise now." : "Connect the AI assistant you already use (Gemini has a free tier) and the coach will quiz you on this material, check your answers and keep going."), h("a", { class: "button primary small", href: ctx.auth.type === "admin" ? "#/admin/account" : "#/portal/profile?focus=ai" }, icon("spark", 14), "Set up your AI assistant"));
   }
   const messages = [];
   const log = h("div", { class: "coach-log", "aria-live": "polite" });
