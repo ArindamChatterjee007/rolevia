@@ -24,9 +24,11 @@ export function aiSettingsCard({ compact = false } = {}) {
       h("optgroup", { label: "No key needed" }, ["chatgpt-web", "gemini-web", ...(localOk ? ["builtin"] : []), "other-web"].map(option)),
       h("optgroup", { label: "Advanced: your own API key" }, ["gemini", "openai", "compatible"].map(option)));
     const save = h("button", { class: "button primary small", type: "button" });
+    const selectField = h("label", { class: "field" }, h("span", { class: "field-label" }, "Assistant"), select);
     const paint = () => {
       const info = PROVIDERS[provider];
       help.textContent = info.help;
+      selectField.classList.toggle("span-2", info.kind !== "api");
       keyField.hidden = info.kind !== "api"; modelField.hidden = info.kind !== "api"; baseField.hidden = provider !== "compatible";
       keyInput.placeholder = info.keyPlaceholder ?? "";
       if (info.keyUrl) { keyLink.href = info.keyUrl; keyLink.hidden = false; } else keyLink.hidden = true;
@@ -54,7 +56,7 @@ export function aiSettingsCard({ compact = false } = {}) {
     host.replaceChildren(
       h("div", { class: "card-head" }, h("h3", {}, icon("spark", 18), "Your AI assistant"), saved ? h("span", { class: `tag ${ready ? "good" : "pending"}` }, ready ? `Ready · ${PROVIDERS[saved.provider].label}` : "Saved · not available in this browser") : h("span", { class: "tag" }, "Not chosen yet")),
       compact ? null : h("p", { class: "small muted" }, "Choose the assistant you already use. Rolevia prepares every practice, mock interview and lab brief for it; you sign in to your own ChatGPT or Gemini as usual and usage counts against your own plan. No API key is needed and Rolevia never sees your conversations."),
-      h("div", { class: "form-grid two" }, h("label", { class: "field" }, h("span", { class: "field-label" }, "Assistant"), select), modelField, keyField, baseField),
+      h("div", { class: "form-grid two" }, selectField, modelField, keyField, baseField),
       h("div", { class: "form-actions start" }, help, keyLink), status,
       compact ? null : h("p", { class: "tiny muted" }, "ChatGPT inside Rolevia pages without a tab switch needs OpenAI's partner approval; until then the hand-off above is the route."),
       h("div", { class: "form-actions between" }, forget ?? h("span"), save));
