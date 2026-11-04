@@ -112,9 +112,20 @@ export async function learnPage({ moduleId }, query = {}) {
     let active = TABS.some(([key]) => key === query.tab) ? query.tab : "overview";
     const panel = h("div", { class: "learn-panel" });
     const tabs = h("div", { class: "learn-tabs", role: "tablist" });
-    const render = () => {
-      tabs.replaceChildren(...TABS.map(([key, label, iconName]) => h("button", { type: "button", role: "tab", class: key === active ? "active" : "", "aria-selected": String(key === active), "data-tab": key, onClick: () => { active = key; setQuery(moduleId, { tab: key }); render(); } }, icon(iconName, 16), label, key === "slides" && data.decks.length ? h("span", { class: "count" }, data.decks.length) : null, key === "classes" && data.classes.some(item => item.status === "live") ? h("span", { class: "count live" }, "live") : null)));
+    // Fade the edges only while more tabs are hidden in that direction, and keep the active tab in view.
+    const edges = () => { tabs.classList.toggle("more-left", tabs.scrollLeft > 4); tabs.classList.toggle("more-right", tabs.scrollLeft + tabs.clientWidth < tabs.scrollWidth - 4); };
+    tabs.addEventListener("scroll", edges, { passive: true });
+    if (typeof ResizeObserver === "function") new ResizeObserver(edges).observe(tabs);
+    const reveal = (smooth, attempt = 0) => requestAnimationFrame(() => {
+      if (!tabs.clientWidth && attempt < 10) return reveal(smooth, attempt + 1);
+      const current = tabs.querySelector(".active");
+      if (current) { const offset = current.getBoundingClientRect().left - tabs.getBoundingClientRect().left; tabs.scrollTo({ left: tabs.scrollLeft + offset - (tabs.clientWidth - current.offsetWidth) / 2, behavior: smooth ? "smooth" : "auto" }); }
+      edges();
+    });
+    const render = (smooth = false) => {
+      tabs.replaceChildren(...TABS.map(([key, label, iconName]) => h("button", { type: "button", role: "tab", class: key === active ? "active" : "", "aria-selected": String(key === active), "data-tab": key, onClick: () => { active = key; setQuery(moduleId, { tab: key }); render(true); } }, icon(iconName, 16), label, key === "slides" && data.decks.length ? h("span", { class: "count" }, data.decks.length) : null, key === "classes" && data.classes.some(item => item.status === "live") ? h("span", { class: "count live" }, "live") : null)));
       panel.replaceChildren({ overview: () => overviewTab(data, meta, lessons), lessons: () => lessonsTab(data, meta, lessons), slides: () => slidesTab(data, meta), lab: () => labTab(data, meta, lessons), coach: () => h("div", { class: "stack" }, coachPanel({ system: coachSystemPrompt({ module: meta, course: data.course }), opener: "Start a practice drill", intro: `Your coach quizzes you on ${meta.title}: concept checks, small calculations, scenario decisions and interview-style questions, one at a time, with feedback and a score.` })), interview: () => interviewTab(data), classes: () => h("div", { class: "stack" }, data.classes.length ? data.classes.map(item => classCard(item)) : h("div", { class: "card" }, h("p", { class: "muted" }, "No live class is scheduled for this module yet.")), h("a", { class: "button ghost", href: "#/portal/classes" }, "All live classes")), glossary: () => glossaryTab(data) }[active]());
+      reveal(smooth);
     };
     render();
     return h("div", { class: `learn accent-${meta.accent}` },

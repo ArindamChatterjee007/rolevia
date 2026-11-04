@@ -437,6 +437,8 @@ test("a learner connects their own Gemini key in the profile; the practice coach
   await expect(page.locator(".coach-msg.user")).toContainText("A row is a product line.");
   await expect(page.locator(".coach-msg.assistant").nth(1)).toContainText("Question 2", { timeout: 15_000 });
   await expect(page.getByRole("button", { name: "Start a practice drill" })).toBeHidden();
+  // The tab row scrolls sideways at this width; the edge fade must appear exactly when tabs are hidden.
+  await expect.poll(() => page.locator(".learn-tabs").evaluate(el => ({ scrollable: el.scrollWidth > el.clientWidth + 4, hinted: el.classList.contains("more-left") || el.classList.contains("more-right") }))).toMatchObject({ scrollable: true, hinted: true });
   await shot(page, "23-practice-coach", false);
   await open(page, "/portal/interview");
   await expect(page.getByRole("button", { name: "Start a mock interview" })).toBeVisible();

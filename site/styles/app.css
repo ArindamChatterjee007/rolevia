@@ -550,3 +550,5 @@ a.lesson { text-decoration: none; color: inherit; } a.lesson:hover { border-colo
 /* A horizontally scrolling row must not report its full content width to the grid tracks above it, or the whole
    portal column grows past the viewport (CSS Grid sizes auto tracks from min-content contributions). */
 .learn-tabs, .room-tiles { contain: inline-size; } .portal-main > * { min-width: 0; }
+.learn-tabs { --fade-l: 0px; --fade-r: 0px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent); mask-image: linear-gradient(90deg, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent); }
+.learn-tabs.more-left { --fade-l: 56px; } .learn-tabs.more-right { --fade-r: 56px; }
